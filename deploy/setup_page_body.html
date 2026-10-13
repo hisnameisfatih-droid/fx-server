@@ -1,0 +1,195 @@
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Alarm · Morgenreport · Dashboard</span>
+    <h1>GBP/JPY-Alarm einrichten</h1>
+    <p>Ein Server macht alles: die Kursalarme, den Morgenreport um 06:45 Uhr mit Trefferauswertung und dein Dashboard. Du trägst deine Zugänge hier ein, fügst die Konfiguration bei Hetzner ein, und der Server richtet sich selbst ein. Neue Versionen holt er sich danach automatisch.</p>
+    <div class="facts">
+      <span>Kosten <b>ca. 6 € / Monat</b> Server + <b>wenige € / Monat</b> Claude-API</span>
+      <span>Danach kommt zum Beispiel:</span>
+    </div>
+    <div class="preview">
+      <div class="bubble">🚨 GBP/JPY <span class="up">▲ +31,2 Pips</span> in 5 Min | Open 208,600 → 208,912 | 17:35 Uhr<span class="t">17:35</span></div>
+    </div>
+  </header>
+
+  <ol class="steps">
+    <li>
+      <span class="num">1</span>
+      <div class="step">
+        <h2>Zugänge bereitlegen</h2>
+        <span class="where">Die ersten beiden hast du schon</span>
+        <div class="tablebox">
+          <table class="settings">
+            <tr><th>CallMeBot-Key</th><td>Kam per WhatsApp vom Kontakt <b>+34 644 95 42 75</b>, nachdem du ihm „I allow callmebot to send me messages“ geschickt hast.</td></tr>
+            <tr><th>Tiingo-Token</th><td>Auf <a href="https://www.tiingo.com/account/api/token" target="_blank" rel="noopener">tiingo.com/account/api/token</a></td></tr>
+            <tr><th>Anthropic-Key</th><td>Auf <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> unter <b>API Keys</b>. Beginnt mit <code>sk-ant-</code>. Vorher unter <b>Billing</b> ein kleines Guthaben aufladen.</td></tr>
+            <tr><th>Finnhub-Key</th><td>Optional, als Reserve-Kursquelle (<a href="https://finnhub.io/register" target="_blank" rel="noopener">finnhub.io</a>)</td></tr>
+          </table>
+        </div>
+      </div>
+    </li>
+
+    <li>
+      <span class="num">2</span>
+      <div class="step">
+        <h2>Daten eintragen und Konfiguration kopieren</h2>
+        <span class="where">Hier auf dieser Seite</span>
+        <form class="form" id="f" novalidate>
+          <div class="field">
+            <label for="token">Tiingo API-Token</label>
+            <input type="text" id="token" autocomplete="off" spellcheck="false" placeholder="z. B. 9f3c1a…e04b">
+            <span class="err" id="token-err" hidden></span>
+          </div>
+          <div class="field">
+            <label for="anthropic">Anthropic API-Key</label>
+            <input type="text" id="anthropic" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+            <span class="err" id="anthropic-err" hidden></span>
+          </div>
+          <div class="field">
+            <label for="phone">Deine WhatsApp-Nummer</label>
+            <input type="text" id="phone" autocomplete="off" inputmode="tel" placeholder="+49 151 12345678">
+            <span class="hint" id="phone-hint">0151… wird automatisch zu +49151…</span>
+            <span class="err" id="phone-err" hidden></span>
+          </div>
+          <div class="field">
+            <label for="apikey">CallMeBot API-Key</label>
+            <input type="text" id="apikey" autocomplete="off" inputmode="numeric" placeholder="1234567">
+            <span class="err" id="apikey-err" hidden></span>
+          </div>
+          <div class="field">
+            <label for="finnhub">Finnhub API-Key <span class="muted" style="font-weight:400">(optional)</span></label>
+            <input type="text" id="finnhub" autocomplete="off" spellcheck="false" placeholder="leer lassen, wenn du keinen hast">
+          </div>
+          <div><button type="submit" class="btn primary" id="gen">Konfiguration erzeugen</button></div>
+          <div class="out" id="out" hidden>
+            <span class="status ok" id="out-status">Fertig. Kopier jetzt den ganzen Text:</span>
+            <div><button type="button" class="btn primary" id="copy-cc">Konfiguration kopieren</button></div>
+            <textarea id="cc" readonly aria-label="Fertige Server-Konfiguration"></textarea>
+            <span class="status" id="copy-status" aria-live="polite"></span>
+          </div>
+          <p class="privacy">Deine Eingaben bleiben in diesem Browserfenster. Die Seite speichert und verschickt nichts. Die Schlüssel landen nur auf deinem Server.</p>
+        </form>
+      </div>
+    </li>
+
+    <li>
+      <span class="num">3</span>
+      <div class="step">
+        <h2>Alten Server löschen</h2>
+        <span class="where">Hetzner Cloud Console</span>
+        <ul>
+          <li>Beim Server <code>gbpjpy-alarm</code> auf die drei Punkte klicken, dann <b>Löschen</b> und bestätigen.</li>
+          <li>Der neue Server übernimmt den Alarm mit allen Regeln (10 Pips in 1 Min, 20 und 30 Pips in 5 Min).</li>
+        </ul>
+      </div>
+    </li>
+
+    <li>
+      <span class="num">4</span>
+      <div class="step">
+        <h2>Neuen Server erstellen</h2>
+        <span class="where">Im Projekt auf „Server hinzufügen“ klicken</span>
+        <div class="tablebox">
+          <table class="settings">
+            <tr><th>Standort</th><td>Nürnberg oder Falkenstein</td></tr>
+            <tr><th>Image</th><td>Ubuntu, neueste Version</td></tr>
+            <tr><th>Typ</th><td>Shared vCPU, x86, <b>CX23</b></td></tr>
+            <tr><th>Networking</th><td>Öffentliche IPv4 <b>anlassen</b></td></tr>
+            <tr><th>SSH-Keys</th><td>Leer lassen</td></tr>
+            <tr><th>Firewalls</th><td>Keine (sonst müssen Port 80 und 443 offen sein)</td></tr>
+            <tr><th>Cloud config</th><td>Konfiguration aus Schritt 2 einfügen (Cmd+V)</td></tr>
+            <tr><th>Name</th><td><code>fx-server</code></td></tr>
+          </table>
+        </div>
+        <ul><li>Auf <b>Kostenpflichtig erstellen</b> klicken.</li></ul>
+      </div>
+    </li>
+
+    <li>
+      <span class="num">5</span>
+      <div class="step">
+        <h2>Auf die WhatsApp mit deinem Dashboard-Link warten</h2>
+        <span class="where">5 bis 10 Minuten</span>
+        <div class="bubble">✅ FX-Server eingerichtet<br>Tiingo ok, GBP/JPY 209,512<br>Claude ok<br><br>📊 Dashboard (Link geheim halten):<br>https://…sslip.io/…/<span class="t">18:31</span></div>
+        <p>Speichere den Link als Lesezeichen oder leg ihn auf den Home-Bildschirm. Er ist nicht erratbar und nicht in Suchmaschinen auffindbar. Wer ihn kennt, kann das Dashboard aber öffnen, also nicht weitergeben.</p>
+        <div class="tablebox">
+          <table class="settings">
+            <tr><th>Mo–Fr 06:45</th><td>Morgenreport per WhatsApp</td></tr>
+            <tr><th>Mo–Fr 23:05</th><td>Trefferauswertung (Spanne, Richtung, Abweichung)</td></tr>
+            <tr><th>15 Min vorher</th><td>Erinnerung an rote Termine (GBP, JPY, USD)</td></tr>
+            <tr><th>8–22 Uhr stündlich</th><td>„Läuft“-Meldung des Alarms (Mo–Fr)</td></tr>
+            <tr><th>laufend</th><td>Alarme: 10 Pips in 1 Min, 20 und 30 Pips in 5 Min</td></tr>
+          </table>
+        </div>
+      </div>
+    </li>
+  </ol>
+
+  <section class="extra">
+    <h2>Gut zu wissen</h2>
+    <details>
+      <summary>Wie kommen Updates auf den Server?</summary>
+      <div><p>Der Server schaut alle 10 Minuten in dein GitHub-Repo <code>hisnameisfatih-droid/fx-server</code>. Gibt es eine neue Version, spielt er sie ein und schickt dir eine kurze WhatsApp. Klappt etwas nicht, nimmt er automatisch die vorherige Version und meldet das. Du musst am Server nie wieder etwas machen.</p></div>
+    </details>
+    <details>
+      <summary>Nach 15 Minuten ist keine WhatsApp gekommen</summary>
+      <div><p>Meist stimmt eine Angabe nicht, oder die Hetzner-Prüfung des Kontos läuft noch. Schick mir in dem Fall einen Screenshot der Hetzner-Serverübersicht. Am einfachsten ist es, den Server zu löschen und mit korrigierter Konfiguration neu zu erstellen.</p></div>
+    </details>
+    <details>
+      <summary>Was kostet die Claude-API?</summary>
+      <div><p>Pro Tag gibt es einen Report und mehrere kleine News-Einordnungen. Bei den aktuellen Preisen sind das wenige Cent pro Tag. Die tatsächlichen Kosten siehst du jederzeit in der Anthropic-Konsole unter <b>Usage</b>. Dort kannst du auch ein Ausgabenlimit setzen.</p></div>
+    </details>
+    <details>
+      <summary>Kosten stoppen</summary>
+      <div><p>Hetzner rechnet stundengenau ab. Wenn du alles nicht mehr brauchst, lösch den Server. Ausschalten allein reicht nicht, denn auch ein ausgeschalteter Server kostet weiter.</p></div>
+    </details>
+  </section>
+</div>
+
+<script>
+const CC_TEMPLATE = __CC_TEMPLATE__;
+
+function copyText(text, statusEl, btn) {
+  const done = () => { if (btn) { const o = btn.textContent; btn.textContent = "Kopiert"; setTimeout(() => btn.textContent = o, 1800); } statusEl.textContent = "Kopiert. Jetzt bei Hetzner einfügen (Schritt 4)."; };
+  const fail = () => { statusEl.textContent = "Kopieren hat nicht geklappt. Der Text ist markiert: Cmd+C (Windows: Strg+C) drücken."; };
+  try { navigator.clipboard.writeText(text).then(done, fail); } catch (e) { fail(); }
+}
+const $ = id => document.getElementById(id);
+const clean = s => s.replace(/\s+/g, "");
+function normPhone(raw) {
+  let p = raw.replace(/[\s\/\-()]/g, "");
+  if (!p) return "";
+  if (p.startsWith("+")) return p;
+  if (p.startsWith("00")) return "+" + p.slice(2);
+  if (p.startsWith("0")) return "+49" + p.slice(1);
+  return "+" + p;
+}
+function setErr(id, msg) {
+  const e = $(id + "-err"), i = $(id);
+  if (msg) { e.textContent = msg; e.hidden = false; i.classList.add("bad"); } else { e.hidden = true; i.classList.remove("bad"); }
+  return !msg;
+}
+$("phone").addEventListener("input", () => {
+  const p = normPhone($("phone").value);
+  $("phone-hint").textContent = p ? "Wird verwendet als: " + p : "0151… wird automatisch zu +49151…";
+});
+$("f").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const v = { token: clean($("token").value), anthropic: clean($("anthropic").value), phone: normPhone($("phone").value),
+              apikey: clean($("apikey").value), finnhub: clean($("finnhub").value) };
+  let ok = true;
+  ok = setErr("token", !v.token ? "Bitte den Tiingo-Token einfügen." : (v.token.length < 20 ? "Der Token ist zu kurz, normalerweise 40 Zeichen." : "")) && ok;
+  ok = setErr("anthropic", !v.anthropic ? "Bitte den Anthropic-Key einfügen." : (!v.anthropic.startsWith("sk-ant-") ? "Der Key beginnt normalerweise mit sk-ant-." : "")) && ok;
+  ok = setErr("phone", !v.phone ? "Bitte deine WhatsApp-Nummer eintragen." : (!/^\+\d{8,15}$/.test(v.phone) ? "Nur Ziffern mit Ländervorwahl, z. B. +4915112345678." : "")) && ok;
+  ok = setErr("apikey", !v.apikey ? "Bitte den CallMeBot-Key eintragen." : "") && ok;
+  if (!ok) { $("out").hidden = true; return; }
+  $("cc").value = CC_TEMPLATE
+    .replace("__TIINGO__", () => v.token).replace("__ANTHROPIC__", () => v.anthropic)
+    .replace("__PHONE__", () => v.phone).replace("__CMB__", () => v.apikey).replace("__FINNHUB__", () => v.finnhub);
+  $("copy-status").textContent = "";
+  $("out").hidden = false;
+  $("copy-cc").focus();
+});
+$("copy-cc").addEventListener("click", () => { const ta = $("cc"); ta.focus(); ta.select(); copyText(ta.value, $("copy-status"), $("copy-cc")); });
+</script>

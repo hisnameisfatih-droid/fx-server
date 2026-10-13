@@ -1,0 +1,10 @@
+[Unit]
+Description=FX-Server: Trefferauswertung nach Handelsschluss
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/fx-server
+ExecStart=/opt/fx-server/venv/bin/python -m fxserver.evaluate
+TimeoutStartSec=20min

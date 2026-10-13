@@ -1,0 +1,10 @@
+[Unit]
+Description=FX-Server: Updates aus GitHub holen
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Kopie ausführen, weil das Update die Datei selbst ersetzen kann
+ExecStart=/bin/bash -c 'cp /opt/fx-server/deploy/update.sh /run/fx-update.sh && exec bash /run/fx-update.sh'
+TimeoutStartSec=30min

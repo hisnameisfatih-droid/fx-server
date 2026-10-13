@@ -1,0 +1,10 @@
+[Unit]
+Description=FX-Server: Updates aus GitHub holen (alle 10 Min)
+
+[Timer]
+OnCalendar=*:0/10
+RandomizedDelaySec=60
+OnBootSec=5min
+
+[Install]
+WantedBy=timers.target

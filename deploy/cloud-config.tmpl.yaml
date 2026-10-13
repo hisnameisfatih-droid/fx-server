@@ -1,0 +1,13 @@
+#cloud-config
+# FX-Server (GBP/JPY-Alarm, Morgenreport, Dashboard) – richtet sich beim ersten Start selbst ein.
+write_files:
+  - path: /etc/fx-server/env
+    permissions: '0600'
+    content: |
+      TIINGO_API_KEY=__TIINGO__
+      FINNHUB_API_KEY=__FINNHUB__
+      WHATSAPP_PHONE=__PHONE__
+      CALLMEBOT_APIKEY=__CMB__
+      ANTHROPIC_API_KEY=__ANTHROPIC__
+runcmd:
+  - [bash, -c, "export DEBIAN_FRONTEND=noninteractive; for i in $(seq 1 20); do apt-get -o DPkg::Lock::Timeout=300 update && apt-get -o DPkg::Lock::Timeout=300 install -y git && break; sleep 15; done; git clone https://github.com/hisnameisfatih-droid/fx-server /opt/fx-server && bash /opt/fx-server/deploy/install.sh install"]

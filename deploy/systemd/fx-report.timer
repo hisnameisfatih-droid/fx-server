@@ -1,0 +1,9 @@
+[Unit]
+Description=FX-Server: Morgenreport GBP/JPY (Zeitplan)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 06:45:00 Europe/Berlin
+Persistent=false
+
+[Install]
+WantedBy=timers.target

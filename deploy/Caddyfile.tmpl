@@ -1,0 +1,29 @@
+# Wird von deploy/install.sh erzeugt – Änderungen hier im Repo vornehmen.
+__HOST__ {
+	encode gzip
+	header {
+		X-Robots-Tag "noindex, nofollow, noarchive"
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+	handle /robots.txt {
+		respond "User-agent: *
+Disallow: /
+" 200
+	}
+	redir /__SECRET__ /__SECRET__/
+	handle_path /__SECRET__/data/* {
+		root * /var/lib/fx-server/public
+		header Cache-Control "no-store"
+		file_server
+	}
+	handle_path /__SECRET__/* {
+		root * /opt/fx-server/web
+		header Cache-Control "no-cache"
+		file_server
+	}
+	handle {
+		respond "Not found" 404
+	}
+}

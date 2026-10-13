@@ -1,0 +1,10 @@
+[Unit]
+Description=FX-Server: Morgenreport GBP/JPY
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/fx-server
+ExecStart=/opt/fx-server/venv/bin/python -m fxserver.report
+TimeoutStartSec=20min

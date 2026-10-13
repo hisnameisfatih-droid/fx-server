@@ -1,0 +1,9 @@
+[Unit]
+Description=FX-Server: Trefferauswertung nach Handelsschluss (Zeitplan)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 23:05:00 Europe/Berlin
+Persistent=true
+
+[Install]
+WantedBy=timers.target

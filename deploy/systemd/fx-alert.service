@@ -1,0 +1,17 @@
+[Unit]
+Description=FX-Server: GBP/JPY-Alarm + Live-Kurse
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+ConditionPathExists=/etc/fx-server/env
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fx-server
+ExecStart=/opt/fx-server/venv/bin/python -u /opt/fx-server/alert/gbpjpy_alert.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
