@@ -125,6 +125,11 @@ function renderStand() {
   } else txt = "Live-Daten fehlen";
   if (S.dash?.report) txt += ` · Report ${uhr(new Date(S.dash.report.created))}`;
   $("stand").innerHTML = txt;
+  if (live && live.tiingo_mb_month != null) {
+    const mb = live.tiingo_mb_month, warn = mb > 800;
+    $("foot").innerHTML = `${warn ? "⚠️ " : ""}Tiingo-Datenvolumen diesen Monat: ${mb.toLocaleString("de-DE")} MB von 1.024 MB (Gratis-Tarif)` +
+      `<br>Keine Anlageberatung. Keine Handelssignale – nur Nachrichtenlage, Termine, statistische Spanne und Einschätzung.`;
+  }
 }
 
 /* ---------------- Kacheln ---------------- */
