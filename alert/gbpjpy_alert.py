@@ -368,7 +368,7 @@ class LiveKurse:
 
     def __init__(self):
         self.lock = threading.Lock()
-        self.bars: dict[str, dict[int, float]] = {p: {} for p in LIVE_PAARE}
+        self.bars: dict[str, dict[int, list]] = {p: {} for p in LIVE_PAARE}   # Start -> [o, h, l, c]
         self.letzter: dict[str, tuple[float, float]] = {}
         self.bytes_datei = DATA_DIR / "tiingo_volumen.json"
         try:
@@ -378,7 +378,12 @@ class LiveKurse:
 
     def add(self, ticker: str, ts: float, mid: float):
         with self.lock:
-            self.bars.setdefault(ticker, {})[int(ts // 300) * 300] = mid
+            b = int(ts // 300) * 300
+            k = self.bars.setdefault(ticker, {}).get(b)
+            if k is None:
+                self.bars[ticker][b] = [mid, mid, mid, mid]
+            else:
+                k[1], k[2], k[3] = max(k[1], mid), min(k[2], mid), mid
             self.letzter[ticker] = (ts, mid)
 
     def bytes_zaehlen(self, n: int):
@@ -399,7 +404,7 @@ class LiveKurse:
                 with self.lock:
                     for c in daten or []:
                         b = int(parse_iso(c["date"]) // 300) * 300
-                        self.bars[p].setdefault(b, float(c["close"]))
+                        self.bars[p].setdefault(b, [float(c["open"]), float(c["high"]), float(c["low"]), float(c["close"])])
                 log.info("Live-Verlauf %s nachgeladen (%d Kerzen)", p, len(daten or []))
             except Exception as e:
                 log.warning("Live-Verlauf %s nicht geladen: %s", p, e)
@@ -413,8 +418,10 @@ class LiveKurse:
             paare = {}
             for p, bars in self.bars.items():
                 punkte = sorted(bars.items())
-                ts, preis = self.letzter.get(p, (punkte[-1][0], punkte[-1][1]) if punkte else (None, None))
-                paare[p] = {"price": preis, "ts": ts, "bars": [[b, round(c, 5)] for b, c in punkte]}
+                ts, preis = self.letzter.get(p, (punkte[-1][0], punkte[-1][1][3]) if punkte else (None, None))
+                paare[p] = {"price": preis, "ts": ts, "bars": [[b, round(k[3], 5)] for b, k in punkte]}
+                if p == TIINGO_TICKER:
+                    paare[p]["ohlc"] = [[b] + [round(x, 5) for x in k] for b, k in punkte]
             daten = {"updated": time.time(), "market_closed": markt_geschlossen(), "pairs": paare,
                      "tiingo_mb_month": round(self.volumen.get("bytes", 0) / 1e6, 1),
                      "source": STAND.get("quelle")}

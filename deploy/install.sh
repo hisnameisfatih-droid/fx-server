@@ -68,7 +68,7 @@ fi
 cp deploy/systemd/*.service deploy/systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable fx-alert.service >/dev/null 2>&1
-for t in fx-report fx-evaluate fx-refresh fx-update; do systemctl enable --now "$t.timer" >/dev/null 2>&1; done
+for t in fx-report fx-setup fx-evaluate fx-refresh fx-update fx-backtest; do systemctl enable --now "$t.timer" >/dev/null 2>&1; done
 systemctl restart fx-alert.service
 chmod 600 "$DATA/fx.db" 2>/dev/null || true
 

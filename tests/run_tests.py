@@ -23,7 +23,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 os.environ.update(FX_ENV_FILE=str(OUT / "env"), FX_DATA_DIR=str(OUT), FX_LOG_DIR=str(OUT / "logs"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from fxserver import common, evaluate, export, forecast, llm, refresh, report  # noqa: E402
+from fxserver import common, evaluate, export, forecast, llm, refresh, report, setup, strategien  # noqa: E402
 from fxserver.sources import calendar as cal_src, news as news_src, prices as px_src, yields as y_src  # noqa: E402
 
 random.seed(7)
@@ -172,8 +172,8 @@ def fake_llm(model, system, nutzer, werkzeug, max_tokens=2000):
     return {"lage_gbp": "Das Pfund wird vom Ausblick auf eine vorsichtige BoE gestützt. Die Gilt-Renditen sind leicht gestiegen.",
             "lage_jpy": "Der Yen bleibt schwach, die BoJ signalisiert Geduld bei weiteren Zinsschritten.",
             "termin_wirkungen": [{"id": t["id"], "wirkung": "Stärkere Daten würden das Pfund stützen."} for t in roh["termine_heute_berlin"]],
-            "bias_score": 1, "bias_grund": "Zinsvorteil des Pfunds und schwacher Yen überwiegen.",
-            "bias_grund_lang": "Der Zinsabstand zwischen Gilts und JGBs bleibt groß. Ohne Interventionssignale aus Tokio spricht das eher für ein festes GBP/JPY.",
+            "news_score": 1, "news_grund": "Zinsvorteil des Pfunds und schwacher Yen überwiegen.",
+            "news_grund_lang": "Der Zinsabstand zwischen Gilts und JGBs bleibt groß. Das passt zur Trendregel.",
             "risiken": "Verbale Intervention aus Tokio oder schwache UK-Daten könnten den Bias kippen."}
 
 
@@ -194,10 +194,12 @@ termine = cal_src.parse_ff(ff_json())
 pruefe(len(termine) == 4 and all(t["currency"] in ("GBP", "USD", "JPY") for t in termine), "Kalender filtert EUR und Low")
 pruefe(len(y_src.parse_boe_zip(BOE_ZIP)) > 20 and "uk30" in next(iter(y_src.parse_boe_zip(BOE_ZIP).values())), "BoE-Zip: Gilt 10y/30y")
 pruefe(y_src.parse_iadb("DATE,IUDMNPY\n01 Oct 2026,4.512\n02 Oct 2026,4.530\n") == {"2026-10-01": {"uk10": 4.512}, "2026-10-02": {"uk10": 4.53}}, "BoE-Datenbank-CSV")
-sig = forecast.sigma_pips([{"c": 200 + 0.5 * math.sin(i)} for i in range(25)])
-pruefe(sig is not None and 20 < sig < 60, f"σ plausibel ({sig:.1f} Pips)")
-p = forecast.prognose(210.0, 80, 2, {"h": 210.6, "l": 209.1})
-pruefe(abs(p["range_high"] - 210.68) < 1e-6 and abs(p["target"] - 210.32) < 1e-6, "Prognose-Formel")
+tage_t = [{"o": 200 + i * 0.1, "h": 200.8 + i * 0.1, "l": 199.6 + i * 0.1, "c": 200.3 + i * 0.1} for i in range(30)]
+atr = forecast.atr14(tage_t)
+pruefe(atr is not None and abs(atr - 1.2) < 0.01, f"ATR plausibel ({atr:.3f})")
+pruefe(forecast.trend(tage_t) == 1, "Trendregel erkennt Aufwärtstrend")
+p = forecast.prognose(210.0, 1.5, 1, {"h": 210.6, "l": 209.1})
+pruefe(abs(p["range_high"] - 210.78) < 1e-6 and abs(p["exp_low"] - 209.49) < 1e-6 and p["atr_pips"] == 150, "Prognose-Formel (±0,52 / ±0,34 ATR)")
 
 print("Morgenreport")
 rc = report.main(senden=True, ausgeben=False)
@@ -207,9 +209,9 @@ text = GESENDET[-1]
 print("\n" + "\n".join("    " + z for z in text.splitlines()) + f"\n    [{len(text)} Zeichen]\n")
 pruefe(rc == 0 and rep["sent"] == 1, "Report erstellt und gesendet")
 pruefe(len(text) <= 1500, f"Nachricht ≤ 1500 Zeichen ({len(text)})")
-for teil in ("LAGE", "HEUTE", "PROGNOSE", "BIAS", "RISIKEN", "Trefferquote 30T", "Spanne:", "Kippt nach oben"):
+for teil in ("LAGE", "HEUTE", "PROGNOSE", "BIAS", "RISIKEN", "Trefferquote 30T", "Schluss (68 %)", "Erw. Hoch/Tief", "Trend:", "News:", "SETUP (London"):
     pruefe(teil in text, f"enthält {teil}")
-pruefe("Bank of England" in text and "Fehlende Quellen" in text, "fehlende Quelle (BoE-Feed) wird genannt")
+pruefe("Bank of England" in text and "Fehlt:" in text, "fehlende Quelle (BoE-Feed) wird genannt")
 pruefe(rep["range_low"] < rep["price"] < rep["range_high"], "Kurs liegt in der Spanne")
 anzahl = len(GESENDET)
 report.main(senden=True)
@@ -232,7 +234,8 @@ pruefe(e[0]["deviation_pips"] >= 0 and e[0]["in_range"] in (0, 1), "Auswertungsf
 print("Refresh + Export")
 refresh.main()
 d = json.loads((OUT / "public" / "dashboard.json").read_text())
-pruefe(d["report"]["score"] == 1 and len(d["calendar"]) >= 3, "dashboard.json mit Report und Terminen")
+pruefe(d["report"]["news_score"] == 1 and d["report"]["exp"][0] and len(d["calendar"]) >= 3, "dashboard.json mit Report und Terminen")
+pruefe(d["setup_historie"]["setups"]["london_trend"]["live"], "Backtest-Historie im Export")
 pruefe(d["yields"]["uk30"]["value"] is not None and d["yields"]["jp2"]["value"] is not None, "Renditen inkl. Gilt 30y / JGB 2y")
 pruefe(len(d["spread"]) > 10, "Zinsdifferenz-Reihe")
 pruefe(len(d["news"]) >= 3 and all(n["note"] for n in d["news"]), "News eingeordnet")
@@ -250,6 +253,40 @@ for p, basis in (("gbpjpy", rep["price"]), ("usdjpy", 151.2), ("gbpusd", 1.379))
         pts.append([int(start + i * 300), round(k, 5)])
     bars[p] = {"price": pts[-1][1] if pts else basis, "ts": JETZT.timestamp(), "bars": pts}
 common.schreibe_json("live.json", {"updated": JETZT.timestamp(), "market_closed": False, "pairs": bars, "tiingo_mb_month": 12.3})
+
+print("Tages-Setup")
+from datetime import datetime as DT, time as T
+tag = "2026-10-14"
+def kz(h, m, o, hi, lo, c):
+    return (DT(2026, 10, 14, h, m) if h < 23 else DT(2026, 10, 13, h, m), o, hi, lo, c)
+asien = [kz(23, 0, 209.50, 209.55, 209.45, 209.50)] + [kz(h, 0, 209.50, 209.80, 209.30, 209.60) for h in range(1, 9)]
+vortage = [{"o": 205 + i * 0.15, "h": 206.2 + i * 0.15, "l": 204.8 + i * 0.15, "c": 205.6 + i * 0.15} for i in range(40)]
+ctx = strategien.Kontext(tag, 209.5, forecast.atr14(vortage), vortage[-1], forecast.ema20(vortage), vortage[-1]["c"] - vortage[-6]["c"], asien)
+sd = setup.berechnen(ctx)
+pruefe(sd["status"] == "aktiv" and len(sd["orders"]) == 1 and sd["orders"][0]["richtung"] == 1, "Aufwärtstrend -> nur Long-Setup")
+o = sd["orders"][0]
+pruefe(abs(o["entry"] - 209.82) < 1e-6 and abs(o["sl"] - 209.28) < 1e-6 and abs(o["tp"] - 210.90) < 1e-6, f"Levels: Entry {o['entry']} SL {o['sl']} TP {o['tp']} (CRV 1:2)")
+txt = setup.text_setup(sd, setup.historie())
+print("\n" + "\n".join("    " + z for z in txt.splitlines()) + "\n")
+breit = strategien.Kontext(tag, 209.5, 0.5, vortage[-1], forecast.ema20(vortage), 1.0, asien)
+pruefe(setup.berechnen(breit)["status"] == "kein_setup" and "zu breit" in setup.berechnen(breit)["grund"], "zu breite Asien-Spanne -> kein Setup")
+# Live-Verfolgung: wartet -> ausgelöst -> TP
+verlauf = asien + [kz(9, 0, 209.60, 209.75, 209.55, 209.70)]
+st, tr = setup.zustand(sd, verlauf, DT(2026, 10, 14, 9, 10))
+pruefe(st == "wartet" and tr is None, "vor dem Ausbruch: wartet")
+verlauf += [kz(9, 30, 209.70, 209.90, 209.65, 209.88)]
+st2, tr = setup.zustand(sd, verlauf, DT(2026, 10, 14, 9, 35))
+m1 = setup.meldung(st, st2, tr)
+pruefe(st2 == "ausgelöst" and "Setup ausgelöst: LONG 209,820" in m1, "Ausbruch: ausgelöst + Meldung")
+verlauf += [kz(11, 0, 210.40, 210.95, 210.35, 210.90)]
+st3, tr = setup.zustand(sd, verlauf, DT(2026, 10, 14, 11, 5))
+m2 = setup.meldung(st2, st3, tr)
+pruefe(st3 == "tp" and "TP erreicht" in m2 and "+108 Pips" in m2, f"TP erreicht: {m2.splitlines()[-1]}")
+st4, _ = setup.zustand(sd, asien + [kz(12, 30, 209.6, 209.7, 209.5, 209.6)], DT(2026, 10, 14, 12, 30))
+pruefe(st4 == "verfallen", "kein Ausbruch bis 12:00 -> verfallen")
+verlauf_sl = asien + [kz(9, 30, 209.70, 209.90, 209.65, 209.85), kz(10, 0, 209.80, 209.82, 209.20, 209.25)]
+st5, tr = setup.zustand(sd, verlauf_sl, DT(2026, 10, 14, 10, 5))
+pruefe(st5 == "sl" and tr.pips < 0 and "SL erreicht" in setup.meldung("ausgelöst", st5, tr), "SL erreicht")
 
 print(f"\nTiingo-Abrufe: {sum('tiingo' in u for u in AUFRUFE)}, Claude-Aufrufe: {sum(u.startswith('claude:') for u in AUFRUFE)}")
 print(f"Ausgabe: {OUT}")

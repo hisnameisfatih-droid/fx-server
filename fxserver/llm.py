@@ -55,13 +55,13 @@ REPORT_TOOL = {
                 "items": {"type": "object", "properties": {
                     "id": {"type": "string"}, "wirkung": {"type": "string"}}, "required": ["id", "wirkung"]},
             },
-            "bias_score": {"type": "integer", "minimum": -2, "maximum": 2,
-                           "description": "-2 stark bearisch, -1 bearisch, 0 neutral, 1 bullisch, 2 stark bullisch (für GBP/JPY heute)."},
-            "bias_grund": {"type": "string", "description": "1 Satz Begründung (max. 160 Zeichen)."},
-            "bias_grund_lang": {"type": "string", "description": "2 Sätze Begründung für das Dashboard."},
+            "news_score": {"type": "integer", "minimum": -2, "maximum": 2,
+                           "description": "Tendenz der Nachrichtenlage für GBP/JPY heute: -2 klar belastend, 0 neutral, 2 klar stützend. Unabhängig von der Trendregel."},
+            "news_grund": {"type": "string", "description": "1 Satz: warum die Nachrichtenlage so wirkt (max. 160 Zeichen)."},
+            "news_grund_lang": {"type": "string", "description": "2 Sätze für das Dashboard, inkl. ob die Nachrichten zur Trendregel passen oder ihr widersprechen."},
             "risiken": {"type": "string", "description": "1–2 Sätze: was die Einschätzung kippen könnte."},
         },
-        "required": ["lage_gbp", "lage_jpy", "termin_wirkungen", "bias_score", "bias_grund", "bias_grund_lang", "risiken"],
+        "required": ["lage_gbp", "lage_jpy", "termin_wirkungen", "news_score", "news_grund", "news_grund_lang", "risiken"],
     },
 }
 
@@ -69,7 +69,7 @@ REPORT_TOOL = {
 def report_texte(daten: dict) -> dict:
     nutzer = (
         "Hier sind die Rohdaten für den heutigen GBP/JPY-Morgenreport (06:45 Uhr Berlin, vor London Open). "
-        "Die Spanne und der Zielkurs werden statistisch berechnet – du lieferst die Einordnung und den Bias. "
+        "Spanne, Trend und Setup werden mechanisch berechnet (siehe Daten) – du lieferst die Einordnung der Nachrichtenlage. "
         "Trenne GBP- und JPY-Seite. Halte jeden Text kurz (die WhatsApp-Nachricht ist auf 1500 Zeichen begrenzt).\n\n"
         + json.dumps(daten, ensure_ascii=False, indent=1)
     )

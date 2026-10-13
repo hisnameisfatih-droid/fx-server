@@ -1,0 +1,10 @@
+[Unit]
+Description=FX-Server: Backtest wöchentlich (Sonntag)
+
+[Timer]
+OnCalendar=Sun *-*-* 12:00:00 Europe/Berlin
+OnBootSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

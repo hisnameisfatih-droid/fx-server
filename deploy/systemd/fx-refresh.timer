@@ -2,7 +2,7 @@
 Description=FX-Server: News, Kalender, Renditen, Dashboard aktualisieren (Zeitplan)
 
 [Timer]
-OnCalendar=*:0/5
+OnCalendar=*:*:15
 OnBootSec=2min
 
 [Install]

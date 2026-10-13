@@ -1,0 +1,8 @@
+[Unit]
+Description=FX-Server: Tages-Setup um 09:00 (Zeitplan)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:00:30 Europe/Berlin
+
+[Install]
+WantedBy=timers.target

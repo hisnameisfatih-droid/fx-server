@@ -240,7 +240,24 @@ def db() -> sqlite3.Connection:
             pass
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
+    _spalten_ergaenzen(con)
     return con
+
+
+ZUSATZ_SPALTEN = {
+    "reports": {"news_score": "INTEGER", "news_reason": "TEXT", "exp_high": "REAL", "exp_low": "REAL", "atr_pips": "REAL"},
+    "evaluations": {"news_hit": "INTEGER"},
+}
+
+
+def _spalten_ergaenzen(con: sqlite3.Connection) -> None:
+    """Neue Spalten bei bestehenden Datenbanken nachrüsten (Updates ohne Datenverlust)."""
+    for tabelle, spalten in ZUSATZ_SPALTEN.items():
+        vorhanden = {r[1] for r in con.execute(f"PRAGMA table_info({tabelle})")}
+        for name, typ in spalten.items():
+            if name not in vorhanden:
+                con.execute(f"ALTER TABLE {tabelle} ADD COLUMN {name} {typ}")
+    con.commit()
 
 
 def kv_get(con: sqlite3.Connection, key: str, default=None):

@@ -5,93 +5,79 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="referrer" content="no-referrer">
-<meta name="theme-color" content="#0d0d0d">
-<title>GBP/JPY Desk</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%231a1a19%22/%3E%3Cpath d=%22M2 11 L6 7 L9 9 L14 4%22 stroke=%22%233987e5%22 stroke-width=%222%22 fill=%22none%22/%3E%3C/svg%3E">
+<meta name="theme-color" content="#0e1420">
+<title>GBP/JPY Tagesplan</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%230e1420%22/%3E%3Cpath d=%22M2 11 L6 7 L9 9 L14 4%22 stroke=%22%23f2b84b%22 stroke-width=%222%22 fill=%22none%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="top">
-  <div class="brand"><span class="pair">GBP/JPY</span> <span class="desk">Desk</span></div>
-  <div class="meta"><span id="stand">lädt …</span></div>
+<header class="kopf">
+  <div class="kurs">
+    <span class="paar">GBP/JPY</span>
+    <span class="preis" id="k-preis">–</span>
+    <span class="chg" id="k-chg"></span>
+  </div>
+  <div class="stand" id="stand">lädt …</div>
 </header>
 
 <main>
-  <!-- Live-Kacheln -->
-  <section class="tiles" id="tiles" aria-label="Live-Kurse"></section>
+  <div class="oben">
+    <section class="ticket" id="ticket" aria-live="polite"></section>
+    <section class="karte chartkarte">
+      <div class="chartkopf"><h2>Heute</h2><div class="legende" id="legende"></div></div>
+      <div id="chart" class="chart"></div>
+    </section>
+  </div>
 
-  <!-- Bias + Prognose -->
-  <section class="grid2">
-    <article class="card" id="bias-card">
-      <h2>Bias heute</h2>
-      <div id="bias"></div>
-      <h3>Letzte 14 Handelstage</h3>
-      <div id="bias-hist" class="biashist"></div>
-    </article>
-    <article class="card" id="prog-card">
-      <h2>Prognose &amp; Kursverlauf</h2>
-      <div id="prog-status"></div>
-      <div id="prog-chart" class="chart"></div>
-      <div id="prog-legend" class="legend"></div>
-    </article>
+  <section class="blick" id="blick" aria-label="Tag auf einen Blick"></section>
+
+  <section class="karte">
+    <div class="zeile-kopf"><h2>Termine heute</h2><span class="countdown" id="countdown"></span></div>
+    <div id="termine"></div>
   </section>
 
-  <!-- Lage -->
-  <section class="card" id="lage-card">
-    <h2>Lage</h2>
-    <div id="lage"></div>
-  </section>
-
-  <!-- Termine -->
-  <section class="card" id="termine-card">
-    <div class="cardhead"><h2>Termine heute</h2><div id="countdown" class="countdown"></div></div>
-    <div id="timeline" class="timeline"></div>
-    <div id="termin-detail" class="detail" hidden></div>
-    <div id="termin-liste" class="tlist"></div>
-  </section>
-
-  <!-- Renditen -->
-  <section class="grid2">
-    <article class="card">
-      <h2>Renditen</h2>
-      <div class="tablebox"><table class="ytable" id="ytable"></table></div>
-      <p class="hint">Tagesschlusswerte aus offiziellen Quellen (BoE, MoF Japan, US Treasury), teils mit einem Tag Verzug.</p>
-    </article>
-    <article class="card">
-      <h2>Zinsdifferenz Gilt 10y − JGB 10y</h2>
-      <div id="spread-chart" class="chart"></div>
-    </article>
-  </section>
-
-  <!-- Treffer -->
-  <section class="card" id="treffer-card">
-    <h2>Trefferquote (30 Handelstage)</h2>
-    <div id="kpis" class="kpis"></div>
-    <div class="tablebox"><table class="etable" id="last10"></table></div>
-  </section>
-
-  <!-- News -->
-  <section class="card">
-    <div class="cardhead"><h2>News (24 Std)</h2>
-      <div class="chips" id="news-filter" role="group" aria-label="Filter">
-        <button class="chip on" data-f="ALL">Alle</button><button class="chip" data-f="GBP">GBP</button><button class="chip" data-f="JPY">JPY</button><button class="chip" data-f="USD">USD</button>
-      </div></div>
-    <ul id="news" class="news"></ul>
-  </section>
-
-  <!-- Archiv -->
-  <section class="card" id="archiv-card">
-    <h2>Archiv &amp; Rückblick</h2>
-    <div class="filters">
-      <label>von <input type="date" id="von"></label>
-      <label>bis <input type="date" id="bis"></label>
-      <button class="chip" id="zeitraum-30">30 T</button><button class="chip" id="zeitraum-90">90 T</button><button class="chip" id="zeitraum-all">Alles</button>
+  <details class="mehr" id="d-lage">
+    <summary><h2>Lage und News</h2><span class="sumhint" id="sum-lage"></span></summary>
+    <div class="inhalt">
+      <div id="lage"></div>
+      <div class="filter" id="news-filter" role="group" aria-label="News filtern">
+        <button class="chip an" data-f="ALL">Alle</button><button class="chip" data-f="GBP">GBP</button><button class="chip" data-f="JPY">JPY</button><button class="chip" data-f="USD">USD</button>
+      </div>
+      <ul id="news" class="news"></ul>
     </div>
-    <div id="archiv-kpis" class="kpis small"></div>
-    <div id="archiv-liste" class="archiv"></div>
-  </section>
+  </details>
 
-  <footer class="foot" id="foot">Keine Anlageberatung. Keine Handelssignale – nur Nachrichtenlage, Termine, statistische Spanne und Einschätzung.</footer>
+  <details class="mehr" id="d-bilanz">
+    <summary><h2>Wie gut funktioniert das?</h2><span class="sumhint" id="sum-bilanz"></span></summary>
+    <div class="inhalt" id="bilanz"></div>
+  </details>
+
+  <details class="mehr">
+    <summary><h2>Renditen</h2><span class="sumhint" id="sum-renditen"></span></summary>
+    <div class="inhalt">
+      <div class="tabbox"><table id="renditen"></table></div>
+      <h3>Zinsabstand Gilt 10y minus JGB 10y</h3>
+      <div id="spread" class="chart klein"></div>
+    </div>
+  </details>
+
+  <details class="mehr" id="d-archiv">
+    <summary><h2>Archiv</h2><span class="sumhint">Alle Reports und Setups</span></summary>
+    <div class="inhalt">
+      <div class="filter">
+        <label>von <input type="date" id="von"></label>
+        <label>bis <input type="date" id="bis"></label>
+        <button class="chip" id="z30">30 Tage</button><button class="chip" id="z90">90 Tage</button><button class="chip" id="zalle">Alles</button>
+      </div>
+      <div id="archiv-kpis" class="kpis"></div>
+      <div id="archiv"></div>
+    </div>
+  </details>
+
+  <p class="fuss" id="fuss">Mechanische Regeln mit offen ausgewiesener Trefferquote. Keine Anlageberatung.</p>
 </main>
 
 <div id="tip" class="tip" hidden></div>

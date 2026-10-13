@@ -4,7 +4,10 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
+from pathlib import Path
+
 from . import forecast
+from . import setup as setup_mod
 from .common import PAARE, fx_tag, fx_tag_ende, fx_tag_start, jetzt_berlin, schreibe_json
 from .sources.yields import SERIEN
 
@@ -85,6 +88,26 @@ def alles(con) -> None:
         if row:
             vortag[p] = dict(row)
 
+    # --- Tages-Setup ---
+    con.executescript(setup_mod.SCHEMA)
+    setup_heute = None
+    row = con.execute("SELECT * FROM setups WHERE date=?", (heute,)).fetchone()
+    if row:
+        setup_heute = {**json.loads(row["data_json"]), "state": row["state"],
+                       "trade": json.loads(row["trade_json"]) if row["trade_json"] else None,
+                       "result": json.loads(row["result_json"]) if row["result_json"] else None}
+    setup_liste = []
+    for r in con.execute("SELECT * FROM setups WHERE date<? ORDER BY date DESC LIMIT 15", (heute,)):
+        d = json.loads(r["data_json"])
+        res = json.loads(r["result_json"]) if r["result_json"] else None
+        setup_liste.append({"date": r["date"], "status": r["status"], "grund": d.get("grund"), "trend": d.get("trend"),
+                            "state": r["state"], "result": res})
+    bilanz = setup_mod.live_bilanz(con)
+    try:
+        historie = json.loads((Path(__file__).parent / "backtest_historie.json").read_text())
+    except (OSError, ValueError):
+        historie = None
+
     bias_hist = [{"date": r["date"], "score": r["score"], "bias": r["bias"], "reason": r["reason"],
                   "hit": r["eval"]["direction_hit"] if r["eval"] else None} for r in archiv[:14]][::-1]
 
@@ -101,12 +124,21 @@ def alles(con) -> None:
             "reason_long": heute_rep["bias_reason_long"], "risks": texte.get("risiken"),
             "lage_gbp": texte.get("lage_gbp"), "lage_jpy": texte.get("lage_jpy"),
             "missing": json.loads(heute_rep["missing"] or "[]"), "message": heute_rep["message"],
+            "exp": [heute_rep.get("exp_high"), heute_rep.get("exp_low")], "atr_pips": heute_rep.get("atr_pips"),
+            "news_score": heute_rep.get("news_score"), "news_reason": heute_rep.get("news_reason"),
+            "vorschau": (json.loads(heute_rep["data_json"]).get("roh", {}).get("mechanik", {}) or {}).get("setup_vorschau")
+            if heute_rep.get("data_json") else None,
+            "trend": heute_rep.get("bias_score"),
         },
+        "setup": setup_heute,
+        "setup_bilanz": bilanz,
+        "setup_liste": setup_liste,
+        "setup_historie": historie,
         "bias_history": bias_hist,
         "calendar": termine,
         "yields": serien, "spread": spread,
         "news": news,
         "stats": {"q30": forecast.quoten(evals[:30]), "last10": letzte10},
         "prev_close": vortag,
-        "model": {"z": forecast.Z, "f": forecast.F, "versatz": forecast.VERSATZ, "tage": forecast.TAGE},
+        "model": {"spanne_atr": forecast.SPANNE_ATR, "hoch_tief_atr": forecast.HOCH_TIEF_ATR},
     })

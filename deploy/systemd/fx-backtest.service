@@ -1,0 +1,11 @@
+[Unit]
+Description=FX-Server: Backtest mit aktuellen Tiingo-Daten
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/fx-server
+ExecStart=/opt/fx-server/venv/bin/python -m fxserver.backtest --tiingo
+TimeoutStartSec=2h
+Nice=10

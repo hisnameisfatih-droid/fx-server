@@ -1,4 +1,4 @@
-"""Laufende Aktualisierung (alle 5 Minuten per systemd-Timer).
+"""Laufende Aktualisierung (jede Minute per systemd-Timer).
 
 - Kalender stündlich, News alle 20 Min (+ Einordnung durch Claude), Renditen alle 3 Std
 - WhatsApp-Erinnerung 15 Min vor roten Terminen (abschaltbar mit TERMIN_ERINNERUNG=0 in der env-Datei)
@@ -10,6 +10,7 @@ import os
 from datetime import datetime, timedelta
 
 from . import export
+from . import setup as setup_mod
 from .common import TZ_BERLIN, db, faellig, get_logger, jetzt_berlin, whatsapp
 from .daten import fx_tage_aktualisieren, news_aktualisieren, renditen_aktualisieren, termine_aktualisieren
 from .news_klassifikation import klassifizieren
@@ -53,6 +54,10 @@ def main() -> int:
         fx_tage_aktualisieren(con)   # Erststart: Vortageswerte fürs Dashboard
     if ERINNERUNG:
         erinnerungen(con)
+    try:
+        setup_mod.verfolgen(con)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Setup-Verfolgung: %s", e)
     export.alles(con)
     return 0
 
