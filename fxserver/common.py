@@ -231,7 +231,13 @@ CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
 
 def db() -> sqlite3.Connection:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    neu = not DB_FILE.exists()
     con = sqlite3.connect(DB_FILE, timeout=30)
+    if neu:
+        try:
+            os.chmod(DB_FILE, 0o600)
+        except OSError:
+            pass
     con.row_factory = sqlite3.Row
     con.executescript(SCHEMA)
     return con

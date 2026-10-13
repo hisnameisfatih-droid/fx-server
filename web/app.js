@@ -162,7 +162,7 @@ function renderBias() {
     const treffer = h.hit == null ? "·" : h.hit ? "✓" : "✗";
     return `<div class="d" title="${esc(datumLang(h.date))}: ${esc(b.name)}${h.hit == null ? "" : h.hit ? " – Richtung getroffen" : " – Richtung verfehlt"}\n${esc(h.reason || "")}">
       <div class="sq" style="background:${b.farbe}">${treffer}</div><span>${+h.date.slice(8)}.</span></div>`;
-  }).join("") : `<p class="hint">Noch keine Historie.</p>`;
+  }).join("") : `<p class="hint" style="grid-column:1/-1;margin:0">Noch keine Historie.</p>`;
 }
 
 /* ---------------- Prognose-Panel ---------------- */
@@ -290,7 +290,7 @@ function renderTreffer() {
     z.map((e) => `<tr><td>${wochentag(e.date)} ${datumKurz(e.date)}</td><td>${zahl(e.range[0])} – ${zahl(e.range[1])}</td><td>${esc(e.bias)}</td>
       <td class="num">${zahl(e.close)}</td><td><span class="${e.in_range ? "ok" : "no"}">${e.in_range ? "✓" : "✗"} Spanne</span> · <span class="${e.direction_hit ? "ok" : "no"}">${e.direction_hit ? "✓" : "✗"} Richtung</span></td>
       <td class="num">${zahl(e.deviation_pips, 0)} P</td></tr>`).join("") + "</tbody>"
-    : `<tbody><tr><td class="hint">Die erste Auswertung kommt nach Handelsschluss (23:05 Uhr).</td></tr></tbody>`;
+    : `<tbody><tr><td class="hint" style="white-space:normal">Die erste Auswertung kommt nach Handelsschluss (23:05 Uhr).</td></tr></tbody>`;
 }
 
 /* ---------------- News ---------------- */
