@@ -244,6 +244,39 @@ pruefe(forecast.trend(tage_t) == 1, "Trendregel erkennt Aufwärtstrend")
 p = forecast.prognose(210.0, 1.5, 1, {"h": 210.6, "l": 209.1})
 pruefe(abs(p["range_high"] - 210.78) < 1e-6 and abs(p["exp_low"] - 209.49) < 1e-6 and p["atr_pips"] == 150, "Prognose-Formel (±0,52 / ±0,34 ATR)")
 
+print("Nachrichtenkanal")
+
+
+class FakeSession:
+    def __init__(self):
+        self.posts = []
+
+    def get(self, url, **kw):
+        class R:
+            status_code = 200
+            text = "{}"
+            def json(self):  # noqa: E306
+                return {"ok": True, "result": [{"message": {"chat": {"id": 4711, "type": "private"}}}]}
+        return R()
+
+    def post(self, url, json=None, **kw):
+        self.posts.append((url, json))
+        class R:
+            status_code = 200
+            text = "{}"
+            def json(self):  # noqa: E306
+                return {"ok": True}
+        return R()
+
+
+_alt_session, _alt_token = common._session, common.TELEGRAM_BOT_TOKEN
+common._session, common.TELEGRAM_BOT_TOKEN = FakeSession(), "123:abc"
+ok_tg = common.whatsapp("Test über Telegram")
+pruefe(ok_tg and common._session.posts and common._session.posts[0][1]["chat_id"] == "4711"
+       and (OUT / "telegram_chat_id").read_text() == "4711", "Telegram zuerst, Chat-ID automatisch erkannt und gemerkt")
+common._session, common.TELEGRAM_BOT_TOKEN = _alt_session, _alt_token
+(OUT / "telegram_chat_id").unlink()
+
 print("Treiber: Quellen")
 boe = y_src.parse_boe_zip(BOE_ZIP)
 letzter_tag = boe[max(boe)]

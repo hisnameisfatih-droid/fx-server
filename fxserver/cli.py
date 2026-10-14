@@ -38,6 +38,10 @@ def test() -> int:
     else:
         teile.append("kein Claude-Key")
         ok = False
+    from .common import TELEGRAM_BOT_TOKEN, telegram_chat_id
+    if TELEGRAM_BOT_TOKEN:
+        chat = telegram_chat_id(log)
+        teile.append(f"Telegram ok (Chat {chat})" if chat else "Telegram: im Bot erst auf Start tippen")
     zeichen = "✅" if ok else "⚠️"
     text = (f"{zeichen} FX-Server eingerichtet\n" + "\n".join(teile) +
             "\n\nMorgenreport: Mo–Fr 06:45 Uhr\nAuswertung: Mo–Fr 23:05 Uhr")

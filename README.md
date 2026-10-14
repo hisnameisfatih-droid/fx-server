@@ -18,6 +18,13 @@ eine mechanische Treiber-Empfehlung – jeweils mit ehrlicher Trefferauswertung.
 | jede Minute | Setup-Verfolgung, Kalender (stündlich), News (20 Min) + Einordnung, Renditen (3 Std), VIX/Nikkei/Brent (30 Min), CFTC (6 Std), Treiber-Score + Empfehlung, Termin-Erinnerung, Dashboard-Daten | `fxserver/refresh.py` |
 | alle 10 Min | Updates aus GitHub holen, bei Fehler zurückrollen | `deploy/update.sh` |
 
+## Nachrichten
+
+Telegram zuerst (eigener Bot, kein Limit): `TELEGRAM_BOT_TOKEN=...` in `/etc/fx-server/env`, im Bot einmal auf Start
+tippen – die Chat-ID wird automatisch erkannt. WhatsApp (CallMeBot, Gratis-Kontingent begrenzt) ist nur Ersatz;
+Statusmeldungen und kleine 1-Min-Alarme gehen dann nicht per WhatsApp raus. 1-Min-Alarme derselben Richtung
+höchstens alle 5 Min.
+
 ## Datenquellen
 
 - Kurse: Tiingo (WebSocket für Live/Alarme, REST für Tageskerzen), optional Finnhub als Reserve

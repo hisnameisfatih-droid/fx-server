@@ -92,11 +92,69 @@ def http_get(url: str, *, params: dict | None = None, headers: dict | None = Non
 
 
 # ------------------------------------------------------------
-# WhatsApp (CallMeBot)
+# Nachrichten: Telegram (bevorzugt, ohne Limit), sonst WhatsApp über CallMeBot
 # ------------------------------------------------------------
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_FILE = DATA_DIR / "telegram_chat_id"
+
+
+def telegram_chat_id(log: logging.Logger | None = None) -> str | None:
+    """Chat-ID aus der env-Datei, aus der gemerkten Datei oder automatisch aus der letzten /start-Nachricht."""
+    fest = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if fest:
+        return fest
+    try:
+        gemerkt = TELEGRAM_CHAT_FILE.read_text().strip()
+        if gemerkt:
+            return gemerkt
+    except OSError:
+        pass
+    if not TELEGRAM_BOT_TOKEN:
+        return None
+    try:
+        r = _session.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates", timeout=20)
+        chats = [u.get("message", {}).get("chat", {}) for u in r.json().get("result", [])]
+        privat = [c for c in chats if c.get("type") == "private" and c.get("id")]
+        if not privat:
+            (log or get_logger("telegram")).warning("Telegram: noch keine Nachricht an den Bot – im Bot auf Start tippen")
+            return None
+        chat = str(privat[-1]["id"])
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        TELEGRAM_CHAT_FILE.write_text(chat)
+        os.chmod(TELEGRAM_CHAT_FILE, 0o644)   # auch der Alarm-Dienst liest sie
+        return chat
+    except (requests.RequestException, ValueError, OSError) as e:
+        (log or get_logger("telegram")).warning("Telegram getUpdates: %s", e)
+        return None
+
+
+def telegram(text: str, log: logging.Logger | None = None) -> bool:
+    log = log or get_logger("telegram")
+    chat = telegram_chat_id(log) if TELEGRAM_BOT_TOKEN else None
+    if not chat:
+        return False
+    for versuch in range(3):
+        try:
+            r = _session.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", timeout=20,
+                              json={"chat_id": chat, "text": text[:4000], "disable_web_page_preview": True})
+            if r.status_code == 200 and r.json().get("ok"):
+                log.info("Telegram gesendet (%d Zeichen)", len(text))
+                return True
+            log.warning("Telegram %s: %s", r.status_code, r.text[:200])
+            if r.status_code in (400, 401, 403, 404):
+                return False   # Token/Chat falsch – Wiederholen hilft nicht
+        except requests.RequestException as e:
+            log.warning("Telegram nicht erreichbar: %s", e)
+        time.sleep(3 * (versuch + 1))
+    return False
+
+
 def whatsapp(text: str, log: logging.Logger | None = None, max_teil: int = 1500) -> bool:
-    """Schickt Text per CallMeBot. Längere Texte werden an Absätzen geteilt."""
+    """Schickt eine Nachricht: zuerst Telegram (falls eingerichtet), sonst/ersatzweise WhatsApp per CallMeBot.
+    Längere WhatsApp-Texte werden an Absätzen geteilt."""
     log = log or get_logger("whatsapp")
+    if TELEGRAM_BOT_TOKEN and telegram(text, log):
+        return True
     if not (WHATSAPP_PHONE and CALLMEBOT_APIKEY):
         log.error("WhatsApp nicht konfiguriert")
         return False

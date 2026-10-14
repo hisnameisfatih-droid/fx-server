@@ -38,6 +38,8 @@ STATUS_AM_WOCHENENDE = False  # True = auch melden, wenn der Markt am Wochenende
 HEARTBEAT_TIMEOUT_SEK = 90  # Tiingo schickt alle ~30 s einen Heartbeat; bei 90 s Stille -> Reconnect
 STOERUNG_MELDEN_NACH_MIN = 15  # nur werktags: 1 WhatsApp, wenn so lange keine Kurse kommen (0 = nie)
 LOGDATEI = "alert.log"
+MIN_ABSTAND_1MIN_SEK = 300  # 1-Min-Alarme derselben Richtung höchstens alle 5 Min
+LETZTER_ALARM: dict[int, float] = {}
 # ============================================================
 
 import argparse
@@ -132,9 +134,74 @@ def markt_geschlossen(ts: float | None = None) -> bool:
 
 
 # ------------------------------------------------------------
-# WhatsApp über CallMeBot
+# Telegram (bevorzugt, ohne Nachrichtenlimit) – Chat-ID teilt sich der Dienst mit fxserver
 # ------------------------------------------------------------
-def whatsapp_senden(text: str, versuche: int = 3) -> bool:
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_FILE = DATA_DIR / "telegram_chat_id"
+
+
+def telegram_chat_id() -> str | None:
+    fest = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if fest:
+        return fest
+    try:
+        gemerkt = TELEGRAM_CHAT_FILE.read_text().strip()
+        if gemerkt:
+            return gemerkt
+    except OSError:
+        pass
+    try:
+        r = requests.get(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates", timeout=20)
+        chats = [u.get("message", {}).get("chat", {}) for u in r.json().get("result", [])]
+        privat = [c for c in chats if c.get("type") == "private" and c.get("id")]
+        if privat:
+            chat = str(privat[-1]["id"])
+            try:
+                TELEGRAM_CHAT_FILE.write_text(chat)
+            except OSError:
+                pass
+            return chat
+        log.warning("Telegram: noch keine Nachricht an den Bot – im Bot auf Start tippen")
+    except (requests.RequestException, ValueError) as e:
+        log.warning("Telegram getUpdates: %s", e)
+    return None
+
+
+def telegram_senden(text: str) -> bool:
+    if not TELEGRAM_BOT_TOKEN:
+        return False
+    chat = telegram_chat_id()
+    if not chat:
+        return False
+    for i in range(1, 4):
+        try:
+            r = requests.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage", timeout=20,
+                              json={"chat_id": chat, "text": text, "disable_web_page_preview": True})
+            if r.status_code == 200 and r.json().get("ok"):
+                log.info("Telegram gesendet: %s", text)
+                return True
+            log.warning("Telegram Antwort %s: %s", r.status_code, r.text[:200])
+            if r.status_code in (400, 401, 403, 404):
+                return False
+        except requests.RequestException as e:
+            log.warning("Telegram nicht erreichbar (Versuch %d): %s", i, e)
+        time.sleep(3 * i)
+    return False
+
+
+# ------------------------------------------------------------
+# WhatsApp über CallMeBot (Ersatz, wenn Telegram fehlt; Gratis-Kontingent ist begrenzt)
+# ------------------------------------------------------------
+def whatsapp_senden(text: str, versuche: int = 3, wichtig: bool = True) -> bool:
+    """Telegram zuerst; WhatsApp nur als Ersatz – und dann nur für wichtige Meldungen (spart das Kontingent)."""
+    if telegram_senden(text):
+        return True
+    if not wichtig:
+        log.info("Nicht gesendet (nur über Telegram): %s", text)
+        return False
+    if not (WHATSAPP_PHONE and CALLMEBOT_APIKEY):
+        log.error("Weder Telegram noch WhatsApp eingerichtet: %s", text)
+        return False
     url = "https://api.callmebot.com/whatsapp.php"
     params = {"phone": WHATSAPP_PHONE, "text": text, "apikey": CALLMEBOT_APIKEY}
     for i in range(1, versuche + 1):
@@ -160,17 +227,17 @@ class WhatsAppSender:
     """Verschickt Nachrichten in einem eigenen Thread, damit der Kursempfang nie blockiert."""
 
     def __init__(self):
-        self.q: "queue.Queue[str]" = queue.Queue()
+        self.q: "queue.Queue[tuple[str, bool]]" = queue.Queue()
         threading.Thread(target=self._loop, daemon=True, name="whatsapp").start()
 
-    def senden(self, text: str):
-        self.q.put(text)
+    def senden(self, text: str, wichtig: bool = True):
+        self.q.put((text, wichtig))
 
     def _loop(self):
         while True:
-            text = self.q.get()
-            whatsapp_senden(text)
-            time.sleep(2)  # CallMeBot nicht fluten
+            text, wichtig = self.q.get()
+            whatsapp_senden(text, wichtig=wichtig)
+            time.sleep(2)  # nicht fluten
 
 
 # ------------------------------------------------------------
@@ -219,7 +286,7 @@ def status_schleife(sender):
         time.sleep(max(1.0, naechste - time.time() + 2))
         dt = jetzt_lokal()
         if dt.minute == 0 and status_faellig(dt):
-            sender.senden(status_text(dt))
+            sender.senden(status_text(dt), wichtig=False)   # Statusmeldung nur über Telegram
 
 
 # ------------------------------------------------------------
@@ -320,6 +387,14 @@ class KerzenWaechter:
 
     def _alarm(self, diff: float, open_preis: float, preis: float):
         pips = diff / PIP_GROESSE
+        richtung = 1 if pips >= 0 else -1
+        jetzt = time.time()
+        # Zusammenfassen: 1-Min-Alarme höchstens alle MIN_ABSTAND_1MIN_SEK je Richtung
+        # (und nicht direkt nach einem Alarm derselben Richtung) – größere Kerzen melden immer.
+        if self.minuten == 1 and jetzt - LETZTER_ALARM.get(richtung, 0.0) < MIN_ABSTAND_1MIN_SEK:
+            log.info("1-Min-Alarm zusammengefasst (%+.1f Pips)", pips)
+            return
+        LETZTER_ALARM[richtung] = jetzt
         pfeil, vorzeichen = ("▲", "+") if pips >= 0 else ("▼", "−")
         text = (
             f"🚨 {PAAR_NAME} {pfeil} {vorzeichen}{de_zahl(abs(pips), 1)} Pips in {self.minuten} Min"
@@ -328,7 +403,8 @@ class KerzenWaechter:
         )
         log.info("ALARM: %s", text)
         alarm_zaehlen()
-        self.sender.senden(text)
+        # kleine 1-Min-Alarme nur über Telegram, große Bewegungen auch per WhatsApp-Ersatz
+        self.sender.senden(text, wichtig=self.minuten > 1)
 
     def _kerze_loggen(self, k: Kerze):
         zeit = datetime.fromtimestamp(k.start, TZ_LOKAL).strftime("%d.%m. %H:%M")
@@ -550,7 +626,8 @@ def kurs_verarbeiten(name, ts, mid, waechter, status):
 
 
 def hauptschleife():
-    fehlende = [n for n, v in [("WHATSAPP_PHONE", WHATSAPP_PHONE), ("CALLMEBOT_APIKEY", CALLMEBOT_APIKEY)] if not v]
+    fehlende = [] if TELEGRAM_BOT_TOKEN else [
+        n for n, v in [("WHATSAPP_PHONE", WHATSAPP_PHONE), ("CALLMEBOT_APIKEY", CALLMEBOT_APIKEY)] if not v]
     if not QUELLEN:
         fehlende.append("TIINGO_API_KEY oder FINNHUB_API_KEY")
     if fehlende:
