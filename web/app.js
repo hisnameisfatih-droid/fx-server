@@ -121,7 +121,7 @@ function renderChart() {
     schienen.push({ y: x.tp, f: "var(--ziel)", t: "Ziel" });
   }
   if (r?.exp?.[0]) { schienen.push({ y: r.exp[0], f: "var(--leise)", t: "erw. Hoch", strich: "2 4", leise: true }); schienen.push({ y: r.exp[1], f: "var(--leise)", t: "erw. Tief", strich: "2 4", leise: true }); }
-  if (r?.levels?.[0]) { schienen.push({ y: r.levels[0], f: "var(--text-2)", t: "Vortag H", strich: "1 3", leise: true }); schienen.push({ y: r.levels[1], f: "var(--text-2)", t: "Vortag T", strich: "1 3", leise: true }); }
+  if (r?.levels?.[0]) { schienen.push({ y: r.levels[0], f: "var(--text-2)", t: "Vortageshoch", strich: "1 3", leise: true }); schienen.push({ y: r.levels[1], f: "var(--text-2)", t: "Vortagestief", strich: "1 3", leise: true }); }
   const ys = punkte.map((p) => p[1]).concat(schienen.map((s) => s.y)).concat(r?.range?.[0] ? r.range : []).concat(su?.spanne || []);
   if (!ys.length) { el.innerHTML = `<p class="leer">Noch keine Kurse für den heutigen Handelstag.</p>`; return; }
   let y0 = Math.min(...ys), y1 = Math.max(...ys); const sp = (y1 - y0) || 0.5; y0 -= sp * 0.06; y1 += sp * 0.06;
@@ -146,14 +146,21 @@ function renderChart() {
     if (X(t) > 18 && X(t) < W - pad.r - 14) s += `<text x="${X(t)}" y="${H - 7}" text-anchor="middle">${uhr(new Date(t * 1000))}</text>`;
   }
   // Schienen mit Preisschildern rechts (Überlappung vermeiden)
-  const belegt = [];
+  const belegt = [], innen = [];
   for (const sch of schienen.sort((a, b) => (a.leise ? 1 : 0) - (b.leise ? 1 : 0))) {
     const y = Y(sch.y);
     s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="${sch.f}" stroke-width="${sch.leise ? 1 : 1.6}" stroke-dasharray="${sch.strich || ""}"/>`;
+    if (sch.leise) {
+      // Beschriftung mit Zahl innen am rechten Rand, Überlappungen nach oben/unten ausweichen
+      let ty = y - 4;
+      for (let i = 0; i < 4 && innen.some((b) => Math.abs(b - ty) < 13); i++) ty += sch.t.includes("Tief") || sch.t.includes("tief") ? 13 : -13;
+      innen.push(ty);
+      s += `<text x="${W - pad.r - 4}" y="${ty}" text-anchor="end" style="fill:${sch.f === "var(--leise)" ? "#a3b0c4" : "var(--text-2)"};paint-order:stroke;stroke:var(--flaeche);stroke-width:4px;stroke-linejoin:round">${esc(sch.t)} ${zahl(sch.y)}</text>`;
+      continue;
+    }
     if (belegt.some((b) => Math.abs(b - y) < 15)) continue;
     belegt.push(y);
-    if (sch.leise) s += `<text x="${W - pad.r + 6}" y="${y + 4}">${esc(sch.t)}</text>`;
-    else s += `<rect x="${W - pad.r + 2}" y="${y - 9}" width="${pad.r - 4}" height="18" rx="3" fill="${sch.f}"/><text x="${W - pad.r + 6}" y="${y + 4}" style="fill:#0e1420;font-weight:600">${zahl(sch.y)}</text>`;
+    s += `<rect x="${W - pad.r + 2}" y="${y - 9}" width="${pad.r - 4}" height="18" rx="3" fill="${sch.f}"/><text x="${W - pad.r + 6}" y="${y + 4}" style="fill:#0e1420;font-weight:600">${zahl(sch.y)}</text>`;
   }
   // Kursverlauf
   if (punkte.length > 1) {
