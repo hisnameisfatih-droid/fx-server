@@ -22,7 +22,7 @@ eine mechanische Treiber-Empfehlung – jeweils mit ehrlicher Trefferauswertung.
 
 Telegram zuerst (eigener Bot, kein Limit): `TELEGRAM_BOT_TOKEN=...` in `/etc/fx-server/env`, im Bot einmal auf Start
 tippen – die Chat-ID wird automatisch erkannt. WhatsApp (CallMeBot, Gratis-Kontingent begrenzt) ist nur Ersatz;
-Statusmeldungen und kleine 1-Min-Alarme gehen dann nicht per WhatsApp raus. 1-Min-Alarme derselben Richtung
+Ohne Telegram geht alles per WhatsApp; fällt ein eingerichtetes Telegram aus, nur Wichtiges. 1-Min-Alarme derselben Richtung
 höchstens alle 5 Min.
 
 ## Datenquellen

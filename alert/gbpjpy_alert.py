@@ -196,7 +196,9 @@ def whatsapp_senden(text: str, versuche: int = 3, wichtig: bool = True) -> bool:
     """Telegram zuerst; WhatsApp nur als Ersatz – und dann nur für wichtige Meldungen (spart das Kontingent)."""
     if telegram_senden(text):
         return True
-    if not wichtig:
+    # Ohne Telegram läuft alles über WhatsApp; nur wenn Telegram eingerichtet ist und ausfällt,
+    # gehen ersatzweise bloß die wichtigen Meldungen per WhatsApp raus.
+    if TELEGRAM_BOT_TOKEN and not wichtig:
         log.info("Nicht gesendet (nur über Telegram): %s", text)
         return False
     if not (WHATSAPP_PHONE and CALLMEBOT_APIKEY):
