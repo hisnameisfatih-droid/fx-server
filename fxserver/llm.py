@@ -69,7 +69,9 @@ REPORT_TOOL = {
 def report_texte(daten: dict) -> dict:
     nutzer = (
         "Hier sind die Rohdaten für den heutigen GBP/JPY-Morgenreport (06:45 Uhr Berlin, vor London Open). "
-        "Spanne, Trend und Setup werden mechanisch berechnet (siehe Daten) – du lieferst die Einordnung der Nachrichtenlage. "
+        "Spanne, Trend, Setup und die Treiber-Empfehlung werden mechanisch berechnet (siehe Daten) – du lieferst die "
+        "Einordnung der Nachrichtenlage und nutzt die Treiber-Werte (Renditen, VIX, Nikkei, Öl, Positionierung, "
+        "Interventionsrisiko), wo sie die Lage erklären. "
         "Trenne GBP- und JPY-Seite. Halte jeden Text kurz (die WhatsApp-Nachricht ist auf 1500 Zeichen begrenzt).\n\n"
         + json.dumps(daten, ensure_ascii=False, indent=1)
     )

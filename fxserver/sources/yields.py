@@ -1,8 +1,8 @@
 """Staatsanleihe-Renditen aus offiziellen Quellen (Tagesschlusswerte, teils 1 Tag Verzug).
 
-- US 10y:      US-Finanzministerium (Treasury Daily Par Yield Curve, CSV)
+- US 2y/10y:   US-Finanzministerium (Treasury Daily Par Yield Curve, CSV)
 - JGB 2y/10y:  Japanisches Finanzministerium (MoF, CSV)
-- Gilt 10y/30y: Bank of England (Nominal-Zinskurve, Excel im ZIP); Fallback Gilt 10y: BoE-Datenbank
+- Gilt 2y/10y/30y: Bank of England (Nominal-Zinskurve, Excel im ZIP); Fallback Gilt 10y: BoE-Datenbank
 """
 from __future__ import annotations
 
@@ -15,7 +15,9 @@ from ..common import http_get
 
 SERIEN = {
     "uk10": "Gilt 10y", "uk30": "Gilt 30y", "jp10": "JGB 10y", "jp2": "JGB 2y", "us10": "US 10y",
+    "uk2": "Gilt 2y", "us2": "US 2y",
 }
+KERN = ("uk10", "uk30", "jp10", "jp2", "us10")   # fehlen diese, steht es im Report; 2y-Reihen sind Zusatz
 
 
 def _f(x) -> float | None:
@@ -45,9 +47,10 @@ def parse_treasury(text: str) -> dict[str, dict[str, float]]:
             d = datetime.strptime(row["Date"], "%m/%d/%Y").date().isoformat()
         except (KeyError, ValueError):
             continue
-        v = _f(row.get("10 Yr"))
-        if v is not None:
-            erg.setdefault(d, {})["us10"] = v
+        for schluessel, spalte in (("us10", "10 Yr"), ("us2", "2 Yr")):
+            v = _f(row.get(spalte))
+            if v is not None:
+                erg.setdefault(d, {})[schluessel] = v
     return erg
 
 
@@ -92,7 +95,7 @@ BOE_ZIP = "https://www.bankofengland.co.uk/-/media/boe/files/statistics/yield-cu
 
 
 def gilts() -> dict[str, dict[str, float]]:
-    """Gilt 10y/30y (Nominal-Spotkurve). Fallback 10y: BoE-Datenbank (Par Yield)."""
+    """Gilt 2y/10y/30y (Nominal-Spotkurve). Fallback 10y: BoE-Datenbank (Par Yield)."""
     try:
         erg = parse_boe_zip(http_get(BOE_ZIP, timeout=60).content)
         if erg:
@@ -102,7 +105,12 @@ def gilts() -> dict[str, dict[str, float]]:
     return boe_iadb_10y()
 
 
+BOE_LAUFZEITEN = (("uk2", 2.0), ("uk10", 10.0), ("uk30", 30.0))
+
+
 def parse_boe_zip(inhalt: bytes) -> dict[str, dict[str, float]]:
+    """Liest alle Spotkurven-Blätter. Die BoE-Datei hat ein Blatt 'spot, short end' (Laufzeiten in Monaten)
+    vor dem Blatt 'spot curve' (Jahre) – beide werden gelesen, Monate werden in Jahre umgerechnet."""
     from openpyxl import load_workbook
 
     erg: dict[str, dict[str, float]] = {}
@@ -110,28 +118,36 @@ def parse_boe_zip(inhalt: bytes) -> dict[str, dict[str, float]]:
         namen = [n for n in z.namelist() if "nominal" in n.lower() and "daily" in n.lower() and n.endswith(".xlsx")]
         for name in namen:
             wb = load_workbook(io.BytesIO(z.read(name)), read_only=True, data_only=True)
-            blatt = next((wb[s] for s in wb.sheetnames if "spot" in s.lower()), None)
-            if blatt is None:
-                continue
-            laufzeiten: dict[int, float] = {}
-            for row in blatt.iter_rows(values_only=True):
-                if not row:
-                    continue
-                kopf = row[0]
-                if not laufzeiten and isinstance(kopf, str) and "year" in kopf.lower():
-                    for i, v in enumerate(row[1:], start=1):
-                        f = _f(v)
-                        if f is not None:
-                            laufzeiten[i] = f
-                    continue
-                if laufzeiten and isinstance(kopf, (datetime, date)):
-                    d = (kopf.date() if isinstance(kopf, datetime) else kopf).isoformat()
-                    for schluessel, jahre in (("uk10", 10.0), ("uk30", 30.0)):
-                        spalte = next((i for i, j in laufzeiten.items() if abs(j - jahre) < 1e-6), None)
-                        if spalte is not None and spalte < len(row):
-                            v = _f(row[spalte])
-                            if v is not None:
-                                erg.setdefault(d, {})[schluessel] = v
+            for blatt_name in [s for s in wb.sheetnames if "spot" in s.lower()]:
+                for d, werte in _spot_blatt(wb[blatt_name]).items():
+                    ziel = erg.setdefault(d, {})
+                    for k, v in werte.items():
+                        ziel.setdefault(k, v)   # erstes Blatt mit dem Wert gewinnt
+    return erg
+
+
+def _spot_blatt(blatt) -> dict[str, dict[str, float]]:
+    erg: dict[str, dict[str, float]] = {}
+    laufzeiten: dict[int, float] = {}   # Spalte -> Laufzeit in Jahren
+    for row in blatt.iter_rows(values_only=True):
+        if not row:
+            continue
+        kopf = row[0]
+        if not laufzeiten and isinstance(kopf, str) and ("year" in kopf.lower() or "month" in kopf.lower()):
+            faktor = 1.0 if "year" in kopf.lower() else 1 / 12
+            for i, v in enumerate(row[1:], start=1):
+                f = _f(v)
+                if f is not None:
+                    laufzeiten[i] = f * faktor
+            continue
+        if laufzeiten and isinstance(kopf, (datetime, date)):
+            d = (kopf.date() if isinstance(kopf, datetime) else kopf).isoformat()
+            for schluessel, jahre in BOE_LAUFZEITEN:
+                spalte = next((i for i, j in laufzeiten.items() if abs(j - jahre) < 1e-6), None)
+                if spalte is not None and spalte < len(row):
+                    v = _f(row[spalte])
+                    if v is not None:
+                        erg.setdefault(d, {})[schluessel] = v
     return erg
 
 

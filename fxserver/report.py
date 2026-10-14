@@ -8,15 +8,15 @@ import argparse
 import json
 from datetime import datetime, timedelta, timezone
 
-from . import export, forecast, llm
+from . import export, forecast, llm, treiber
 from . import setup as setup_mod
 from .common import (DASHBOARD_URL, PAAR_NAME, TZ_BERLIN, db, de_prozent, de_zahl, fx_tag, get_logger,
                      jetzt_berlin, whatsapp)
-from .daten import (fx_tage_aktualisieren, letzte_rendite, news_aktualisieren, renditen_aktualisieren,
-                    termine_aktualisieren)
+from .daten import (fx_tage_aktualisieren, letzte_rendite, markt_aktualisieren, news_aktualisieren,
+                    renditen_aktualisieren, termine_aktualisieren)
 from .news_klassifikation import klassifizieren
 from .sources import prices as px_src
-from .sources.yields import SERIEN
+from .sources.yields import KERN, SERIEN
 
 log = get_logger("report")
 FLAGGE = {"GBP": "🇬🇧", "JPY": "🇯🇵", "USD": "🇺🇸"}
@@ -56,7 +56,7 @@ def news_24h(con, n: int = 40) -> list[dict]:
 
 
 def nachricht_bauen(*, jetzt, kurs, aenderung, usdjpy, uk10, jp10, texte, termine, prog, trend_wert,
-                    vorschau, quoten, fehlend) -> str:
+                    vorschau, quoten, fehlend, treiber_daten=None) -> str:
     wirkung = {w["id"]: w["wirkung"] for w in texte.get("termin_wirkungen", []) if w.get("id")}
     news_score = int(texte.get("news_score") or 0)
 
@@ -103,15 +103,16 @@ def nachricht_bauen(*, jetzt, kurs, aenderung, usdjpy, uk10, jp10, texte, termin
             return "Trefferquote 30T: noch keine Auswertung"
         n = f" (n={quoten['n']})" if quoten["n"] < 30 else ""
         news = f" | News {quoten['news_pct']}%" if quoten.get("news_pct") is not None else ""
-        return (f"Trefferquote 30T: Spanne {quoten['range_pct']}% | Trend {quoten['direction_pct']}%{news} | "
+        tr = f" | Treiber {quoten['treiber_pct']}%" if quoten.get("treiber_pct") is not None else ""
+        return (f"Trefferquote 30T: Spanne {quoten['range_pct']}% | Trend {quoten['direction_pct']}%{news}{tr} | "
                 f"Ø Abw. {de_zahl(quoten['avg_dev'], 0)} P{n}")
 
-    def zusammensetzen(wirkung_an=True, max_termine=6, kurz=False):
+    def zusammensetzen(wirkung_an=True, max_termine=6, kurz=False, kuerze=0):
         lage_gbp, lage_jpy, risiken = texte.get("lage_gbp", ""), texte.get("lage_jpy", ""), texte.get("risiken", "")
         if kurz:
             lage_gbp, lage_jpy, risiken = (x.split(". ")[0].rstrip(".") + "." for x in (lage_gbp, lage_jpy, risiken))
-        teile = [kopf(), f"LAGE\nGBP: {lage_gbp}\nJPY: {lage_jpy}", heute_block(wirkung_an, max_termine),
-                 prog_block(), bias_block()]
+        teile = [kopf(), treiber.whatsapp_block(treiber_daten, kuerze), f"LAGE\nGBP: {lage_gbp}\nJPY: {lage_jpy}",
+                 heute_block(wirkung_an, max_termine), prog_block(), bias_block()]
         if vorschau:
             teile.append(f"SETUP (London 09:00)\n{vorschau}")
         teile += [f"RISIKEN\n{risiken}", quote_zeile()]
@@ -124,8 +125,9 @@ def nachricht_bauen(*, jetzt, kurs, aenderung, usdjpy, uk10, jp10, texte, termin
             teile.append("\n".join(fuss))
         return "\n\n".join(teile)
 
-    for stufe in ({}, {"max_termine": 4}, {"wirkung_an": False}, {"wirkung_an": False, "max_termine": 4, "kurz": True},
-                  {"wirkung_an": False, "max_termine": 3, "kurz": True}):
+    for stufe in ({}, {"max_termine": 4}, {"wirkung_an": False, "kuerze": 1},
+                  {"wirkung_an": False, "max_termine": 4, "kurz": True, "kuerze": 1},
+                  {"wirkung_an": False, "max_termine": 3, "kurz": True, "kuerze": 2}):
         text = zusammensetzen(**stufe)
         if len(text) <= MAX_ZEICHEN:
             return text
@@ -160,8 +162,15 @@ def main(senden: bool = True, ausgeben: bool = False, erneut: bool = False) -> i
         d, wert, delta = letzte_rendite(con, s)
         aktuell = d is not None and d >= (jetzt.date() - timedelta(days=6)).isoformat()
         renditen[s] = {"name": name, "datum": d, "wert": wert, "delta_bp": delta, "aktuell": aktuell}
-        if not aktuell and not any(name in f or "Renditen" in f for f in fehlend):
+        if s in KERN and not aktuell and not any(name in f or "Renditen" in f for f in fehlend):
             fehlend.append(name)
+    try:
+        markt_fehler = markt_aktualisieren(con)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Markt: %s", e)
+        markt_fehler = ["VIX", "Nikkei 225", "Brent"]
+    if markt_fehler:
+        fehlend.append("Markt: " + ", ".join(markt_fehler))
 
     kurse = {}
     try:
@@ -188,6 +197,11 @@ def main(senden: bool = True, ausgeben: bool = False, erneut: bool = False) -> i
     except Exception as e:  # noqa: BLE001
         log.warning("Setup-Vorschau: %s", e)
         vorschau = None
+    try:
+        tb = treiber.berechnen(con, jetzt, kurse=kurse, setup_trend=trend_wert or None)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Treiber: %s", e)
+        tb = None
 
     # 2) Claude: Einordnung der Nachrichtenlage
     roh = {
@@ -206,6 +220,11 @@ def main(senden: bool = True, ausgeben: bool = False, erneut: bool = False) -> i
         "mechanik": {"trendregel": forecast.TREND_TEXT[trend_wert], "atr_pips": prog and prog["atr_pips"],
                      "spanne_schluss_68pct": prog and [prog["range_low"], prog["range_high"]],
                      "setup_vorschau": vorschau},
+        "treiber": None if not tb else {
+            "score_minus100_bis_plus100": tb["score"], "empfehlung_mechanisch": tb["empfehlung"]["titel"],
+            "werte": [{"treiber": i["name"], "wert": i["wert_text"], "veraenderung": i["aenderung_text"],
+                       "wirkung_auf_gbpjpy": i["wirkung"], "einordnung": i["text"]} for i in tb["items"]],
+        },
         "fehlende_quellen": fehlend,
     }
     texte, llm_ok = {}, 0
@@ -223,21 +242,25 @@ def main(senden: bool = True, ausgeben: bool = False, erneut: bool = False) -> i
     # 3) Nachricht
     text = nachricht_bauen(jetzt=jetzt, kurs=kurs, aenderung=aenderung, usdjpy=kurse.get("usdjpy"),
                            uk10=renditen["uk10"]["wert"], jp10=renditen["jp10"]["wert"], texte=texte, termine=termine,
-                           prog=prog, trend_wert=trend_wert, vorschau=vorschau, quoten=quoten_30(con), fehlend=fehlend)
+                           prog=prog, trend_wert=trend_wert, vorschau=vorschau, quoten=quoten_30(con), fehlend=fehlend,
+                           treiber_daten=tb)
     for w in texte.get("termin_wirkungen", []):
         con.execute("UPDATE calendar SET effect=? WHERE id=?", (w.get("wirkung"), w.get("id")))
 
     g = (lambda k: prog[k] if prog else None)
     con.execute("""INSERT OR REPLACE INTO reports(date, created, price, prev_close, sigma_pips, range_low, range_high,
                    target, bias, bias_score, bias_reason, bias_reason_long, level_up, level_down, message, data_json,
-                   missing, llm_ok, sent, news_score, news_reason, exp_high, exp_low, atr_pips)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)""",
+                   missing, llm_ok, sent, news_score, news_reason, exp_high, exp_low, atr_pips, treiber_score, treiber_ampel)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?,?)""",
                 (heute, jetzt.isoformat(), kurs, prev, g("atr_pips"), g("range_low"), g("range_high"), g("target"),
                  forecast.TREND_TEXT[trend_wert], trend_wert, texte.get("news_grund"), texte.get("news_grund_lang"),
                  g("level_up"), g("level_down"), text,
                  json.dumps({"roh": roh, "texte": texte}, ensure_ascii=False), json.dumps(fehlend, ensure_ascii=False),
-                 llm_ok, news_score, texte.get("news_grund"), g("exp_high"), g("exp_low"), g("atr_pips")))
+                 llm_ok, news_score, texte.get("news_grund"), g("exp_high"), g("exp_low"), g("atr_pips"),
+                 tb["score"] if tb else None, tb["empfehlung"]["titel"] if tb else None))
     con.commit()
+    if tb:
+        treiber.merken(con, tb)
 
     if ausgeben:
         print(text)

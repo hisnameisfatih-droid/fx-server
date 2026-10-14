@@ -8,8 +8,11 @@ from pathlib import Path
 
 from . import forecast
 from . import setup as setup_mod
-from .common import PAARE, fx_tag, fx_tag_ende, fx_tag_start, jetzt_berlin, schreibe_json
+from . import treiber as treiber_mod
+from .common import PAARE, fx_tag, fx_tag_ende, fx_tag_start, get_logger, jetzt_berlin, schreibe_json
 from .sources.yields import SERIEN
+
+log = get_logger("export")
 
 
 def _eval_dict(e) -> dict | None:
@@ -19,9 +22,14 @@ def _eval_dict(e) -> dict | None:
                               "naive_deviation_pips", "naive_direction_hit")}
 
 
-def alles(con) -> None:
+def alles(con, treiber_daten: dict | None = None) -> None:
     jetzt = jetzt_berlin()
     heute = fx_tag(jetzt).isoformat()
+    if treiber_daten is None:
+        try:
+            treiber_daten = treiber_mod.berechnen(con, jetzt)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Treiber: %s", e)
 
     # --- Reports + Auswertungen ---
     reps = [dict(r) for r in con.execute(
@@ -55,8 +63,13 @@ def alles(con) -> None:
     start = jetzt.replace(hour=0, minute=0, second=0, microsecond=0)
     termine = [dict(t) for t in con.execute("SELECT * FROM calendar WHERE ts>=? AND ts<? ORDER BY ts",
                                              (start.isoformat(), (start + timedelta(days=2)).isoformat()))]
+    studie_termine = {t["name"]: t for t in treiber_mod.studie().get("termine", [])}
     for t in termine:
         t.pop("reminded", None)
+        typ = treiber_mod.termin_typ(t)
+        if typ:   # gemessene Wirkung solcher Termine auf GBP/JPY (Studie 2023–2026)
+            s = studie_termine.get(typ, {})
+            t.update(typ=typ, faktor=s.get("faktor"), avg_abs=s.get("avg_abs"), anteil_1pct=s.get("anteil_ueber_1pct"))
 
     # --- Renditen (30 Tage) ---
     ab = (jetzt.date() - timedelta(days=45)).isoformat()
@@ -110,6 +123,15 @@ def alles(con) -> None:
 
     bias_hist = [{"date": r["date"], "score": r["score"], "bias": r["bias"], "reason": r["reason"],
                   "hit": r["eval"]["direction_hit"] if r["eval"] else None} for r in archiv[:14]][::-1]
+    treiber_hist = [{"date": r["date"], "score": r["treiber_score"], "ampel": r["treiber_ampel"],
+                     "hit": r.get("treiber_hit"), "hit5": r.get("treiber_hit5"), "change_pips": r.get("change_pips")}
+                    for r in [dict(x) for x in con.execute(
+                        "SELECT r.date, r.treiber_score, r.treiber_ampel, e.treiber_hit, e.treiber_hit5, e.change_pips "
+                        "FROM reports r LEFT JOIN evaluations e ON e.date=r.date WHERE r.treiber_score IS NOT NULL "
+                        "ORDER BY r.date DESC LIMIT 15")]]
+    heute_treiber = None
+    if heute_rep and heute_rep.get("treiber_score") is not None:
+        heute_treiber = {"score": heute_rep["treiber_score"], "ampel": heute_rep["treiber_ampel"]}
 
     schreibe_json("dashboard.json", {
         "generated": jetzt.isoformat(),
@@ -129,7 +151,11 @@ def alles(con) -> None:
             "vorschau": (json.loads(heute_rep["data_json"]).get("roh", {}).get("mechanik", {}) or {}).get("setup_vorschau")
             if heute_rep.get("data_json") else None,
             "trend": heute_rep.get("bias_score"),
+            "treiber": heute_treiber,
         },
+        "treiber": treiber_daten,
+        "treiber_verlauf": treiber_hist,
+        "treiber_studie": treiber_mod.studie() or None,
         "setup": setup_heute,
         "setup_bilanz": bilanz,
         "setup_liste": setup_liste,

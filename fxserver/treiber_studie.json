@@ -1,0 +1,472 @@
+{
+ "titel": "Was GBP/JPY seit 2023 bewegt hat",
+ "zeitraum": [
+  "2023-01-03",
+  "2026-10-09"
+ ],
+ "tage": 945,
+ "daten": "Tageskurse der Fed (H.10, Mittag New York), VIX (CBOE), Brent (EIA); Ursachen eigene Einordnung nach Nachrichtenlage",
+ "basis": {
+  "avg_abs": 0.424,
+  "median_abs": 0.319,
+  "ruhig_avg_abs": 0.389,
+  "tage_ueber_1pct": 80,
+  "anteil_ueber_1pct": 8.5
+ },
+ "zerlegung": {
+  "yen_pct": 77,
+  "pfund_pct": 23,
+  "jahre": {
+   "2023": {
+    "yen_pct": 64,
+    "pfund_pct": 36
+   },
+   "2024": {
+    "yen_pct": 87,
+    "pfund_pct": 13
+   },
+   "2025": {
+    "yen_pct": 82,
+    "pfund_pct": 18
+   },
+   "2026": {
+    "yen_pct": 77,
+    "pfund_pct": 23
+   }
+  }
+ },
+ "termine": [
+  {
+   "name": "BoJ-Zinsentscheid",
+   "n": 27,
+   "avg_abs": 0.86,
+   "median_abs": 0.89,
+   "faktor": 2.02,
+   "anteil_ueber_1pct": 41,
+   "groesste": {
+    "datum": "2023-04-28",
+    "r": 2.33
+   },
+   "notiz": null
+  },
+  {
+   "name": "Fed-Zinsentscheid",
+   "n": 29,
+   "avg_abs": 0.73,
+   "median_abs": 0.64,
+   "faktor": 1.72,
+   "anteil_ueber_1pct": 24,
+   "groesste": {
+    "datum": "2024-05-02",
+    "r": -2.34
+   },
+   "notiz": "Gemessen am Folgetag (Entscheid 20:00 Berlin). Die größte Bewegung (2.5.2024) war eine Intervention direkt nach der Fed."
+  },
+  {
+   "name": "BoE-Zinsentscheid",
+   "n": 29,
+   "avg_abs": 0.64,
+   "median_abs": 0.61,
+   "faktor": 1.52,
+   "anteil_ueber_1pct": 17,
+   "groesste": {
+    "datum": "2026-04-30",
+    "r": -1.62
+   },
+   "notiz": "Die größte Bewegung (30.4.2026) war eine Intervention am selben Tag."
+  },
+  {
+   "name": "US-Arbeitsmarkt (NFP)",
+   "n": 40,
+   "avg_abs": 0.57,
+   "median_abs": 0.37,
+   "faktor": 1.35,
+   "anteil_ueber_1pct": 22,
+   "groesste": {
+    "datum": "2024-08-02",
+    "r": -1.87
+   },
+   "notiz": null
+  },
+  {
+   "name": "US-Inflation (CPI)",
+   "n": 37,
+   "avg_abs": 0.54,
+   "median_abs": 0.42,
+   "faktor": 1.26,
+   "anteil_ueber_1pct": 14,
+   "groesste": {
+    "datum": "2023-01-12",
+    "r": -1.7
+   },
+   "notiz": null
+  },
+  {
+   "name": "Japan-Inflation (CPI)",
+   "n": 25,
+   "avg_abs": 0.38,
+   "median_abs": 0.24,
+   "faktor": 0.91,
+   "anteil_ueber_1pct": 4,
+   "groesste": {
+    "datum": "2025-12-19",
+    "r": 1.15
+   },
+   "notiz": "Im Tagesvergleich nicht stärker als ein normaler Tag."
+  },
+  {
+   "name": "UK-Inflation (CPI)",
+   "n": 27,
+   "avg_abs": 0.36,
+   "median_abs": 0.24,
+   "faktor": 0.84,
+   "anteil_ueber_1pct": 4,
+   "groesste": {
+    "datum": "2024-01-17",
+    "r": 1.01
+   },
+   "notiz": "Bewegt GBP/USD, aber GBP/JPY im Tagesvergleich nicht stärker als ein normaler Tag."
+  }
+ ],
+ "kategorien": [
+  {
+   "id": "BoJ",
+   "name": "BoJ-Entscheide und -Aussagen",
+   "anzahl": 14
+  },
+  {
+   "id": "Intervention",
+   "name": "Intervention / Rate-Check",
+   "anzahl": 6
+  },
+  {
+   "id": "Japan-Politik",
+   "name": "Japans Politik (LDP-Wahlen)",
+   "anzahl": 3
+  },
+  {
+   "id": "Risiko-Schock",
+   "name": "Risiko-Schocks (Zölle, Banken, Carry-Crash)",
+   "anzahl": 7
+  },
+  {
+   "id": "US-Daten",
+   "name": "US-Daten und Fed",
+   "anzahl": 6
+  },
+  {
+   "id": "UK",
+   "name": "UK (Haushalt, Daten)",
+   "anzahl": 2
+  },
+  {
+   "id": "gemischt",
+   "name": "gemischt / unklar",
+   "anzahl": 2
+  }
+ ],
+ "grosse_tage": [
+  {
+   "datum": "2024-05-02",
+   "r": -2.34,
+   "usdjpy": -2.49,
+   "gbpusd": 0.15,
+   "kurs": 192.31,
+   "kategorie": "Intervention",
+   "ursache": "Eingriff des japanischen Finanzministeriums direkt nach der Fed (1.5.)"
+  },
+  {
+   "datum": "2024-08-05",
+   "r": -2.34,
+   "usdjpy": -2.08,
+   "gbpusd": -0.26,
+   "kurs": 183.75,
+   "kategorie": "Risiko-Schock",
+   "ursache": "Carry-Crash: BoJ-Erhöhung + schwacher US-Arbeitsmarkt, Nikkei −12,4 %"
+  },
+  {
+   "datum": "2023-04-28",
+   "r": 2.33,
+   "usdjpy": 1.44,
+   "gbpusd": 0.89,
+   "kurs": 171.1,
+   "kategorie": "BoJ",
+   "ursache": "Erste Sitzung unter Ueda: Zinskurvensteuerung bleibt, Yen schwach"
+  },
+  {
+   "datum": "2023-12-07",
+   "r": -2.16,
+   "usdjpy": -2.1,
+   "gbpusd": -0.06,
+   "kurs": 181.3,
+   "kategorie": "BoJ",
+   "ursache": "Ueda: Lage wird „herausfordernder“ – Spekulation auf Ende der Negativzinsen"
+  },
+  {
+   "datum": "2024-07-31",
+   "r": -2.11,
+   "usdjpy": -2.2,
+   "gbpusd": 0.09,
+   "kurs": 193.09,
+   "kategorie": "BoJ",
+   "ursache": "BoJ erhöht auf 0,25 % und halbiert die Anleihekäufe"
+  },
+  {
+   "datum": "2023-03-15",
+   "r": -2.08,
+   "usdjpy": -1.14,
+   "gbpusd": -0.94,
+   "kurs": 159.8,
+   "kategorie": "Risiko-Schock",
+   "ursache": "Bankenkrise (SVB, Credit Suisse)"
+  },
+  {
+   "datum": "2026-09-03",
+   "r": -1.92,
+   "usdjpy": -2.16,
+   "gbpusd": 0.24,
+   "kurs": 210.33,
+   "kategorie": "BoJ",
+   "ursache": "Takata (BoJ) zur Größe künftiger Erhöhungen, Bessent trifft Katayama und Ueda"
+  },
+  {
+   "datum": "2024-08-02",
+   "r": -1.87,
+   "usdjpy": -2.07,
+   "gbpusd": 0.2,
+   "kurs": 188.1,
+   "kategorie": "US-Daten",
+   "ursache": "Schwacher US-Arbeitsmarktbericht, Beginn des Carry-Abbaus"
+  },
+  {
+   "datum": "2025-10-06",
+   "r": 1.77,
+   "usdjpy": 1.81,
+   "gbpusd": -0.04,
+   "kurs": 202.16,
+   "kategorie": "Japan-Politik",
+   "ursache": "Takaichi wird LDP-Chefin – Erwartung lockerer Politik"
+  },
+  {
+   "datum": "2024-08-07",
+   "r": 1.76,
+   "usdjpy": 1.58,
+   "gbpusd": 0.18,
+   "kurs": 187.49,
+   "kategorie": "BoJ",
+   "ursache": "Vize Uchida: keine Erhöhung, solange Märkte unruhig sind"
+  },
+  {
+   "datum": "2024-10-31",
+   "r": -1.73,
+   "usdjpy": -0.52,
+   "gbpusd": -1.2,
+   "kurs": 195.87,
+   "kategorie": "UK",
+   "ursache": "UK-Haushalt (30.10.) löst Gilt-Ausverkauf aus, dazu BoJ-Sitzung"
+  },
+  {
+   "datum": "2024-09-27",
+   "r": -1.7,
+   "usdjpy": -1.45,
+   "gbpusd": -0.25,
+   "kurs": 191.0,
+   "kategorie": "Japan-Politik",
+   "ursache": "Ishiba gewinnt LDP-Wahl (galt als BoJ-freundlich)"
+  },
+  {
+   "datum": "2023-01-12",
+   "r": -1.7,
+   "usdjpy": -2.16,
+   "gbpusd": 0.46,
+   "kurs": 158.06,
+   "kategorie": "BoJ",
+   "ursache": "Bericht über BoJ-Prüfung der Zinskurvensteuerung + weiche US-Inflation"
+  },
+  {
+   "datum": "2026-08-03",
+   "r": -1.66,
+   "usdjpy": -1.39,
+   "gbpusd": -0.27,
+   "kurs": 210.85,
+   "kategorie": "Intervention",
+   "ursache": "Nachwirkung der gemeinsamen Intervention USA/Japan (30./31.7.)"
+  },
+  {
+   "datum": "2023-01-04",
+   "r": 1.66,
+   "usdjpy": 0.89,
+   "gbpusd": 0.77,
+   "kurs": 159.23,
+   "kategorie": "BoJ",
+   "ursache": "Spekulation auf BoJ-Kurswechsel (dünner Handel nach Neujahr)"
+  },
+  {
+   "datum": "2025-02-12",
+   "r": 1.64,
+   "usdjpy": 1.47,
+   "gbpusd": 0.17,
+   "kurs": 192.41,
+   "kategorie": "US-Daten",
+   "ursache": "Hohe US-Inflation, US-Renditen steigen"
+  },
+  {
+   "datum": "2023-01-03",
+   "r": -1.64,
+   "usdjpy": -0.75,
+   "gbpusd": -0.89,
+   "kurs": 156.61,
+   "kategorie": "BoJ",
+   "ursache": "Spekulation auf BoJ-Kurswechsel (dünner Handel nach Neujahr)"
+  },
+  {
+   "datum": "2024-07-24",
+   "r": -1.64,
+   "usdjpy": -1.7,
+   "gbpusd": 0.06,
+   "kurs": 198.26,
+   "kategorie": "Risiko-Schock",
+   "ursache": "Carry-Abbau beginnt, Politiker fordern BoJ-Normalisierung"
+  },
+  {
+   "datum": "2026-04-30",
+   "r": -1.62,
+   "usdjpy": -2.25,
+   "gbpusd": 0.64,
+   "kurs": 212.74,
+   "kategorie": "Intervention",
+   "ursache": "Eingriff bei USD/JPY 160,7 nach „letzter Warnung“ von Mimura"
+  },
+  {
+   "datum": "2025-04-03",
+   "r": -1.59,
+   "usdjpy": -2.66,
+   "gbpusd": 1.07,
+   "kurs": 191.5,
+   "kategorie": "Risiko-Schock",
+   "ursache": "US-Zölle („Liberation Day“)"
+  }
+ ],
+ "schuebe_5t": [
+  {
+   "bis": "2024-08-05",
+   "r": -7.41,
+   "ursache": "Carry-Crash: BoJ-Erhöhung, schwacher US-Arbeitsmarkt, Nikkei −12,4 %"
+  },
+  {
+   "bis": "2025-04-09",
+   "r": -4.89,
+   "ursache": "US-Zollschock"
+  },
+  {
+   "bis": "2026-09-09",
+   "r": -4.0,
+   "ursache": "BoJ-Erhöhungswetten (Takata, JGB 10y bei 3 %), Signale aus Washington"
+  },
+  {
+   "bis": "2023-01-23",
+   "r": 3.63,
+   "ursache": "BoJ hält an der Zinskurvensteuerung fest (18.1.)"
+  },
+  {
+   "bis": "2023-06-16",
+   "r": 3.62,
+   "ursache": "BoJ bleibt locker, starke UK-Löhne → BoE-Erhöhungswetten"
+  },
+  {
+   "bis": "2024-09-20",
+   "r": 3.52,
+   "ursache": "Fed senkt um 0,5 Pp., BoJ hält still"
+  },
+  {
+   "bis": "2026-08-03",
+   "r": -3.23,
+   "ursache": "Gemeinsame Intervention USA/Japan (30./31.7.)"
+  },
+  {
+   "bis": "2025-10-08",
+   "r": 3.09,
+   "ursache": "Takaichi wird LDP-Chefin"
+  },
+  {
+   "bis": "2023-12-07",
+   "r": -3.05,
+   "ursache": "Ueda-Aussagen: Spekulation auf Ende der Negativzinsen"
+  },
+  {
+   "bis": "2025-01-13",
+   "r": -3.03,
+   "ursache": "Gilt-Ausverkauf (30y auf höchstem Stand seit 1998) → Pfund schwach"
+  }
+ ],
+ "treiber": {
+  "vix": {
+   "n": 924,
+   "korr_gbpjpy": -0.18,
+   "korr_usdjpy": -0.07,
+   "korr_jahre": {
+    "2023": -0.21,
+    "2024": -0.23,
+    "2025": -0.25,
+    "2026": 0.02
+   },
+   "schwelle_hoch_pct": 11.7,
+   "gbpjpy_bei_hoch": -0.39,
+   "abs_bei_hoch": 0.68,
+   "schwelle_tief_pct": -10.8,
+   "gbpjpy_bei_tief": 0.09
+  },
+  "brent": {
+   "n": 906,
+   "korr_gbpjpy": 0.09,
+   "korr_usdjpy": 0.14,
+   "korr_jahre": {
+    "2023": 0.06,
+    "2024": 0.11,
+    "2025": 0.12,
+    "2026": 0.11
+   },
+   "schwelle_hoch_pct": 3.7,
+   "gbpjpy_bei_hoch": 0.06,
+   "abs_bei_hoch": 0.35,
+   "schwelle_tief_pct": -4.0,
+   "gbpjpy_bei_tief": -0.07
+  },
+  "us10_monat": {
+   "korr_usdjpy": 0.75,
+   "korr_gbpjpy": 0.43,
+   "beta_10bp_pct": 0.86,
+   "n": 55
+  }
+ },
+ "befunde": [
+  {
+   "titel": "Yen-Seite dominiert",
+   "text": "77 % der Tagesschwankung von GBP/JPY kommen über USD/JPY, nur 23 % über das Pfund. 35 der 40 größten Tage waren Yen-getrieben."
+  },
+  {
+   "titel": "Interventionszone",
+   "text": "Lag USD/JPY über 160 (50 Tage), war GBP/JPY 5 Tage später im Schnitt −0,15 % (sonst +0,15 %). Beste Woche +1,6 %, schlechteste −4,0 %: wenig zu gewinnen, viel zu verlieren."
+  },
+  {
+   "titel": "Zu schneller Yen-Verfall",
+   "text": "Stieg USD/JPY in 5 Tagen um 2 % oder mehr (über 150, 18 Fälle), fiel GBP/JPY in den nächsten 5 Tagen in 78 % der Fälle (Ø −0,45 %)."
+  },
+  {
+   "titel": "Angst-Sprünge",
+   "text": "Sprang der VIX an einem Tag um mehr als 25 % (9 Fälle), lag GBP/JPY am Folgetag in 78 % der Fälle im Minus. Kleinere VIX-Anstiege sagten nichts voraus."
+  },
+  {
+   "titel": "Nach Einbrüchen",
+   "text": "Nach Tagen mit mehr als −1,2 % (25 Fälle) stand GBP/JPY 5 Tage später im Median +0,9 % höher – Einbrüche wurden meist teilweise aufgeholt."
+  },
+  {
+   "titel": "Interventionen nach US-Terminen",
+   "text": "Mehrere Eingriffe kamen direkt nach großen US-Terminen (1.5.2024 nach der Fed, 11.7.2024 nach US-Inflation). In der Interventionszone sind solche Abende doppelt riskant."
+  },
+  {
+   "titel": "Grenzen",
+   "text": "Keine dieser Kennzahlen sagt die Richtung des nächsten Tages zuverlässig voraus (im Schnitt ±0,05 %). Sie zeigen Risiko und Rückenwind. Deshalb wird die Empfehlung täglich nachgemessen."
+  }
+ ]
+}

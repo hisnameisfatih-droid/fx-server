@@ -4,8 +4,9 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
-from .common import PAARE, PIP_GROESSE, get_logger
+from .common import PAARE, PIP_GROESSE, get_logger, kv_set
 from .sources import calendar as cal_src
+from .sources import markt as markt_src
 from .sources import news as news_src
 from .sources import prices as px_src
 from .sources import yields as y_src
@@ -51,6 +52,30 @@ def renditen_aktualisieren(con: sqlite3.Connection, mit_historie: bool = False) 
             con.execute("INSERT OR REPLACE INTO yields(date, series, value) VALUES(?, ?, ?)", (d, s, v))
     con.commit()
     log.info("Renditen: %d Tage, Fehler: %s", len(werte), fehler or "-")
+    return fehler
+
+
+def markt_aktualisieren(con: sqlite3.Connection) -> list[str]:
+    """VIX, Nikkei, Brent -> Tabelle markt (Tagesschlüsse, laufender Tag mit aktuellem Kurs) + kv 'markt:live'."""
+    werte, live, fehler = markt_src.lade_markt()
+    for serie, reihe in werte.items():
+        for d, v in reihe.items():
+            con.execute("INSERT OR REPLACE INTO markt(date, series, value) VALUES(?, ?, ?)", (d, serie, v))
+    con.commit()
+    if live:
+        kv_set(con, "markt:live", live)
+    log.info("Markt: %s, Fehler: %s", {s: len(r) for s, r in werte.items()}, fehler or "-")
+    return fehler
+
+
+def cftc_aktualisieren(con: sqlite3.Connection) -> list[str]:
+    daten, fehler = markt_src.lade_cftc()
+    for waehrung, reihe in daten.items():
+        for d, w in reihe.items():
+            con.execute("INSERT OR REPLACE INTO markt(date, series, value) VALUES(?, ?, ?)", (d, f"cftc_{waehrung}_netto", w["netto"]))
+            con.execute("INSERT OR REPLACE INTO markt(date, series, value) VALUES(?, ?, ?)", (d, f"cftc_{waehrung}_oi", w["oi"]))
+    con.commit()
+    log.info("CFTC: %s, Fehler: %s", {w: len(r) for w, r in daten.items()}, fehler or "-")
     return fehler
 
 

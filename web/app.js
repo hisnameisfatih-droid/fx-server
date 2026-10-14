@@ -4,7 +4,7 @@
 const FLAGGE = { GBP: "🇬🇧", JPY: "🇯🇵", USD: "🇺🇸" };
 const TREND = { 1: "Aufwärtstrend", "-1": "Abwärtstrend", 0: "kein klarer Trend" };
 const NEWS = { "-2": "klar belastend", "-1": "leicht belastend", 0: "neutral", 1: "leicht stützend", 2: "klar stützend" };
-const S = { dash: null, live: null, archiv: null, bt: null, newsFilter: "ALL", offen: null };
+const S = { dash: null, live: null, archiv: null, bt: null, newsFilter: "ALL", offen: null, trOffen: null };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const zahl = (v, d = 3) => (v == null || isNaN(v) ? "–" : Number(v).toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -193,6 +193,90 @@ function renderChart() {
     (r?.range?.[0] ? `<span><i class="kasten" style="background:rgba(127,178,255,.25)"></i>Schluss-Spanne 68 %</span>` : "");
 }
 
+/* ---------------- Treiber und Empfehlung ---------------- */
+const RISIKO = { normal: "Risiko normal", halbiert: "Risiko halbieren", "kein neues Risiko": "Kein neues Risiko" };
+const standText = (s) => (!s ? "–" : s.length > 10 ? uhr(new Date(s)) : datumLang(s).slice(0, 6));
+const minus = (s) => esc(s).replace(/(^|[\s(])-(?=\d)/g, "$1−");   /* typografisches Minus in Server-Texten */
+const tage = (n) => `${n} ${n === 1 ? "Tag" : "Tage"}`;
+function treiberPlan(code, r) {
+  if (!r?.exp?.[0] || !r?.levels?.[0]) return "";
+  const [eh, et] = r.exp, [vh, vt] = r.levels, b = (v) => `<b>${zahl(v)}</b>`;
+  if (code === "short" || code === "leicht_short")
+    return `Shorts eher bei Rücklauf an ${b(eh)} (erw. Hoch) oder unter ${b(vt)} (Vortagestief). Ziel-Zone ${b(et)} (erw. Tief). Über ${b(vh)} (Vortageshoch) kippt das Bild.`;
+  if (code === "long" || code === "leicht_long")
+    return `Longs eher bei Rücklauf an ${b(et)} (erw. Tief) oder über ${b(vh)} (Vortageshoch). Ziel-Zone ${b(eh)} (erw. Hoch). Unter ${b(vt)} (Vortagestief) kippt das Bild.`;
+  if (code === "long_meiden") return `Keine Longs. Shorts erst unter ${b(vt)} (Vortagestief), Ziel-Zone ${b(et)} (erw. Tief).`;
+  return `Marken heute: erw. Hoch ${b(eh)} · erw. Tief ${b(et)} · Vortag ${b(vh)} / ${b(vt)}`;
+}
+function skala(score) {
+  const pos = score == null ? null : 50 + score / 2;
+  return `<div class="tr-skala" role="img" aria-label="Treiber-Score ${score ?? "nicht verfügbar"} auf einer Skala von −100 bis +100">
+      <span class="z s2"></span><span class="z s1"></span><span class="z n"></span><span class="z l1"></span><span class="z l2"></span>
+      ${pos == null ? "" : `<i style="left:${pos}%"></i>`}</div>
+    <div class="tr-skala-l"><span>−100 Short</span><span>0</span><span>Long +100</span></div>`;
+}
+function renderTreiber() {
+  const t = S.dash?.treiber, r = S.dash?.report;
+  if (!t) { $("tr-ampel").innerHTML = `<p class="leer">Treiber werden gerade berechnet …</p>`; $("tr-liste").innerHTML = ""; $("tr-stand").textContent = ""; return; }
+  const e = t.empfehlung || {};
+  $("tr-stand").textContent = `${t.abdeckung.n}/${t.abdeckung.von} Treiber · Stand ${uhr(new Date(t.stand))}`;
+  const hinweise = (e.hinweise || []).map((h) => `<li>${esc(h)}</li>`).join("") +
+    (t.termin_hinweis && e.code !== "abwarten" ? `<li>Termin: ${esc(t.termin_hinweis)}</li>` : "");
+  const plan = treiberPlan(e.code, r);
+  $("tr-ampel").innerHTML = `<div class="tr-titel ${esc(e.farbe || "neutral")}">${esc(e.titel || "–")}</div>
+    <div class="tr-score">Score <b class="num">${t.score == null ? "–" : vz(t.score)}</b> <span>(−100 bis +100)</span></div>
+    ${skala(t.score)}
+    <p class="tr-text">${esc(e.text || "")}</p>
+    <span class="tr-risiko${e.risiko === "normal" ? "" : " warn"}">${esc(RISIKO[e.risiko] || e.risiko || "")}</span>
+    ${hinweise ? `<ul class="tr-hinweise">${hinweise}</ul>` : ""}
+    ${plan ? `<p class="tr-plan">${plan}</p>` : ""}
+    ${r?.treiber ? `<div class="tr-morgen">Morgenreport 06:45: ${esc(r.treiber.ampel || "–")} (${vz(r.treiber.score)})</div>` : ""}
+    <p class="hinweis">Mechanische Regel aus 10 gewichteten Treibern, alle 30 Min neu (Kurs laufend). Neu seit Oktober 2026 – die Trefferquote steht unter „Wie gut funktioniert das?“. Keine Anlageberatung.</p>`;
+  $("tr-liste").innerHTML = t.items.map((i) => {
+    const b = i.beitrag, auf = S.trOffen === i.id;
+    const kl = i.signal == null ? "fehlt" : i.wirkung === "stützt" ? "auf" : i.wirkung === "drückt" ? "ab" : "flach";
+    const pfeil = { fehlt: "·", auf: "▲", ab: "▼", flach: "–" }[kl];
+    const breite = b == null ? 0 : Math.min(50, (Math.abs(b) / 20) * 50);
+    return `<div class="tr-zeile${auf ? " offen" : ""}${i.signal == null ? " leise" : ""}">
+      <button class="tr-kopf" data-id="${esc(i.id)}" aria-expanded="${auf}">
+        <span class="tr-pfeil ${kl}" aria-label="${esc(i.wirkung || "keine Daten")}">${pfeil}</span>
+        <span class="tr-name">${esc(i.name)}<small>${esc(i.text)}</small></span>
+        <span class="tr-wert num">${minus(i.wert_text)}<small>${minus(i.aenderung_text || "")}</small></span>
+        <span class="tr-balken" title="Beitrag zum Score: ${b == null ? "–" : vz(b, 1)} von max. ±${i.gewicht}"><i class="${b > 0 ? "pos" : "neg"}" style="width:${breite}%;left:${b > 0 ? 50 : 50 - breite}%"></i></span>
+      </button>
+      ${auf ? `<div class="tr-mehr"><p>${esc(i.warum)}</p>
+        <div class="tr-meta"><span>Gewicht ${i.gewicht}</span><span>Beitrag ${b == null ? "–" : vz(b, 1)}</span><span>${esc(i.quelle)}</span><span>${esc(i.takt)}</span><span>Stand ${esc(standText(i.stand))}</span></div>
+        ${i.id === "intervention" && i.warnungen?.length ? `<ul class="tr-warn">${i.warnungen.map((w) => `<li>${esc(w.title)} <span>${esc(w.source)}</span></li>`).join("")}</ul>` : ""}</div>` : ""}
+    </div>`;
+  }).join("");
+  $("tr-liste").querySelectorAll(".tr-kopf").forEach((k) => k.addEventListener("click", () => { S.trOffen = S.trOffen === k.dataset.id ? null : k.dataset.id; renderTreiber(); }));
+}
+
+/* ---------------- Studie: was GBP/JPY bewegt hat ---------------- */
+function renderStudie() {
+  const s = S.dash?.treiber_studie;
+  if (!s) { $("studie").innerHTML = `<p class="leer">Studie nicht verfügbar.</p>`; return; }
+  const pc = (v, d = 2) => `${zahl(v, d)} %`;
+  $("sum-studie").textContent = `${s.zerlegung.yen_pct} % kommen über den Yen · BoJ-Tage ${zahl(s.termine[0]?.faktor, 1)}× Bewegung`;
+  let h = `<div class="kpis">${kpi(pc(s.zerlegung.yen_pct, 0), "der Schwankung über den Yen", `Pfund: ${s.zerlegung.pfund_pct} %`)}
+    ${kpi(pc(s.basis.avg_abs), "Ø Tagesbewegung", `Median ${pc(s.basis.median_abs)}`)}
+    ${kpi(pc(s.basis.anteil_ueber_1pct, 1), "der Tage über 1 %", `${s.basis.tage_ueber_1pct} von ${s.tage} Tagen`)}
+    ${kpi(s.tage, "Handelstage", `${datumLang(s.zeitraum[0])} – ${datumLang(s.zeitraum[1])}`)}</div>`;
+  h += `<h3>Termine: wie stark bewegen sie GBP/JPY?</h3><div class="tabbox"><table><thead><tr><th>Termin</th><th class="r">Ø Bewegung</th><th class="r">× normal</th><th class="r">über 1 %</th><th class="r">Fälle</th></tr></thead><tbody>` +
+    s.termine.map((t) => `<tr><td class="wrap">${esc(t.name)}${t.notiz ? `<div class="hinweis">${esc(t.notiz)}</div>` : ""}</td><td class="r">${pc(t.avg_abs)}</td><td class="r${t.faktor >= 1.5 ? " stark" : ""}">${zahl(t.faktor, 2)}×</td><td class="r">${t.anteil_ueber_1pct} %</td><td class="r">${t.n}</td></tr>`).join("") +
+    `</tbody></table></div><p class="hinweis">Ein Tag ohne große Termine bewegt GBP/JPY im Schnitt ${pc(s.basis.ruhig_avg_abs)}. Gemessen von Mittag zu Mittag (New York).</p>`;
+  const maxK = Math.max(...s.kategorien.map((k) => k.anzahl));
+  h += `<h3>Ursachen der 40 größten Tagesbewegungen</h3><div class="st-balken">` +
+    s.kategorien.map((k) => `<div><span>${esc(k.name)}</span><i style="width:${(k.anzahl / maxK) * 100}%"></i><b>${k.anzahl}</b></div>`).join("") + `</div>`;
+  const tabelle = (zeilen, kopf, datum) => `<div class="tabbox"><table><thead><tr><th>${kopf}</th><th class="r">GBP/JPY</th><th>Ursache</th></tr></thead><tbody>` +
+    zeilen.map((g) => `<tr><td>${datumLang(g[datum])}</td><td class="r ${g.r > 0 ? "ok" : "nein"}">${vz(g.r, 2, " %")}</td><td class="wrap">${esc(g.ursache)}</td></tr>`).join("") + `</tbody></table></div>`;
+  h += `<h3>Die 20 größten Tage</h3>${tabelle(s.grosse_tage, "Tag", "datum")}`;
+  h += `<h3>Die stärksten 5-Tage-Schübe</h3>${tabelle(s.schuebe_5t, "bis", "bis")}`;
+  h += `<h3>Was die Daten sagen</h3><div class="st-befunde">` + s.befunde.map((b) => `<div><b>${esc(b.titel)}</b><p>${esc(b.text)}</p></div>`).join("") + `</div>`;
+  h += `<p class="hinweis">${esc(s.daten)}.</p>`;
+  $("studie").innerHTML = h;
+}
+
 /* ---------------- Tag auf einen Blick ---------------- */
 function renderBlick() {
   const r = S.dash?.report, v = S.dash?.prev_close?.gbpjpy;
@@ -213,8 +297,8 @@ function renderTermine() {
     const d = new Date(t.ts), auf = S.offen === t.id;
     return `<div class="termin${d < jetzt ? " vorbei" : ""}" data-id="${t.id}" role="button" tabindex="0" aria-expanded="${auf}">
       <span class="z">${uhr(d)}</span><span class="imp ${t.impact}" title="${t.impact === "high" ? "hoher" : "mittlerer"} Einfluss"></span>
-      <span>${FLAGGE[t.currency] || ""} ${esc(t.title)}</span>
-      ${auf ? `<div class="det"><span>Forecast ${esc(t.forecast || "–")}</span><span>Previous ${esc(t.previous || "–")}</span><span>Actual ${esc(t.actual || "n/v")}</span><div>${esc(t.effect || "Wirkung kommt mit dem Morgenreport.")}</div></div>` : ""}</div>`;
+      <span>${FLAGGE[t.currency] || ""} ${esc(t.title)}${t.faktor ? `<span class="fak${t.faktor >= 1.5 ? " hoch" : ""}" title="So viel Bewegung wie ein normaler Tag (Studie 2023–2026)">${zahl(t.faktor, 1)}×</span>` : ""}</span>
+      ${auf ? `<div class="det"><span>Forecast ${esc(t.forecast || "–")}</span><span>Previous ${esc(t.previous || "–")}</span><span>Actual ${esc(t.actual || "n/v")}</span><div>${esc(t.effect || "Wirkung kommt mit dem Morgenreport.")}</div>${t.faktor ? `<div>Seit 2023 an solchen Tagen: GBP/JPY Ø ${zahl(t.avg_abs, 2)} % Bewegung (${zahl(t.faktor, 1)}× normal), ${t.anteil_1pct} % der Tage über 1 %.</div>` : ""}</div>` : ""}</div>`;
   }).join("") : `<p class="leer" style="padding:4px 0">Heute keine wichtigen Termine für GBP, JPY oder USD.</p>`;
   $("termine").querySelectorAll(".termin").forEach((z) => {
     const f = () => { S.offen = S.offen === z.dataset.id ? null : z.dataset.id; renderTermine(); };
@@ -284,13 +368,21 @@ function renderBilanz() {
   h += `<h3>Tagesprognose (letzte 30 Tage)</h3><div class="kpis">${kpi(pz(q.range_pct), "Schluss in der Spanne", "Ziel 68 %")}${kpi(pz(q.direction_pct), "Trendregel richtig", `Vortagesrichtung: ${pz(q.naive_direction_pct)}`)}
     ${kpi(pz(q.news_pct), "News-Tendenz richtig", "Einschätzung von Claude")}${kpi(q.n ?? 0, "ausgewertete Tage")}</div>
     <p class="hinweis">Historisch trifft keine einfache Regel die Tagesrichtung deutlich öfter als 50 %. Trend und News sind Orientierung, keine Vorhersage.</p>`;
+  const tv = d.treiber_verlauf || [];
+  const ok = (x) => (x == null ? `<span class="hinweis">–</span>` : x ? `<span class="ok">✓</span>` : `<span class="nein">✗</span>`);
+  h += `<h3>Treiber-Empfehlung (letzte 30 Tage)</h3><div class="kpis">${kpi(pz(q.treiber_pct), "Richtung am selben Tag", `${tage(q.treiber_n ?? 0)} mit klarer Richtung (Score ab ±15)`)}
+    ${kpi(pz(q.treiber5_pct), "Richtung über 5 Tage", `${q.treiber5_n ?? 0} ausgewertet`)}</div>` +
+    (tv.length ? `<div class="tabbox"><table><thead><tr><th>Tag</th><th class="r">Score</th><th>Empfehlung 06:45</th><th class="r">Tag</th><th class="r">5 Tage</th></tr></thead><tbody>` +
+      tv.slice(0, 10).map((x) => `<tr><td>${wochentag(x.date)} ${datumLang(x.date).slice(0, 6)}</td><td class="r">${vz(x.score)}</td><td>${esc(x.ampel || "–")}</td><td class="r">${ok(x.hit)}</td><td class="r">${ok(x.hit5)}</td></tr>`).join("") +
+      `</tbody></table></div>` : "") +
+    `<p class="hinweis">Die Treiber zeigen Rückenwind und Risiko, nicht die sichere Richtung. Über 5 Tage sollten sie besser treffen als am einzelnen Tag – das wird hier ehrlich nachgemessen.</p>`;
   $("bilanz").innerHTML = h;
 }
 
 /* ---------------- Renditen ---------------- */
 function renderRenditen() {
   const y = S.dash?.yields || {};
-  const reihen = ["uk10", "uk30", "jp10", "jp2", "us10"].filter((k) => y[k]);
+  const reihen = ["uk2", "uk10", "uk30", "jp2", "jp10", "us2", "us10"].filter((k) => y[k]);
   $("sum-renditen").textContent = y.uk10?.value != null && y.jp10?.value != null ? `Gilt 10y ${zahl(y.uk10.value, 2)} % · JGB 10y ${zahl(y.jp10.value, 2)} %` : "";
   $("renditen").innerHTML = `<thead><tr><th>Anleihe</th><th class="r">Rendite</th><th class="r">zum Vortag</th><th class="r">Stand</th></tr></thead><tbody>` +
     reihen.map((k) => { const s = y[k]; return `<tr><td>${esc(s.name)}</td><td class="r">${s.value == null ? "n/v" : zahl(s.value, 3) + " %"}</td><td class="r">${vz(s.delta_bp, 1, " bp")}</td><td class="r">${s.date ? datumLang(s.date).slice(0, 6) : "–"}</td></tr>`; }).join("") + "</tbody>";
@@ -332,7 +424,7 @@ $("z30").addEventListener("click", () => zeitraum(30)); $("z90").addEventListene
 $("d-archiv").addEventListener("toggle", () => { if ($("d-archiv").open && !S.archiv) ladeArchiv(); });
 
 /* ---------------- Laden ---------------- */
-function allesZeichnen() { renderKopf(); renderTicket(); renderChart(); renderBlick(); renderTermine(); renderLage(); renderBilanz(); renderRenditen(); }
+function allesZeichnen() { renderKopf(); renderTicket(); renderChart(); renderTreiber(); renderBlick(); renderTermine(); renderLage(); renderBilanz(); renderStudie(); renderRenditen(); }
 async function ladeLive() { try { S.live = await lade("live.json"); } catch (e) { S.live = null; } if (S.dash) { renderKopf(); renderTicket(); renderChart(); } }
 async function ladeDash() {
   try { S.dash = await lade("dashboard.json"); } catch (e) { $("stand").textContent = "Noch keine Daten – der Server sammelt gerade."; return; }

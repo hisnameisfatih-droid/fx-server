@@ -3,8 +3,8 @@
 GBP/JPY-Kursalarm, Morgenreport per WhatsApp und Dashboard – läuft auf einem Hetzner-Server (Ubuntu) und
 aktualisiert sich selbst aus diesem Repo.
 
-**Keine Anlageberatung, keine Handelssignale.** Nur Nachrichtenlage, Termine, statistische Spanne, Einschätzung
-und eine ehrliche Trefferauswertung.
+**Keine Anlageberatung.** Nachrichtenlage, Termine, statistische Spanne, Einschätzung, ein mechanisches Setup und
+eine mechanische Treiber-Empfehlung – jeweils mit ehrlicher Trefferauswertung.
 
 ## Was läuft
 
@@ -15,7 +15,7 @@ und eine ehrliche Trefferauswertung.
 | Mo–Fr 09:00 | Tages-Setup (London-Ausbruch in Trendrichtung), danach jede Minute Live-Verfolgung mit WhatsApp bei Entry/Ziel/Stop | `fxserver/setup.py` |
 | So 12:00 | Backtest der Setups mit Tiingo-Daten der letzten 2 Jahre | `fxserver/backtest.py --tiingo` |
 | Mo–Fr 23:05 | Trefferauswertung (holt verpasste Tage nach) | `fxserver/evaluate.py` |
-| jede Minute | Setup-Verfolgung, Kalender (stündlich), News (20 Min) + Einordnung, Renditen (3 Std), Termin-Erinnerung, Dashboard-Daten | `fxserver/refresh.py` |
+| jede Minute | Setup-Verfolgung, Kalender (stündlich), News (20 Min) + Einordnung, Renditen (3 Std), VIX/Nikkei/Brent (30 Min), CFTC (6 Std), Treiber-Score + Empfehlung, Termin-Erinnerung, Dashboard-Daten | `fxserver/refresh.py` |
 | alle 10 Min | Updates aus GitHub holen, bei Fehler zurückrollen | `deploy/update.sh` |
 
 ## Datenquellen
@@ -23,8 +23,36 @@ und eine ehrliche Trefferauswertung.
 - Kurse: Tiingo (WebSocket für Live/Alarme, REST für Tageskerzen), optional Finnhub als Reserve
 - Kalender: Forex-Factory-Wochendatei (`nfs.faireconomy.media`) – liefert Forecast/Previous, **kein Actual**
 - News: FXStreet, ActionForex, Reuters (über Google News), Bank of England (News, Reden), Bank of Japan
-- Renditen: Bank of England (Gilt 10y/30y, Spotkurve), MoF Japan (JGB 2y/10y), US Treasury (10y) – Tagesschluss, teils 1 Tag Verzug
+- Renditen: Bank of England (Gilt 2y/10y/30y, Spotkurve), MoF Japan (JGB 2y/10y), US Treasury (2y/10y) – Tagesschluss, teils 1 Tag Verzug
+- Markt: Yahoo Finance (VIX, Nikkei 225, Brent; Ersatz FRED bzw. CBOE), CFTC Commitments of Traders (Yen/Pfund, wöchentlich)
 - Einordnung/Texte: Claude über die Anthropic-API (`CLAUDE_MODEL`, Standard `claude-sonnet-5-5`; News: `claude-haiku-5-5`)
+
+## Treiber und Empfehlung (`fxserver/treiber.py`, Studie: `fxserver/treiber_studie.json`)
+
+Auswahl nach einer Auswertung von GBP/JPY Jan 2023 – Okt 2026 (945 Handelstage, Fed-Tageskurse):
+77 % der Tagesschwankung kommen über USD/JPY, 23 % über GBP/USD. Von den 40 größten Tagesbewegungen hingen
+23 an Japan (BoJ 14, Intervention/Rate-Check 6, Politik 3), 13 an USA/Risikostimmung, 2 am Pfund.
+BoJ-Tage bewegen 2,0×, Fed 1,7×, BoE 1,5×, US-Arbeitsmarkt 1,35×, US-Inflation 1,26× so stark wie normale Tage;
+UK- und Japan-Inflation nicht stärker als normal (0,8–0,9×).
+
+| Treiber | Gewicht | Quelle | Takt |
+|---|---|---|---|
+| Interventionsrisiko (USD/JPY-Niveau, Tempo, Warnungen in den News) | 20 | Tiingo + News | laufend |
+| BoJ-Erwartung (JGB 2y, Veränderung 5 Tage) | 15 | MoF | täglich |
+| US-Renditen (Treasury 10y) | 15 | US Treasury | täglich |
+| BoE-Erwartung (Gilt 2y) | 10 | BoE | täglich |
+| Zinsabstand UK–JP 2y (Carry, 20 Tage) | 5 | BoE + MoF | täglich |
+| VIX (Niveau, Sprung) | 10 | Yahoo/FRED/CBOE | 30 Min |
+| Nikkei 225 | 10 | Yahoo/FRED | 30 Min |
+| UK-Haushaltsstress (Gilt 30y steigt + Pfund fällt) | 5 | BoE + Tiingo | täglich |
+| Brent | 5 | Yahoo/FRED | 30 Min |
+| CFTC-Positionierung (Extreme = Squeeze-Gefahr) | 5 | CFTC | wöchentlich |
+
+Jeder Treiber gibt ein Signal von −1 bis +1, Score = gewichtete Summe auf −100…+100 (fehlende/veraltete Treiber
+werden herausgerechnet, unter 40 % Gewicht: keine Empfehlung). Stufen: ab ±15 leicht, ab ±30 klar, 5 Punkte Puffer.
+Vorrang: Interventionsalarm → „LONG MEIDEN“, 3 Std vor BoJ/Fed/BoE/UK-Haushalt → „ABWARTEN“.
+WhatsApp bei Interventionsalarm oder Wechsel LONG/NEUTRAL/SHORT (Mo–Fr 7–22 Uhr, max. 3/Tag, abschaltbar mit
+`TREIBER_ALARM=0`). Trefferquote: Richtung am Tag und über 5 Tage (`evaluate.py`), sichtbar im Dashboard.
 
 ## Prognose-Modell (`fxserver/forecast.py`) – kalibriert an GBP/JPY 2012–2022
 

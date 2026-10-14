@@ -15,7 +15,7 @@ NEU=$(git rev-parse origin/main)
 echo "===== $(date) Update ${ALT:0:7} -> ${NEU:0:7} ====="
 git reset -q --hard "$NEU"
 melden() { FX_MELDUNG="$1" venv/bin/python -c "import os; from fxserver.common import whatsapp; whatsapp(os.environ['FX_MELDUNG'])" || true; }
-if bash deploy/install.sh update && venv/bin/python -c "import fxserver.report, fxserver.evaluate, fxserver.refresh, fxserver.setup, fxserver.backtest"; then
+if bash deploy/install.sh update && venv/bin/python -c "import fxserver.report, fxserver.evaluate, fxserver.refresh, fxserver.setup, fxserver.backtest, fxserver.treiber, fxserver.sources.markt"; then
   melden "🔄 FX-Server aktualisiert: $(git log -1 --pretty=%s)"
 else
   echo "Update fehlgeschlagen – zurück auf ${ALT:0:7}"

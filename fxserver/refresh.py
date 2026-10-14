@@ -1,7 +1,9 @@
 """Laufende Aktualisierung (jede Minute per systemd-Timer).
 
 - Kalender stündlich, News alle 20 Min (+ Einordnung durch Claude), Renditen alle 3 Std
+- Treiber: VIX/Nikkei/Brent alle 30 Min, CFTC alle 6 Std, Score + Empfehlung jede Minute (mit Live-USD/JPY)
 - WhatsApp-Erinnerung 15 Min vor roten Terminen (abschaltbar mit TERMIN_ERINNERUNG=0 in der env-Datei)
+- WhatsApp bei Interventionsalarm oder Wechsel der Treiber-Empfehlung (abschaltbar mit TREIBER_ALARM=0)
 - Dashboard-Dateien neu schreiben
 """
 from __future__ import annotations
@@ -11,8 +13,10 @@ from datetime import datetime, timedelta
 
 from . import export
 from . import setup as setup_mod
+from . import treiber
 from .common import TZ_BERLIN, db, faellig, get_logger, jetzt_berlin, whatsapp
-from .daten import fx_tage_aktualisieren, news_aktualisieren, renditen_aktualisieren, termine_aktualisieren
+from .daten import (cftc_aktualisieren, fx_tage_aktualisieren, markt_aktualisieren, news_aktualisieren,
+                    renditen_aktualisieren, termine_aktualisieren)
 from .news_klassifikation import klassifizieren
 
 log = get_logger("refresh")
@@ -58,8 +62,37 @@ def main() -> int:
         setup_mod.verfolgen(con)
     except Exception as e:  # noqa: BLE001
         log.warning("Setup-Verfolgung: %s", e)
-    export.alles(con)
+    # Treiber-Quellen erst nach der Setup-Verfolgung (die soll nie warten müssen)
+    if faellig(con, "markt", 30 * 60 - 30):
+        try:
+            markt_aktualisieren(con)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Markt: %s", e)
+    if faellig(con, "cftc", 6 * 3600 - 60):
+        try:
+            cftc_aktualisieren(con)
+        except Exception as e:  # noqa: BLE001
+            log.warning("CFTC: %s", e)
+    tb = None
+    try:
+        tb = treiber.berechnen(con, setup_trend=setup_trend_heute(con))
+        treiber.melden(con, tb, senden=lambda text: whatsapp(text, log))
+        treiber.merken(con, tb)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Treiber: %s", e)
+    export.alles(con, treiber_daten=tb)
     return 0
+
+
+def setup_trend_heute(con) -> int | None:
+    """Richtung des heutigen Setups (falls schon berechnet) – für den Abgleich mit den Treibern."""
+    import json
+    from .common import fx_tag
+    con.executescript(setup_mod.SCHEMA)
+    row = con.execute("SELECT status, data_json FROM setups WHERE date=?", (fx_tag(jetzt_berlin()).isoformat(),)).fetchone()
+    if not row or row["status"] != "aktiv":
+        return None
+    return json.loads(row["data_json"]).get("trend") or None
 
 
 if __name__ == "__main__":

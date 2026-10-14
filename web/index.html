@@ -32,6 +32,14 @@
     </section>
   </div>
 
+  <section class="karte treiber" aria-labelledby="h-treiber">
+    <div class="zeile-kopf"><h2 id="h-treiber">Treiber und Empfehlung</h2><span class="countdown" id="tr-stand"></span></div>
+    <div class="tr-grid">
+      <div class="tr-ampel" id="tr-ampel" aria-live="polite"></div>
+      <div class="tr-liste" id="tr-liste"></div>
+    </div>
+  </section>
+
   <section class="blick" id="blick" aria-label="Tag auf einen Blick"></section>
 
   <section class="karte">
@@ -55,11 +63,16 @@
     <div class="inhalt" id="bilanz"></div>
   </details>
 
+  <details class="mehr" id="d-studie">
+    <summary><h2>Was GBP/JPY seit 2023 bewegt hat</h2><span class="sumhint" id="sum-studie"></span></summary>
+    <div class="inhalt" id="studie"></div>
+  </details>
+
   <details class="mehr">
     <summary><h2>Renditen</h2><span class="sumhint" id="sum-renditen"></span></summary>
     <div class="inhalt">
       <div class="tabbox"><table id="renditen"></table></div>
-      <h3>Zinsabstand Gilt 10y minus JGB 10y</h3>
+      <h3>Zinsabstand Gilt 10y minus JGB 10y (2 Jahre: siehe Treiber)</h3>
       <div id="spread" class="chart klein"></div>
     </div>
   </details>

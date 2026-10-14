@@ -88,17 +88,37 @@ def bewerte(report: dict, tag: dict, prev_close: float, atr_pips: float | None, 
         "change_pips": round(change, 1), "in_range": int(in_range), "deviation_pips": round(abweichung, 1),
         "direction_hit": treffer(report.get("bias_score") or 0),
         "news_hit": treffer(report.get("news_score")) if report.get("news_score") not in (None, 0) else None,
+        "treiber_hit": treffer(treiber_richtung(report.get("treiber_score"))) if treiber_richtung(report.get("treiber_score")) else None,
         "naive_deviation_pips": round(naive_abw, 1),
         "naive_direction_hit": (int((ab_report > 0) == (vortag_change > 0) and ab_report != 0)
                                 if vortag_change not in (None, 0) else None),
     }
 
 
+TREIBER_SCHWELLE = 15   # ab |Score| 15 gilt die Treiber-Empfehlung als Richtungsaussage
+
+
+def treiber_richtung(score) -> int:
+    if score is None or abs(score) < TREIBER_SCHWELLE:
+        return 0
+    return 1 if score > 0 else -1
+
+
+def treiber_hit5(report: dict, close_5: float) -> int | None:
+    """Richtung über 5 FX-Tage: Kurs um 06:45 am Reporttag -> Schluss des 5. FX-Tags (Reporttag mitgezählt)."""
+    r = treiber_richtung(report.get("treiber_score"))
+    if not r or not report.get("price"):
+        return None
+    diff = close_5 - report["price"]
+    return int(diff != 0 and (diff > 0) == (r > 0))
+
+
 def quoten(evals: list[dict]) -> dict:
     n = len(evals)
     if not n:
         return {"n": 0, "range_pct": None, "direction_pct": None, "avg_dev": None, "naive_avg_dev": None,
-                "naive_direction_pct": None, "news_pct": None}
+                "naive_direction_pct": None, "news_pct": None, "treiber_pct": None, "treiber5_pct": None,
+                "treiber_n": 0, "treiber5_n": 0}
 
     def pct(feld):
         werte = [e[feld] for e in evals if e.get(feld) is not None]
@@ -110,4 +130,7 @@ def quoten(evals: list[dict]) -> dict:
 
     return {"n": n, "range_pct": pct("in_range"), "direction_pct": pct("direction_hit"),
             "avg_dev": avg("deviation_pips"), "naive_avg_dev": avg("naive_deviation_pips"),
-            "naive_direction_pct": pct("naive_direction_hit"), "news_pct": pct("news_hit")}
+            "naive_direction_pct": pct("naive_direction_hit"), "news_pct": pct("news_hit"),
+            "treiber_pct": pct("treiber_hit"), "treiber5_pct": pct("treiber_hit5"),
+            "treiber_n": sum(1 for e in evals if e.get("treiber_hit") is not None),
+            "treiber5_n": sum(1 for e in evals if e.get("treiber_hit5") is not None)}

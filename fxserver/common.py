@@ -225,6 +225,9 @@ CREATE TABLE IF NOT EXISTS calendar (
 CREATE TABLE IF NOT EXISTS fxdaily (
   date TEXT, pair TEXT, open REAL, high REAL, low REAL, close REAL, PRIMARY KEY (date, pair)
 );
+CREATE TABLE IF NOT EXISTS markt (
+  date TEXT, series TEXT, value REAL, PRIMARY KEY (date, series)
+);
 CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT);
 """
 
@@ -245,8 +248,9 @@ def db() -> sqlite3.Connection:
 
 
 ZUSATZ_SPALTEN = {
-    "reports": {"news_score": "INTEGER", "news_reason": "TEXT", "exp_high": "REAL", "exp_low": "REAL", "atr_pips": "REAL"},
-    "evaluations": {"news_hit": "INTEGER"},
+    "reports": {"news_score": "INTEGER", "news_reason": "TEXT", "exp_high": "REAL", "exp_low": "REAL", "atr_pips": "REAL",
+                "treiber_score": "INTEGER", "treiber_ampel": "TEXT"},
+    "evaluations": {"news_hit": "INTEGER", "treiber_hit": "INTEGER", "treiber_hit5": "INTEGER"},
 }
 
 
