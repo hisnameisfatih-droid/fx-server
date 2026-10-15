@@ -19,11 +19,21 @@
     <span class="paar">GBP/JPY</span>
     <span class="preis" id="k-preis">–</span>
     <span class="chg" id="k-chg"></span>
+    <span class="k-urteil" id="k-urteil"></span>
   </div>
   <div class="stand" id="stand">lädt …</div>
 </header>
 
 <main>
+  <section class="urteil" id="urteil" aria-live="polite" aria-label="Richtung heute"></section>
+  <details class="mehr" id="d-treiber">
+    <summary><h2>Warum? Die 10 Treiber</h2><span class="sumhint" id="tr-stand"></span></summary>
+    <div class="inhalt">
+      <p class="tr-plan" id="tr-plan"></p>
+      <div class="tr-liste" id="tr-liste"></div>
+    </div>
+  </details>
+
   <div class="oben">
     <section class="ticket" id="ticket" aria-live="polite"></section>
     <section class="karte chartkarte">
@@ -32,13 +42,6 @@
     </section>
   </div>
 
-  <section class="karte treiber" aria-labelledby="h-treiber">
-    <div class="zeile-kopf"><h2 id="h-treiber">Treiber und Empfehlung</h2><span class="countdown" id="tr-stand"></span></div>
-    <div class="tr-grid">
-      <div class="tr-ampel" id="tr-ampel" aria-live="polite"></div>
-      <div class="tr-liste" id="tr-liste"></div>
-    </div>
-  </section>
 
   <section class="blick" id="blick" aria-label="Tag auf einen Blick"></section>
 

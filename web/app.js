@@ -208,30 +208,58 @@ function treiberPlan(code, r) {
   if (code === "long_meiden") return `Keine Longs. Shorts erst unter ${b(vt)} (Vortagestief), Ziel-Zone ${b(et)} (erw. Tief).`;
   return `Marken heute: erw. Hoch ${b(eh)} · erw. Tief ${b(et)} · Vortag ${b(vh)} / ${b(vt)}`;
 }
-function skala(score) {
-  const pos = score == null ? null : 50 + score / 2;
-  return `<div class="tr-skala" role="img" aria-label="Treiber-Score ${score ?? "nicht verfügbar"} auf einer Skala von −100 bis +100">
-      <span class="z s2"></span><span class="z s1"></span><span class="z n"></span><span class="z l1"></span><span class="z l2"></span>
-      ${pos == null ? "" : `<i style="left:${pos}%"></i>`}</div>
-    <div class="tr-skala-l"><span>−100 Short</span><span>0</span><span>Long +100</span></div>`;
+/* Richtung aus der Treiber-Empfehlung (identisch mit WhatsApp), Trend und News als Gegencheck */
+function richtungVon(t) {
+  const st = t?.stufe ?? 0;
+  if (t?.score == null) return { kl: "neutral", wort: "Keine Daten", stufe: "" };
+  if (st >= 2) return { kl: "bull", wort: "Bullish", stufe: "klar" };
+  if (st === 1) return { kl: "bull", wort: "Bullish", stufe: "leicht" };
+  if (st <= -2) return { kl: "bear", wort: "Bearish", stufe: "klar" };
+  if (st === -1) return { kl: "bear", wort: "Bearish", stufe: "leicht" };
+  return { kl: "neutral", wort: "Neutral", stufe: "" };
+}
+function signalChip(name, wert) {
+  const kl = wert > 0 ? "bull" : wert < 0 ? "bear" : "neutral";
+  const txt = wert > 0 ? "bullish" : wert < 0 ? "bearish" : "neutral";
+  return `<span class="chip-s ${kl}"><b>${wert > 0 ? "▲" : wert < 0 ? "▼" : "–"}</b>${name} ${txt}</span>`;
+}
+function renderUrteil() {
+  const t = S.dash?.treiber, r = S.dash?.report, el = $("urteil");
+  if (!t) { el.className = "urteil neutral"; el.innerHTML = `<div class="u-wort">Lädt …</div>`; $("k-urteil").textContent = ""; return; }
+  const e = t.empfehlung || {}, ri = richtungVon(t);
+  const items = (t.items || []).filter((i) => i.beitrag != null);
+  const druecken = items.filter((i) => i.beitrag <= -1), stuetzen = items.filter((i) => i.beitrag >= 1);
+  const summeAb = druecken.reduce((a, i) => a - i.beitrag, 0), summeAuf = stuetzen.reduce((a, i) => a + i.beitrag, 0);
+  const gesamt = summeAb + summeAuf || 1;
+  const warn = e.code === "long_meiden" || e.code === "abwarten";
+  el.className = `urteil ${ri.kl}${warn ? " warnung" : ""}`;
+  const k = $("k-urteil");
+  k.className = `k-urteil ${ri.kl}`;
+  k.textContent = t.score == null ? "" : `${ri.kl === "bull" ? "▲" : ri.kl === "bear" ? "▼" : "–"} ${ri.wort}`;
+  const trend = r?.trend ?? 0, news = r?.news_score ?? 0;
+  const pfeil = ri.kl === "bull" ? "▲" : ri.kl === "bear" ? "▼" : "◆";
+  el.innerHTML = `
+    <div class="u-oben">
+      <div class="u-wort"><span class="u-pfeil" aria-hidden="true">${pfeil}</span>${esc(ri.wort)}${ri.stufe ? `<span class="u-stufe">${ri.stufe}</span>` : ""}</div>
+      <div class="u-score"><span class="num">${t.score == null ? "–" : vz(t.score)}</span><span>Score von −100 bis +100</span></div>
+    </div>
+    ${warn ? `<div class="u-warn">${esc(e.titel)}: ${esc(e.text)}</div>` : `<p class="u-text">${esc(e.text || "")} <span class="u-risiko">${esc(RISIKO[e.risiko] || "")}</span></p>`}
+    <div class="u-zug" role="img" aria-label="${druecken.length} Treiber drücken, ${stuetzen.length} stützen">
+      <span class="ab" style="flex:${summeAb / gesamt}"></span><span class="auf" style="flex:${summeAuf / gesamt}"></span>
+    </div>
+    <div class="u-zug-l"><span>▼ ${druecken.length} drücken${druecken[0] ? `: ${esc(druecken.sort((a, b) => a.beitrag - b.beitrag).slice(0, 2).map((i) => i.kurz).join(", "))}` : ""}</span>
+      <span>${stuetzen[0] ? `${esc(stuetzen.sort((a, b) => b.beitrag - a.beitrag).slice(0, 2).map((i) => i.kurz).join(", "))}: ` : ""}${stuetzen.length} stützen ▲</span></div>
+    <div class="u-chips">${signalChip("Treiber", Math.sign(t.stufe || 0))}${signalChip("Trend", trend)}${signalChip("News", news)}
+      ${t.termin_hinweis ? `<span class="chip-s zeit">⏰ ${esc(t.termin_hinweis)}</span>` : ""}</div>`;
 }
 function renderTreiber() {
   const t = S.dash?.treiber, r = S.dash?.report;
-  if (!t) { $("tr-ampel").innerHTML = `<p class="leer">Treiber werden gerade berechnet …</p>`; $("tr-liste").innerHTML = ""; $("tr-stand").textContent = ""; return; }
+  if (!t) { $("tr-liste").innerHTML = ""; $("tr-plan").innerHTML = ""; $("tr-stand").textContent = ""; return; }
   const e = t.empfehlung || {};
-  $("tr-stand").textContent = `${t.abdeckung.n}/${t.abdeckung.von} Treiber · Stand ${uhr(new Date(t.stand))}`;
-  const hinweise = (e.hinweise || []).map((h) => `<li>${esc(h)}</li>`).join("") +
-    (t.termin_hinweis && e.code !== "abwarten" ? `<li>Termin: ${esc(t.termin_hinweis)}</li>` : "");
+  $("tr-stand").textContent = `${t.abdeckung.n} von ${t.abdeckung.von} verfügbar, Stand ${uhr(new Date(t.stand))}`;
+  const hinweise = (e.hinweise || []).map((h) => esc(h)).join(" ");
   const plan = treiberPlan(e.code, r);
-  $("tr-ampel").innerHTML = `<div class="tr-titel ${esc(e.farbe || "neutral")}">${esc(e.titel || "–")}</div>
-    <div class="tr-score">Score <b class="num">${t.score == null ? "–" : vz(t.score)}</b> <span>(−100 bis +100)</span></div>
-    ${skala(t.score)}
-    <p class="tr-text">${esc(e.text || "")}</p>
-    <span class="tr-risiko${e.risiko === "normal" ? "" : " warn"}">${esc(RISIKO[e.risiko] || e.risiko || "")}</span>
-    ${hinweise ? `<ul class="tr-hinweise">${hinweise}</ul>` : ""}
-    ${plan ? `<p class="tr-plan">${plan}</p>` : ""}
-    ${r?.treiber ? `<div class="tr-morgen">Morgenreport 06:45: ${esc(r.treiber.ampel || "–")} (${vz(r.treiber.score)})</div>` : ""}
-    <p class="hinweis">Mechanische Regel aus 10 gewichteten Treibern, alle 30 Min neu (Kurs laufend). Neu seit Oktober 2026 – die Trefferquote steht unter „Wie gut funktioniert das?“. Keine Anlageberatung.</p>`;
+  $("tr-plan").innerHTML = [plan, hinweise].filter(Boolean).join("<br>");
   $("tr-liste").innerHTML = t.items.map((i) => {
     const b = i.beitrag, auf = S.trOffen === i.id;
     const kl = i.signal == null ? "fehlt" : i.wirkung === "stützt" ? "auf" : i.wirkung === "drückt" ? "ab" : "flach";
@@ -281,12 +309,11 @@ function renderStudie() {
 function renderBlick() {
   const r = S.dash?.report, v = S.dash?.prev_close?.gbpjpy;
   const zelle = (l, w, h) => `<div><div class="l">${l}</div><div class="w">${w}</div><div class="h">${h}</div></div>`;
-  if (!r) { $("blick").innerHTML = zelle("Prognose", "kommt um 06:45", "") + zelle("Vortag Hoch / Tief", v ? `${zahl(v.high)} / ${zahl(v.low)}` : "–", "") + zelle("Trend", "–", "") + zelle("News", "–", ""); return; }
+  if (!r) { $("blick").innerHTML = zelle("Prognose", "kommt um 06:45", "") + zelle("Erwartetes Hoch / Tief", "–", "") + zelle("Vortag Hoch / Tief", v ? `${zahl(v.high)} / ${zahl(v.low)}` : "–", ""); return; }
   $("blick").innerHTML =
     zelle("Schluss mit 68 %", `${zahl(r.range[0])} – ${zahl(r.range[1])}`, `Tagesschwankung ATR ${zahl(r.atr_pips, 0)} Pips`) +
     zelle("Erwartetes Hoch / Tief", `${zahl(r.exp[0])} / ${zahl(r.exp[1])}`, "wird an jedem zweiten Tag erreicht") +
-    zelle("Vortag Hoch / Tief", `${zahl(r.levels[0])} / ${zahl(r.levels[1])}`, "Ausbruch darüber/darunter = Richtungswechsel") +
-    zelle("Trend · News", `${r.trend > 0 ? "▲ " : r.trend < 0 ? "▼ " : ""}${esc(TREND[r.trend ?? 0])}`, `News: ${esc(NEWS[r.news_score ?? 0])}`);
+    zelle("Vortag Hoch / Tief", `${zahl(r.levels[0])} / ${zahl(r.levels[1])}`, "Ausbruch darüber/darunter = Richtungswechsel");
 }
 
 /* ---------------- Termine ---------------- */
@@ -424,7 +451,7 @@ $("z30").addEventListener("click", () => zeitraum(30)); $("z90").addEventListene
 $("d-archiv").addEventListener("toggle", () => { if ($("d-archiv").open && !S.archiv) ladeArchiv(); });
 
 /* ---------------- Laden ---------------- */
-function allesZeichnen() { renderKopf(); renderTicket(); renderChart(); renderTreiber(); renderBlick(); renderTermine(); renderLage(); renderBilanz(); renderStudie(); renderRenditen(); }
+function allesZeichnen() { renderKopf(); renderUrteil(); renderTicket(); renderChart(); renderTreiber(); renderBlick(); renderTermine(); renderLage(); renderBilanz(); renderStudie(); renderRenditen(); }
 async function ladeLive() { try { S.live = await lade("live.json"); } catch (e) { S.live = null; } if (S.dash) { renderKopf(); renderTicket(); renderChart(); } }
 async function ladeDash() {
   try { S.dash = await lade("dashboard.json"); } catch (e) { $("stand").textContent = "Noch keine Daten – der Server sammelt gerade."; return; }
