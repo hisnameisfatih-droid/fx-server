@@ -72,6 +72,12 @@ for t in fx-report fx-setup fx-evaluate fx-refresh fx-update fx-backtest; do sys
 systemctl restart fx-alert.service
 chmod 600 "$DATA/fx.db" 2>/dev/null || true
 
+# Neue Strategien (AMD): Backtest einmalig sofort im Hintergrund statt erst Sonntag 12:00
+if [ ! -f "$DATA/.backtest_amd_v1" ]; then
+  touch "$DATA/.backtest_amd_v1"
+  systemctl start --no-block fx-backtest.service || true
+fi
+
 # 6) Erstbefüllung + Test
 venv/bin/python -m fxserver.refresh || true
 if [ "$MODUS" = "install" ]; then
