@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from . import export, forecast
+from . import amd as amd_mod
 from . import setup as setup_mod
 from .common import db, fx_tag_ende, get_logger
 from .daten import fx_tage_aktualisieren
@@ -27,6 +28,10 @@ def main() -> int:
         setup_mod.abschliessen(con)
     except Exception as e:  # noqa: BLE001
         log.warning("Setup-Abschluss: %s", e)
+    try:
+        amd_mod.abschliessen(con)
+    except Exception as e:  # noqa: BLE001
+        log.warning("AMD-Abschluss: %s", e)
     if not offen:
         log.info("Nichts auszuwerten")
         treiber_5_tage(con)

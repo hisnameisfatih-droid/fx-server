@@ -214,7 +214,7 @@ def prognose_check(kerzen) -> dict:
 
 def server_lauf() -> int:
     from .common import get_logger, schreibe_json
-    from .strategien import HAUPT_SETUP
+    from .strategien import AMD_VARIANTEN, HAUPT_SETUP
     log = get_logger("backtest")
     try:
         kerzen = lade_tiingo()
@@ -224,7 +224,7 @@ def server_lauf() -> int:
     if len(kerzen) < 2000:
         log.error("Zu wenige Kerzen (%d)", len(kerzen))
         return 1
-    varianten = [HAUPT_SETUP] + [dict(HAUPT_SETUP, id=k, **v) for k, v in VERGLEICH.items()]
+    varianten = [HAUPT_SETUP] + [dict(HAUPT_SETUP, id=k, **v) for k, v in VERGLEICH.items()] + AMD_VARIANTEN
     erg, ntage = lauf(kerzen, varianten)
     out = {"erstellt": datetime.now(timezone.utc).isoformat(), "von": kerzen[0][1].isoformat(),
            "bis": kerzen[-1][1].isoformat(), "handelstage": ntage, "kosten_pips": KOSTEN_PIPS, "setups": {},

@@ -13,7 +13,7 @@ und live offen ausgewiesen werden.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 PIP = 0.01
 
@@ -153,7 +153,100 @@ def trend(ctx: Kontext, p: dict) -> Setup | None:
                  p["start"], p["start"], p["schluss"], {"ema20": round(ctx.ema20, 3)})
 
 
-STRATEGIEN = {"orb": orb, "reversion": reversion, "trend": trend}
+def amd_erkennen(kerzen, atr: float, p: dict) -> dict | None:
+    """AMD (Akkumulation – Manipulation – Distribution), rein aus bisherigen Kerzen, ohne Blick in die Zukunft.
+
+    A: ruhige Spanne in [range_von, range_bis), Breite min_atr..max_atr · ATR
+    M: im Fenster [range_bis, manip_bis) läuft der Kurs mind. min_sweep_pips über eine Seite hinaus
+       (aber nicht mehr als max_sweep_atr · ATR – sonst ist es ein echter Ausbruch)
+       und eine Kerze schließt innerhalb von max_kerzen wieder IN der Spanne
+    D: Einstieg in Gegenrichtung zum Schluss dieser Kerze, Stop hinter dem Fehlausbruch,
+       Ziel gegenüberliegende Spannenseite (mind. min_r · Risiko), Ziel 2 = Gegenseite + halbe Spanne.
+    Liefert den aktuellen Stand: phase 'akkumulation' | 'manipulation' | 'signal' | 'kein' (+ grund)."""
+    s = spanne(kerzen, p["range_von"], p["range_bis"])
+    if not s:
+        return None
+    hoch, tief = s
+    breite = hoch - tief
+    basis = {"variante": p["id"], "name": p["name"], "spanne": [round(hoch, 3), round(tief, 3)],
+             "breite_pips": round(breite / PIP, 1), "range_von": p["range_von"].strftime("%H:%M"),
+             "range_bis": p["range_bis"].strftime("%H:%M"), "manip_bis": p["manip_bis"].strftime("%H:%M")}
+    if not (p["min_atr"] * atr <= breite <= p["max_atr"] * atr):
+        return {**basis, "phase": "kein", "grund": f"Spanne {'zu breit' if breite > p['max_atr'] * atr else 'zu eng'} "
+                                                  f"({breite / PIP:.0f} Pips)"}
+    min_sweep, max_sweep = p["min_sweep_pips"] * PIP, p["max_sweep_atr"] * atr
+    sweep = None   # (seite +1 oben / -1 unten, extrem, index des ersten Durchbruchs, zeit)
+    fenster = [k for k in kerzen if tm(p["range_bis"]) <= tm(k[0]) < tm(p["manip_bis"])]
+    for i, (t, o, h, l, c) in enumerate(fenster):
+        if sweep is None:
+            oben, unten = h >= hoch + min_sweep, l <= tief - min_sweep
+            if oben and unten:
+                return {**basis, "phase": "kein", "grund": "beide Seiten in einer Kerze durchbrochen"}
+            if oben or unten:
+                sweep = [1 if oben else -1, h if oben else l, i, t]
+            else:
+                continue
+        seite, extrem = sweep[0], sweep[1]
+        extrem = max(extrem, h) if seite > 0 else min(extrem, l)
+        sweep[1] = extrem
+        if (extrem - hoch if seite > 0 else tief - extrem) > max_sweep:
+            return {**basis, "phase": "kein", "grund": "echter Ausbruch statt Fehlausbruch", "sweep_seite": seite,
+                    "sweep_extrem": round(extrem, 3)}
+        gegen = (seite < 0 and h >= hoch + min_sweep) or (seite > 0 and l <= tief - min_sweep)
+        if gegen:
+            return {**basis, "phase": "kein", "grund": "beide Seiten durchbrochen"}
+        zurueck = (tief < c < hoch)
+        if zurueck:
+            richtung = -seite
+            entry = c
+            sl = extrem + seite * p["sl_puffer_pips"] * PIP
+            risiko = abs(entry - sl)
+            ziel = tief if richtung < 0 else hoch
+            belohnung = abs(ziel - entry)
+            if risiko <= 0 or belohnung < p["min_r"] * risiko:
+                return {**basis, "phase": "kein", "grund": "Chance/Risiko zu klein", "sweep_seite": seite,
+                        "sweep_extrem": round(extrem, 3)}
+            ziel2 = ziel + richtung * 0.5 * breite
+            return {**basis, "phase": "signal", "sweep_seite": seite, "sweep_extrem": round(extrem, 3),
+                    "sweep_zeit": sweep[3].strftime("%H:%M"), "signal_zeit": t.strftime("%H:%M"),
+                    "richtung": richtung, "entry": round(entry, 3), "sl": round(sl, 3), "tp": round(ziel, 3),
+                    "tp2": round(ziel2, 3), "risiko_pips": round(risiko / PIP), "ziel_pips": round(belohnung / PIP),
+                    "start": (t + timedelta(minutes=15)).strftime("%H:%M")}   # Einstieg: Open der nächsten Kerze
+        if i - sweep[2] + 1 >= p["max_kerzen"]:
+            return {**basis, "phase": "kein", "grund": "kein Rücklauf in die Spanne", "sweep_seite": seite,
+                    "sweep_extrem": round(extrem, 3)}
+    if sweep:
+        return {**basis, "phase": "manipulation", "sweep_seite": sweep[0], "sweep_extrem": round(sweep[1], 3),
+                "sweep_zeit": sweep[3].strftime("%H:%M")}
+    return {**basis, "phase": "akkumulation"}
+
+
+def amd(ctx: Kontext, p: dict) -> Setup | None:
+    """Für den Backtest: Signal-Erkennung + Einstieg zum Eröffnungskurs der nächsten Kerze."""
+    erg = amd_erkennen(ctx.kerzen, ctx.atr, p)
+    if not erg or erg["phase"] != "signal":
+        return None
+    hm = lambda s: time(int(s[:2]), int(s[3:]))  # noqa: E731
+    return amd_setup(erg, p, hm(erg["start"]))
+
+
+def amd_setup(erg: dict, p: dict, start: time) -> Setup:
+    return Setup(p["id"], p["name"], "markt", [Order(erg["richtung"], erg["entry"], erg["sl"], erg["tp"])],
+                 start, start, p["schluss"], {"tp2": erg["tp2"]})
+
+
+AMD_VARIANTEN = [
+    {"strategie": "amd", "id": "amd_london", "name": "Asien → London",
+     "range_von": time(1, 0), "range_bis": time(9, 0), "manip_bis": time(12, 30), "schluss": time(21, 0),
+     "min_atr": 0.15, "max_atr": 0.7, "min_sweep_pips": 3, "max_sweep_atr": 0.35, "max_kerzen": 8,
+     "sl_puffer_pips": 5, "min_r": 1.0},
+    {"strategie": "amd", "id": "amd_ny", "name": "London → New York",
+     "range_von": time(9, 0), "range_bis": time(14, 0), "manip_bis": time(16, 30), "schluss": time(21, 30),
+     "min_atr": 0.15, "max_atr": 0.7, "min_sweep_pips": 3, "max_sweep_atr": 0.35, "max_kerzen": 8,
+     "sl_puffer_pips": 5, "min_r": 1.0},
+]
+
+STRATEGIEN = {"orb": orb, "reversion": reversion, "trend": trend, "amd": amd}
 
 
 # ------------------------------------------------------------

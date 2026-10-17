@@ -13,6 +13,7 @@
   --ziel: #2fbf71;
   --stop: #e5484d;
   --kurs: #7fb2ff;
+  --amd: #b48cff;
   --band: rgba(127, 178, 255, 0.10);
   --asien: rgba(242, 184, 75, 0.10);
   --schrift: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -243,3 +244,20 @@ td.wrap { white-space: normal; }
   .u-score span:last-child { margin-top: 0; }
   .u-text { font-size: 1rem; }
 }
+
+/* AMD-Muster */
+.amd-zeile { padding: 10px 0 12px; border-top: 1px solid var(--raster); }
+.amd-zeile:first-child { border-top: 0; padding-top: 2px; }
+.amd-kopf { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.amd-schritte { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 720px) { .amd-schritte { grid-template-columns: minmax(0, 1fr); } }
+.amd-schritte li { border-radius: 8px; padding: 8px 10px; background: var(--flaeche-2); border-left: 3px solid var(--linie); min-width: 0; }
+.amd-schritte .t { display: block; font-weight: 600; font-size: 0.88rem; }
+.amd-schritte .x { display: block; font-size: 0.82rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.amd-schritte li.fertig { border-left-color: var(--amd); }
+.amd-schritte li.aktiv { border-left-color: var(--entry); }
+.amd-schritte li.aktiv .t { color: var(--entry); }
+.amd-schritte li.offen { opacity: 0.6; }
+.amd-schritte li.long { border-left-color: var(--ziel); } .amd-schritte li.long .t { color: var(--bull); }
+.amd-schritte li.short { border-left-color: var(--stop); } .amd-schritte li.short .t { color: var(--bear); }
+.amd-schritte li.aus { opacity: 0.7; } .amd-schritte li.aus .t { color: var(--text-2); }

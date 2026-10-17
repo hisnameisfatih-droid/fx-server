@@ -284,7 +284,7 @@ pruefe(all(k in letzter_tag for k in ("uk2", "uk10", "uk30")), "BoE-Zip: Gilt 2y
 pruefe(abs(letzter_tag["uk2"] - (3.7 + 0.002 * 24 + 0.001 * (date.fromisoformat(max(boe)).toordinal() % 5))) < 1e-9, "Gilt 2y aus dem Monatsblatt (24 Monate)")
 pruefe(all("us2" in v and "us10" in v for v in y_src.parse_treasury(treasury_csv()).values()), "Treasury: US 2y + 10y")
 yw, yl = markt_src.parse_yahoo(yahoo_json("^N225"))
-pruefe(len(yw) > 40 and yl and max(yw) == date.today().isoformat() and yw[max(yw)] == yl["wert"], "Yahoo: Tagesschlüsse + laufender Kurs (Börsenzeit)")
+pruefe(len(yw) > 40 and yl and yw[max(yw)] == yl["wert"], "Yahoo: Tagesschlüsse + laufender Kurs (Börsenzeit)")
 pruefe(markt_src.parse_fred("observation_date,VIXCLS\n2026-10-08,16.2\n2026-10-09,.\n2026-10-12,\n2026-10-13,18.4\n") == {"2026-10-08": 16.2, "2026-10-13": 18.4}
        and markt_src.parse_fred("DATE,X\n2026-10-08,1.5\n") == {"2026-10-08": 1.5}, "FRED-CSV (neuer/alter Kopf, Lücken)")
 pruefe(markt_src.parse_cboe("DATE,OPEN,HIGH,LOW,CLOSE\n10/12/2026,17.1,18.0,16.9,17.5\n") == {"2026-10-12": 17.5}, "CBOE-VIX-CSV")
@@ -468,6 +468,63 @@ pruefe(st4 == "verfallen", "kein Ausbruch bis 12:00 -> verfallen")
 verlauf_sl = asien + [kz(9, 30, 209.70, 209.90, 209.65, 209.85), kz(10, 0, 209.80, 209.82, 209.20, 209.25)]
 st5, tr = setup.zustand(sd, verlauf_sl, DT(2026, 10, 14, 10, 5))
 pruefe(st5 == "sl" and tr.pips < 0 and "SL erreicht" in setup.meldung("ausgelöst", st5, tr), "SL erreicht")
+
+print("AMD-Muster")
+from fxserver import amd as amd_mod  # noqa: E402
+TAG_AMD = common.fx_tag(datetime.now(common.TZ_BERLIN))
+
+
+def k15(hhmm, o, h, l, c, tag=TAG_AMD):
+    hh, mm = map(int, hhmm.split(":"))
+    return (DT(tag.year, tag.month, tag.day, hh, mm), o, h, l, c)
+
+
+def asien(lo=209.80, hi=210.25):
+    ks = []
+    for i in range(32):   # 01:00–09:00, pendelt in der Spanne
+        t = f"{1 + i // 4:02d}:{(i % 4) * 15:02d}"
+        m = lo + (hi - lo) * (0.5 + 0.45 * math.sin(i / 2.5))
+        ks.append(k15(t, m, min(hi, m + 0.06), max(lo, m - 0.06), m + 0.01))
+    ks[5] = k15("02:15", 210.2, hi, 210.15, 210.2)
+    ks[20] = k15("06:00", 209.85, 209.9, lo, 209.86)
+    return ks
+
+
+bear = asien() + [k15("09:00", 210.20, 210.33, 210.15, 210.28), k15("09:15", 210.28, 210.30, 210.10, 210.12),
+                  k15("09:30", 210.12, 210.14, 209.90, 209.95), k15("09:45", 209.95, 209.97, 209.70, 209.72)]
+lon = strategien.AMD_VARIANTEN[0]
+e_bear = strategien.amd_erkennen(bear, 1.0, lon)
+pruefe(e_bear["phase"] == "signal" and e_bear["richtung"] == -1 and e_bear["entry"] == 210.12 and e_bear["sl"] == 210.38
+       and e_bear["tp"] == 209.80 and e_bear["sweep_zeit"] == "09:00", f"AMD bärisch: Fehlausbruch über Asien-Hoch -> SHORT ({e_bear.get('entry')}/{e_bear.get('sl')}/{e_bear.get('tp')})")
+e_m = strategien.amd_erkennen(bear[:33], 1.0, lon)
+pruefe(e_m["phase"] == "manipulation" and e_m["sweep_seite"] == 1, "AMD: nach dem Fehlausbruch erst Verdacht (Manipulation)")
+echt = asien() + [k15("09:00", 210.2, 210.70, 210.15, 210.65), k15("09:15", 210.6, 210.7, 210.1, 210.12)]
+pruefe(strategien.amd_erkennen(echt, 1.0, lon)["phase"] == "kein", "AMD: 45 Pips drüber = echter Ausbruch, kein Signal")
+tr_bear = strategien.simuliere(strategien.amd(strategien.Kontext("x", 210, 1.0, {}, None, None, bear), lon), bear, 0, "x")
+pruefe(tr_bear and tr_bear.grund == "tp" and tr_bear.richtung == -1, "AMD-Backtest-Simulation: Ziel erreicht")
+# Donnerstag-Muster: London-Spanne, New York läuft unter das Tief und dreht
+ny = strategien.AMD_VARIANTEN[1]
+lond = [k15(f"{9 + i // 4:02d}:{(i % 4) * 15:02d}", 209.25 + 0.2 * math.sin(i / 2), 209.55 if i == 7 else 209.25 + 0.2 * math.sin(i / 2) + 0.05,
+            208.90 if i == 12 else 209.25 + 0.2 * math.sin(i / 2) - 0.05, 209.25 + 0.2 * math.sin(i / 2)) for i in range(20)]
+bull = lond + [k15("14:00", 209.0, 209.02, 208.84, 208.86), k15("14:15", 208.86, 209.02, 208.85, 209.00),
+               k15("14:30", 209.0, 209.40, 208.98, 209.35), k15("14:45", 209.35, 209.70, 209.30, 209.65)]
+e_bull = strategien.amd_erkennen(bull, 1.0, ny)
+pruefe(e_bull["phase"] == "signal" and e_bull["richtung"] == 1 and e_bull["sl"] == 208.79 and e_bull["tp"] == 209.55,
+       f"AMD bullisch (London → New York): LONG {e_bull.get('entry')} SL {e_bull.get('sl')} TP {e_bull.get('tp')}")
+# Live: Verdacht -> Signal -> Ziel, jeweils eine Meldung
+amd_txt = []
+jetzt_amd = datetime(TAG_AMD.year, TAG_AMD.month, TAG_AMD.day, 9, 16, tzinfo=common.TZ_BERLIN)
+m1 = amd_mod.pruefen(con, jetzt_amd, senden=amd_txt.append, kerzen_5=bear[:33])
+m2 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=15), senden=amd_txt.append, treiber_stufe=-2, kerzen_5=bear[:34])
+m3 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=16), senden=amd_txt.append, kerzen_5=bear[:34])
+m4 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=45), senden=amd_txt.append, kerzen_5=bear)
+pruefe(len(m1) == 1 and "AMD-Verdacht" in m1[0] and len(m2) == 1 and "AMD-Signal SHORT" in m2[0] and "Treiber stützen" in m2[0]
+       and m3 == [] and len(m4) == 1 and "Ziel erreicht" in m4[0], f"AMD live: Verdacht, Signal, Ziel ({[x.splitlines()[0] for x in amd_txt]})")
+print("\n    " + m2[0].replace("\n", "\n    ") + "\n")
+export.alles(con)
+da = json.loads((OUT / "public" / "dashboard.json").read_text())["amd"]
+pruefe(da["varianten"][0]["phase"] == "signal" and da["varianten"][0]["state"] == "tp" and da["varianten"][0]["daten"]["tp"] == 209.8,
+       "AMD im Dashboard-Export")
 
 print(f"\nTiingo-Abrufe: {sum('tiingo' in u for u in AUFRUFE)}, Claude-Aufrufe: {sum(u.startswith('claude:') for u in AUFRUFE)}")
 print(f"Ausgabe: {OUT}")

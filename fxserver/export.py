@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import forecast
+from . import amd as amd_mod
 from . import setup as setup_mod
 from . import treiber as treiber_mod
 from .common import PAARE, fx_tag, fx_tag_ende, fx_tag_start, get_logger, jetzt_berlin, schreibe_json
@@ -154,6 +155,7 @@ def alles(con, treiber_daten: dict | None = None) -> None:
             "treiber": heute_treiber,
         },
         "treiber": treiber_daten,
+        "amd": amd_mod.export_daten(con, jetzt),
         "treiber_verlauf": treiber_hist,
         "treiber_studie": treiber_mod.studie() or None,
         "setup": setup_heute,

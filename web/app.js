@@ -120,9 +120,15 @@ function renderChart() {
     schienen.push({ y: x.sl, f: "var(--stop)", t: "Stop" });
     schienen.push({ y: x.tp, f: "var(--ziel)", t: "Ziel" });
   }
+  const amdV = (d.amd?.varianten || []).filter((v) => v.daten?.spanne && v.phase !== "kein");
+  for (const v of amdV) if (v.phase === "signal") {
+    schienen.push({ y: v.daten.entry, f: "var(--amd)", t: "AMD Entry", strich: "6 4" });
+    schienen.push({ y: v.daten.sl, f: "var(--amd)", t: "AMD SL", strich: "2 3" });
+    schienen.push({ y: v.daten.tp, f: "var(--amd)", t: "AMD TP" });
+  }
   if (r?.exp?.[0]) { schienen.push({ y: r.exp[0], f: "var(--leise)", t: "erw. Hoch", strich: "2 4", leise: true }); schienen.push({ y: r.exp[1], f: "var(--leise)", t: "erw. Tief", strich: "2 4", leise: true }); }
   if (r?.levels?.[0]) { schienen.push({ y: r.levels[0], f: "var(--text-2)", t: "Vortageshoch", strich: "1 3", leise: true }); schienen.push({ y: r.levels[1], f: "var(--text-2)", t: "Vortagestief", strich: "1 3", leise: true }); }
-  const ys = punkte.map((p) => p[1]).concat(schienen.map((s) => s.y)).concat(r?.range?.[0] ? r.range : []).concat(su?.spanne || []);
+  const ys = punkte.map((p) => p[1]).concat(schienen.map((s) => s.y)).concat(amdV.flatMap((v) => [v.daten.spanne[0], v.daten.spanne[1], v.daten.sweep_extrem].filter((x) => x != null))).concat(r?.range?.[0] ? r.range : []).concat(su?.spanne || []);
   if (!ys.length) { el.innerHTML = `<p class="leer">Noch keine Kurse für den heutigen Handelstag.</p>`; return; }
   let y0 = Math.min(...ys), y1 = Math.max(...ys); const sp = (y1 - y0) || 0.5; y0 -= sp * 0.06; y1 += sp * 0.06;
   const X = (v) => pad.l + ((v - x0) / (x1 - x0)) * (W - pad.l - pad.r);
@@ -138,6 +144,13 @@ function renderChart() {
       const a0 = fxZeit("01:00");
       s += `<rect x="${X(a0)}" y="${Y(su.spanne[1])}" width="${X(e0) - X(a0)}" height="${Y(su.spanne[0]) - Y(su.spanne[1])}" fill="var(--asien)" stroke="rgba(242,184,75,0.5)" stroke-width="1"/>`;
     }
+  }
+  // AMD: Akkumulations-Kasten und Fehlausbruch-Punkt
+  for (const v of amdV) {
+    const sx0 = X(fxZeit(v.range_von)), sx1 = X(fxZeit(v.range_bis)), m1 = X(fxZeit(v.manip_bis));
+    s += `<rect x="${sx0}" y="${Y(v.daten.spanne[0])}" width="${sx1 - sx0}" height="${Y(v.daten.spanne[1]) - Y(v.daten.spanne[0])}" fill="rgba(180,140,255,0.08)" stroke="rgba(180,140,255,0.55)" stroke-dasharray="3 3"/>`;
+    s += `<line x1="${sx1}" x2="${m1}" y1="${Y(v.daten.spanne[0])}" y2="${Y(v.daten.spanne[0])}" stroke="rgba(180,140,255,0.35)"/><line x1="${sx1}" x2="${m1}" y1="${Y(v.daten.spanne[1])}" y2="${Y(v.daten.spanne[1])}" stroke="rgba(180,140,255,0.35)"/>`;
+    if (v.daten.sweep_zeit) s += `<circle cx="${X(fxZeit(v.daten.sweep_zeit)) + 4}" cy="${Y(v.daten.sweep_extrem)}" r="5" fill="none" stroke="var(--amd)" stroke-width="2"/>`;
   }
   // Zeitachse
   const schritt = W < 520 ? 6 * 3600 : 3 * 3600;
@@ -190,7 +203,8 @@ function renderChart() {
   $("legende").innerHTML = `<span><i style="background:var(--kurs)"></i>Kurs</span>` +
     (o.length ? `<span><i style="background:var(--entry)"></i>Entry</span><span><i style="background:var(--stop)"></i>Stop</span><span><i style="background:var(--ziel)"></i>Ziel</span>` : "") +
     (su?.spanne ? `<span><i class="kasten" style="background:var(--asien);border:1px solid rgba(242,184,75,.5)"></i>Asien-Spanne</span>` : "") +
-    (r?.range?.[0] ? `<span><i class="kasten" style="background:rgba(127,178,255,.25)"></i>Schluss-Spanne 68 %</span>` : "");
+    (r?.range?.[0] ? `<span><i class="kasten" style="background:rgba(127,178,255,.25)"></i>Schluss-Spanne 68 %</span>` : "") +
+    (amdV.length ? `<span><i class="kasten" style="background:rgba(180,140,255,.25);border:1px dashed rgba(180,140,255,.6)"></i>AMD-Spanne</span>` : "");
 }
 
 /* ---------------- Treiber und Empfehlung ---------------- */
@@ -223,6 +237,14 @@ function signalChip(name, wert) {
   const txt = wert > 0 ? "bullish" : wert < 0 ? "bearish" : "neutral";
   return `<span class="chip-s ${kl}"><b>${wert > 0 ? "▲" : wert < 0 ? "▼" : "–"}</b>${name} ${txt}</span>`;
 }
+function amdChip() {
+  const v = (S.dash?.amd?.varianten || []).find((x) => x.phase === "signal" && !["tp", "sl", "zeit"].includes(x.state)) ||
+    (S.dash?.amd?.varianten || []).find((x) => x.phase === "manipulation");
+  if (!v) return "";
+  if (v.phase === "manipulation") return `<span class="chip-s zeit">🕵️ AMD-Verdacht (${esc(v.name)})</span>`;
+  const long = v.daten.richtung > 0;
+  return `<span class="chip-s ${long ? "bull" : "bear"}"><b>${long ? "▲" : "▼"}</b>AMD ${long ? "Long" : "Short"}-Signal</span>`;
+}
 function renderUrteil() {
   const t = S.dash?.treiber, r = S.dash?.report, el = $("urteil");
   if (!t) { el.className = "urteil neutral"; el.innerHTML = `<div class="u-wort">Lädt …</div>`; $("k-urteil").textContent = ""; return; }
@@ -250,7 +272,7 @@ function renderUrteil() {
     <div class="u-zug-l"><span>▼ ${druecken.length} drücken${druecken[0] ? `: ${esc(druecken.sort((a, b) => a.beitrag - b.beitrag).slice(0, 2).map((i) => i.kurz).join(", "))}` : ""}</span>
       <span>${stuetzen[0] ? `${esc(stuetzen.sort((a, b) => b.beitrag - a.beitrag).slice(0, 2).map((i) => i.kurz).join(", "))}: ` : ""}${stuetzen.length} stützen ▲</span></div>
     <div class="u-chips">${signalChip("Treiber", Math.sign(t.stufe || 0))}${signalChip("Trend", trend)}${signalChip("News", news)}
-      ${t.termin_hinweis ? `<span class="chip-s zeit">⏰ ${esc(t.termin_hinweis)}</span>` : ""}</div>`;
+      ${t.termin_hinweis ? `<span class="chip-s zeit">⏰ ${esc(t.termin_hinweis)}</span>` : ""}${amdChip()}</div>`;
 }
 function renderTreiber() {
   const t = S.dash?.treiber, r = S.dash?.report;
@@ -278,6 +300,45 @@ function renderTreiber() {
     </div>`;
   }).join("");
   $("tr-liste").querySelectorAll(".tr-kopf").forEach((k) => k.addEventListener("click", () => { S.trOffen = S.trOffen === k.dataset.id ? null : k.dataset.id; renderTreiber(); }));
+}
+
+/* ---------------- AMD-Muster (Akkumulation – Manipulation – Distribution) ---------------- */
+const AMD_ENDE = { tp: ["tp", "Ziel erreicht"], sl: ["sl", "Stop erreicht"], zeit: ["neutral", "zum Tagesende geschlossen"] };
+function amdSchritte(v) {
+  const d = v.daten, ph = v.phase;
+  const sp = d?.spanne ? `${zahl(d.spanne[1])} – ${zahl(d.spanne[0])} (${zahl(d.breite_pips, 0)} P)` : "bildet sich";
+  const a = { kl: d ? "fertig" : "aktiv", titel: "Akkumulation", text: `${v.range_von}–${v.range_bis}: ${sp}` };
+  let m = { kl: "offen", titel: "Manipulation", text: `Fehlausbruch bis ${v.manip_bis}?` };
+  let di = { kl: "offen", titel: "Distribution", text: "Einstieg erst nach Rücklauf in die Spanne" };
+  if (d?.sweep_seite) m = { kl: ph === "manipulation" ? "aktiv" : "fertig", titel: "Manipulation",
+    text: `${d.sweep_seite < 0 ? "unter das Tief" : "über das Hoch"} bis ${zahl(d.sweep_extrem)}${d.sweep_zeit ? ` (${d.sweep_zeit})` : ""}` };
+  if (ph === "manipulation") di.text = `Signal, wenn eine 15-Min-Kerze ${d.sweep_seite < 0 ? "über " + zahl(d.spanne[1]) : "unter " + zahl(d.spanne[0])} schließt`;
+  if (ph === "signal") {
+    const long = d.richtung > 0;
+    di = { kl: long ? "long" : "short", titel: `Distribution: ${long ? "LONG" : "SHORT"}`,
+      text: `Entry ${zahl(d.entry)} · SL ${zahl(d.sl)} (−${d.risiko_pips} P) · TP ${zahl(d.tp)} (+${d.ziel_pips} P) · TP2 ${zahl(d.tp2)}` };
+  }
+  if (ph === "kein") { const z = d?.sweep_seite ? m : a; if (!d?.sweep_seite) m.text = "–"; di = { kl: "aus", titel: "Kein AMD heute", text: d?.grund || "" }; void z; }
+  return [a, m, di];
+}
+function amdStatus(v) {
+  if (v.phase !== "signal") return v.phase === "manipulation" ? `<span class="status wartet">Verdacht – noch nicht einsteigen</span>` : "";
+  const tr = v.trade || {}, e = AMD_ENDE[v.state];
+  if (e) return `<span class="status ${e[0]}">${e[1]} · ${vz(tr.pips, 0, " Pips")}${tr.t_exit ? ` um ${esc(tr.t_exit)}` : ""}</span>`;
+  if (v.state === "läuft") { const p = livePreis(); const pl = p && tr.entry ? (tr.richtung * (p - tr.entry)) / PIP : null; return `<span class="status laeuft">Läuft seit ${esc(tr.t_entry || "")} · ${vz(pl, 0, " Pips")}</span>`; }
+  return `<span class="status wartet">Signal ${esc(v.daten?.signal_zeit || "")} – Einstieg zur nächsten Kerze</span>`;
+}
+function renderAmd() {
+  const a = S.dash?.amd, el = $("amd");
+  if (!a) { el.innerHTML = `<p class="leer">AMD-Erkennung startet mit dem nächsten Update.</p>`; return; }
+  const b = a.bilanz || {}, bt = S.bt?.setups || {};
+  const btz = ["amd_london", "amd_ny"].filter((k) => bt[k]?.kennzahlen?.n).map((k) => `${esc(bt[k].name)}: ${bt[k].kennzahlen.n} Trades, ${pz(bt[k].kennzahlen.trefferquote)} Treffer, Ø ${vz(bt[k].kennzahlen.avg_pips, 1, " P")}`);
+  $("amd-bilanz").textContent = b.trades ? `live: ${b.trades} Trades, ${vz(b.summe_pips, 0, " Pips")}` : "neu – wird gemessen";
+  el.innerHTML = a.varianten.map((v) => `<div class="amd-zeile">
+      <div class="amd-kopf"><b>${esc(v.name)}</b>${amdStatus(v)}</div>
+      <ol class="amd-schritte">${amdSchritte(v).map((s) => `<li class="${s.kl}"><span class="t">${esc(s.titel)}</span><span class="x">${esc(s.text)}</span></li>`).join("")}</ol>
+    </div>`).join("") +
+    `<p class="hinweis">Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Einstieg in Gegenrichtung, Stop hinter dem Fehlausbruch (+5 Pips), Ziel gegenüberliegende Spannenseite. ${btz.length ? "Backtest 2 Jahre: " + btz.join(" · ") + "." : "Backtest mit 2 Jahren Daten läuft sonntags um 12:00."} Keine Anlageberatung.</p>`;
 }
 
 /* ---------------- Studie: was GBP/JPY bewegt hat ---------------- */
@@ -451,8 +512,8 @@ $("z30").addEventListener("click", () => zeitraum(30)); $("z90").addEventListene
 $("d-archiv").addEventListener("toggle", () => { if ($("d-archiv").open && !S.archiv) ladeArchiv(); });
 
 /* ---------------- Laden ---------------- */
-function allesZeichnen() { renderKopf(); renderUrteil(); renderTicket(); renderChart(); renderTreiber(); renderBlick(); renderTermine(); renderLage(); renderBilanz(); renderStudie(); renderRenditen(); }
-async function ladeLive() { try { S.live = await lade("live.json"); } catch (e) { S.live = null; } if (S.dash) { renderKopf(); renderTicket(); renderChart(); } }
+function allesZeichnen() { renderKopf(); renderUrteil(); renderTicket(); renderChart(); renderTreiber(); renderAmd(); renderBlick(); renderTermine(); renderLage(); renderBilanz(); renderStudie(); renderRenditen(); }
+async function ladeLive() { try { S.live = await lade("live.json"); } catch (e) { S.live = null; } if (S.dash) { renderKopf(); renderTicket(); renderChart(); renderAmd(); } }
 async function ladeDash() {
   try { S.dash = await lade("dashboard.json"); } catch (e) { $("stand").textContent = "Noch keine Daten – der Server sammelt gerade."; return; }
   try { S.bt = await lade("backtest.json"); } catch (e) { S.bt = null; }

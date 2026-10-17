@@ -12,6 +12,7 @@ import os
 from datetime import datetime, timedelta
 
 from . import export
+from . import amd as amd_mod
 from . import setup as setup_mod
 from . import treiber
 from .common import TZ_BERLIN, db, faellig, get_logger, jetzt_berlin, whatsapp
@@ -62,6 +63,11 @@ def main() -> int:
         setup_mod.verfolgen(con)
     except Exception as e:  # noqa: BLE001
         log.warning("Setup-Verfolgung: %s", e)
+    try:
+        from .common import kv_get
+        amd_mod.pruefen(con, senden=lambda text: whatsapp(text, log), treiber_stufe=kv_get(con, "treiber:stufe"))
+    except Exception as e:  # noqa: BLE001
+        log.warning("AMD: %s", e)
     # Treiber-Quellen erst nach der Setup-Verfolgung (die soll nie warten müssen)
     if faellig(con, "markt", 30 * 60 - 30):
         try:
