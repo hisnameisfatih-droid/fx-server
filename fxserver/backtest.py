@@ -212,6 +212,32 @@ def prognose_check(kerzen) -> dict:
             "tief_erreicht_pct": round(100 * tief / n, 1) if n else None}
 
 
+def urteil(k: dict) -> tuple[str, str]:
+    """Einfaches Urteil nach Kosten: lohnt / knapp / verliert / zu wenige Daten."""
+    n, avg, pf = k.get("n", 0), k.get("avg_pips"), k.get("profit_faktor") or 0
+    if n < 30:
+        return "⏳", f"zu wenige Signale ({n}) für ein Urteil"
+    if avg is None or avg <= 0:
+        return "❌", "verliert nach Kosten – nicht danach handeln"
+    if pf >= 1.15:
+        return "✅", "positiv nach Kosten – vorsichtig nutzbar"
+    return "➖", "knapp positiv – kein verlässlicher Vorteil"
+
+
+def urteil_text(out: dict) -> str:
+    z = [f"📊 Wochen-Backtest GBP/JPY ({out['von'][:10]} bis {out['bis'][:10]}, {out['kosten_pips']:.0f} Pips Kosten/Trade)"]
+    for sid, d in out["setups"].items():
+        k = d["kennzahlen"]
+        zeichen, text = urteil(k)
+        if k.get("n"):
+            z.append(f"{zeichen} {d['name']}: {k['n']} Trades, {k['trefferquote']:.0f} % Treffer, "
+                     f"Ø {k['avg_pips']:+.1f} P, Summe {k['summe_pips']:+d} P → {text}".replace(".", ","))
+        else:
+            z.append(f"{zeichen} {d['name']}: keine Trades")
+    z.append("Details im Dashboard unter AMD-Muster und „Wie gut funktioniert das?“.")
+    return "\n".join(z)
+
+
 def server_lauf() -> int:
     from .common import get_logger, schreibe_json
     from .strategien import AMD_VARIANTEN, HAUPT_SETUP
@@ -234,6 +260,11 @@ def server_lauf() -> int:
                                   "letzte": [{"date": t.datum, "richtung": t.richtung, "pips": t.pips, "grund": t.grund}
                                              for t in trades[-15:]]}
     schreibe_json("backtest.json", out)
+    try:
+        from .common import whatsapp
+        whatsapp(urteil_text(out), log)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Backtest-Nachricht: %s", e)
     log.info("Backtest %s bis %s: %s", out["von"][:10], out["bis"][:10],
              {k: v["kennzahlen"].get("avg_pips") for k, v in out["setups"].items()})
     return 0
