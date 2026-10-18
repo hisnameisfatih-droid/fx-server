@@ -200,22 +200,26 @@ const SESS = {
     {n:"Glute Bridge einbeinig", d:["3×10/S","3×12/S","3×12/S","3×15/S","3×15/S","2×10/S"], w:"Körpergewicht", p:"45 s", note:"Starkes Gesäß entlastet Leiste, Knie und Laufstil."},
     {n:"KB Swing", d:["5×12","5×15","6×15","6×15","8×12","4×10"], w:["16 kg","16 kg","20 kg","20 kg","20 kg","16 kg"], p:"60 s", note:"Oben kräftig ausatmen, Luft nie anhalten. Kein 24er in diesem Block."},
     {n:"Suitcase Carry", d:["3×30 m/S","3×40 m/S","3×40 m/S","4×40 m/S","4×40 m/S","2×30 m/S"], w:["16 kg","16 kg","20 kg","20 kg","20 kg","12 kg"], p:"60 s", note:"Aufrecht gehen, nicht zur Seite kippen, ruhig weiteratmen."},
+    {n:"Klimmzüge locker", d:["3×3","3×3","3×4","3×4","3×5","2×2"], w:"etwa halbes Maximum", p:"60 s", note:"Technik-Sätze, nie bis zum Versagen. Die schweren Klimmzüge kommen Di und Sa."},
+    {n:"Liegestütz locker", d:["2×10","2×12","2×12","2×15","2×15","2×8"], w:"Körpergewicht", p:"45 s"},
     {n:"Fuß-Block: Wadenheben einbeinig + Short Foot", d:["3×10/S + 3×20 s","3×12/S + 3×20 s","3×12/S + 3×30 s","3×15/S + 3×30 s","3×15/S + 3×30 s","2×10/S"], w:"Körpergewicht", p:"45 s", note:"3 s absenken. Wichtigste Übung gegen Plattfuß-Beschwerden beim Laufen."}
   ]},
   B:{name:"Oberkörper Push & Pull", tag:"Kraft", groups:["upper"], prio:1, warm:true, ex:[
     {n:"KB Military Press einarmig", d:["3×6/S","3×8/S","4×6/S","4×8/S","5×6/S","2×6/S"], w:["16 kg","16 kg","16–20 kg","20 kg","20 kg","12–16 kg"], p:"90 s", note:"Po und Bauch fest, kein Hohlkreuz."},
     {n:"Klimmzüge", d:["3×5","3×6","4×6","4×7","5×6","2×5"], w:["KG oder Band","KG","KG","KG","KG, +4 kg wenn sauber","KG"], p:"2 min", note:"Unter 5 saubere Wiederholungen: Band oder Latzug 3×10."},
-    {n:"Liegestütz", d:["3×12","3×15","4×12","4×15","4× max − 2","2×10"], w:["Boden","Boden","Füße erhöht","Füße erhöht","Füße erhöht","Boden"], p:"60 s"},
+    {n:"Dips am Barren", d:["3×6","3×8","4×6","4×8","4×10","2×5"], w:["KG oder Band","KG","KG","KG","KG","KG"], p:"90 s", note:"Nur bis der Oberarm parallel zum Boden ist. Zwickt die Schulter vorne: Bank-Dips nehmen."},
     {n:"Einarmiges KB-Rudern", d:["3×10/S","3×12/S","4×10/S","4×12/S","4×12/S","2×10/S"], w:["24 kg","24 kg","28 kg","28 kg","32 kg","20 kg"], p:"60 s"},
     {n:"KB Halo", d:["2×8 je Richtung","2×8 je Richtung","3×8 je Richtung","3×8 je Richtung","3×10 je Richtung","2×6 je Richtung"], w:["12 kg","12 kg","12–16 kg","16 kg","16 kg","8–12 kg"], p:"45 s", note:"Schulter-Mobility unter Last, langsam."},
     {n:"Dead Bug + Plank Shoulder Taps", d:["3×10/S + 3×20","3×12/S + 3×24","3×12/S + 3×30","3×14/S + 3×30","3×15/S + 3×36","2×8/S + 2×20"], w:"Körpergewicht", p:"45 s"}
   ]},
   C:{name:"Lauf-Intervalle + Core", tag:"Kondition", groups:["run"], prio:2, warm:true, ex:[
     {n:"Intervalle", d:["5×400 m","6×400 m","4×800 m","5×800 m","4×1000 m","4×400 m"], w:["@ 4:30/km","@ 4:30/km","@ 4:40/km","@ 4:40/km","@ 4:40/km","@ 5:00/km"], p:["90 s Trab","90 s Trab","2 min Trab","2 min Trab","2:30 min Trab","2 min Trab"], note:"Stabilschuh, ebener Untergrund. Die letzte Wiederholung muss so schnell sein wie die erste."},
-    {n:"Core-Zirkel", d:["3 Runden","3 Runden","3 Runden","3 Runden","3 Runden","2 Runden"], w:"Körpergewicht", p:"60 s zwischen Runden", sub:[
+    {n:"Kraft-Zirkel leicht", d:["3 Runden","3 Runden","3 Runden","3 Runden","3 Runden","2 Runden"], w:"nach den Intervallen", p:"60 s zwischen Runden", note:"Get-up langsam, Blick zur Kugel, ruhig atmen. Klimmzüge und Liegestütz bleiben locker.", sub:[
+      ["Turkish Get-up 1/Seite · 12 kg","Turkish Get-up 1/Seite · 12 kg","Turkish Get-up 1/Seite · 16 kg","Turkish Get-up 1/Seite · 16 kg","Turkish Get-up 2/Seite · 16 kg","Turkish Get-up 1/Seite · 12 kg"],
+      ["3 Klimmzüge, locker","3 Klimmzüge, locker","4 Klimmzüge, locker","4 Klimmzüge, locker","5 Klimmzüge, locker","2 Klimmzüge"],
+      ["10 Liegestütz","12 Liegestütz","12 Liegestütz","15 Liegestütz","15 Liegestütz","8 Liegestütz"],
       ["Pallof Press 8/Seite (Band)","Pallof Press 10/Seite (Band)","Pallof Press 10/Seite (Band)","Pallof Press 12/Seite (Band)","Pallof Press 12/Seite (Band)","Pallof Press 8/Seite (Band)"],
       ["Seitstütz 30 s/Seite","Seitstütz 30 s/Seite","Seitstütz 40 s/Seite","Seitstütz 40 s/Seite","Seitstütz 45 s/Seite","Seitstütz 30 s/Seite"],
-      ["Bird Dog 8/Seite","Bird Dog 10/Seite","Bird Dog 10/Seite","Bird Dog 12/Seite","Bird Dog 12/Seite","Bird Dog 8/Seite"]
     ]},
     {n:"Tibialis Raises an der Wand", d:["2×15","2×20","3×15","3×20","3×20","2×12"], w:"Körpergewicht", p:"30 s", note:"Schützt Schienbein und Sprunggelenk bei mehr Laufvolumen."}
   ]},
@@ -225,6 +229,7 @@ const SESS = {
       ["15 KB Swings · 16 kg","15 KB Swings · 16 kg","15 KB Swings · 20 kg","15 KB Swings · 20 kg","20 KB Swings · 20 kg","12 KB Swings · 16 kg"],
       ["10 Reverse Lunges/Bein · Körpergewicht","10 Reverse Lunges/Bein · Körpergewicht","10 Reverse Lunges/Bein · 2×8 kg","10 Reverse Lunges/Bein · 2×8 kg","12 Reverse Lunges/Bein · 2×8 kg","8 Reverse Lunges/Bein · Körpergewicht"],
       ["40 m Farmers Carry · 2×16 kg","40 m Farmers Carry · 2×16 kg","40 m Farmers Carry · 2×20 kg","40 m Farmers Carry · 2×20 kg","60 m Farmers Carry · 2×20 kg","30 m Farmers Carry · 2×12 kg"],
+      ["20 s Dead Hang an der Stange","20 s Dead Hang","30 s Dead Hang","30 s Dead Hang","30 s Dead Hang","15 s Dead Hang"],
       ["8 Step-back Burpees (ohne Sprung, Schritt für Schritt)","8 Step-back Burpees","10 Step-back Burpees","10 Step-back Burpees","12 Step-back Burpees","6 Step-back Burpees"],
       ["12 Wall Balls · 4 kg (alt. 10 Goblet Squats 12 kg)","15 Wall Balls · 4 kg","15 Wall Balls · 6 kg","15 Wall Balls · 6 kg","20 Wall Balls · 6 kg","10 Wall Balls · 4 kg"]
     ]}
@@ -233,14 +238,15 @@ const SESS = {
     {n:"KB Floor Press einarmig", d:["3×10/S","3×12/S","4×10/S","4×12/S","4×12/S","2×10/S"], w:["16 kg","16 kg","20 kg","20 kg","20 kg","12–16 kg"], p:"60 s", note:"Im Liegen. Schulter bleibt am Boden, ruhig ausatmen beim Drücken."},
     {n:"Chin-ups (Untergriff)", d:["3×5","3×6","4×6","4×7","4×8","2×5"], w:["KG oder Band","KG","KG","KG","KG","KG"], p:"90 s", note:"Alternativ Australian Pull-ups an Ringen oder Stange: 3×12."},
     {n:"Rudern brustgestützt (Schrägbank)", d:["3×12","3×12","3×15","4×12","4×15","2×10"], w:["2×12 kg","2×16 kg","2×16 kg","2×16 kg","2×20 kg","2×12 kg"], p:"60 s", note:"Brust liegt auf, der Rumpf muss nichts halten. Schont die Leiste."},
-    {n:"Bank-Dips", d:["3×8","3×10","3×12","4×10","4×12","2×8"], w:"Körpergewicht", p:"60 s"},
+    {n:"Liegestütz schwer", d:["3×12","3×15","4×12","4×12","4× max − 2","2×10"], w:["Füße erhöht","Füße erhöht","Füße erhöht","Füße erhöht, 3 s runter","Füße erhöht","Boden"], p:"60 s", note:"Dips waren am Dienstag. Hier drückst du ohne Schulterstress."},
     {n:"Seitstütz + Dead Bug", d:["3×20 s/S + 3×8/S","3×25 s/S + 3×10/S","3×30 s/S + 3×10/S","3×30 s/S + 3×12/S","3×35 s/S + 3×12/S","2×20 s/S + 2×8/S"], w:"Körpergewicht", p:"45 s"},
     {n:"SkiErg oder Rudergerät", d:["6×250 m","6×250 m","8×250 m","8×250 m","10×250 m","4×250 m"], w:"zügig, nicht maximal", p:"45 s", note:"SkiErg bevorzugen, wenn vorhanden: Kondition ohne Beinbelastung."}
   ]},
   E:{name:"Locker laufen oder Padel", tag:"Aktive Erholung", groups:[], prio:3, warm:false, ex:[
     {n:"Lockerer Dauerlauf", d:["5 km","6 km","6 km","7 km","7 km","4 km"], w:"5:45–6:15/km", p:"—", note:"Du musst dich dabei unterhalten können."},
     {n:"oder Padel", d:["60–90 min","60–90 min","60–90 min","60–90 min","60–90 min","60 min"], w:"danach 10 min Mobility", p:"—"},
-    {n:"oder Pause", d:["—","—","—","—","—","—"], w:"Spaziergang + Mobility", p:"—", note:"Bei Müdigkeit ist das die richtige Wahl."}
+    {n:"oder Pause", d:["—","—","—","—","—","—"], w:"Spaziergang", p:"—", note:"Bei Müdigkeit ist das die richtige Wahl."},
+    {n:"Danach immer: KB-Flow", d:["10 min","10 min","10 min","10 min","10 min","10 min"], w:"12 kg", p:"—", note:"Halos 2×5 je Richtung, Goblet-Hold in der Hocke 2×30 s, 1 Turkish Get-up pro Seite, 2×10 Liegestütz. Alles locker."}
   ]}
 };
 
@@ -434,7 +440,7 @@ function dayHtml(s, wk, today){
     h += `<div class="detail">`;
     if (!id){
       h += s.recovery
-        ? `<div class="info"><b>Recovery:</b> 20–30 min Spaziergang oder lockeres Rad, 15 min Mobility (Hüfte sanft, Brustwirbelsäule, Waden), Short Foot 3×20 s. Viel trinken, früh schlafen.</div>`
+        ? `<div class="info"><b>Recovery-Einheit, ca. 40 min:</b> 20–30 min Spaziergang oder lockeres Rad. Danach KB-Flow mit 12 kg: Halos 2×5 je Richtung, Goblet-Hold in der Hocke 3×30 s, Turkish Get-up 2×1 pro Seite, Dead Hang 3×20 s, Short Foot 3×20 s. Nichts davon soll anstrengen. Viel trinken, früh schlafen.</div>`
         : `<div class="info">Für heute ist nichts mehr übrig. Leichte Bewegung ist gut, nichts nachholen.</div>`;
     } else if (s.skipped){
       h += `<div class="info">Ausgefallen. Der Tag zählt jetzt als Pause, die restlichen Einheiten der Woche sind nachgerückt.</div>`;
