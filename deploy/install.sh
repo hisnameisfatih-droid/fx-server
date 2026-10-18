@@ -78,6 +78,12 @@ if [ ! -f "$DATA/.backtest_amd_v1" ]; then
   systemctl start --no-block fx-backtest.service || true
 fi
 
+# Trainingsseite (web/training/): Link einmalig per Nachricht schicken
+if [ -n "$HOST" ] && [ -f web/training/index.html ] && [ ! -f "$DATA/.training_link_v1" ]; then
+  FX_MELDUNG="🏋️ Dein Trainings- und Ernährungsplan (Link geheim halten):
+https://$HOST/$SECRET/training/" venv/bin/python -c "import os; from fxserver.common import whatsapp; whatsapp(os.environ['FX_MELDUNG'])" && touch "$DATA/.training_link_v1"
+fi
+
 # 6) Erstbefüllung + Test
 venv/bin/python -m fxserver.refresh || true
 if [ "$MODUS" = "install" ]; then
