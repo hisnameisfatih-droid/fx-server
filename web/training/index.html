@@ -134,7 +134,7 @@ h2{font-family:var(--f-display);font-weight:700;font-size:26px;line-height:1.05;
 .tile b{font-family:var(--f-display);font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
 .tile span{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 .meals{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px}
-.meal{display:grid;grid-template-columns:56px 1fr;gap:12px;padding:14px 16px}
+.meal{display:grid;grid-template-columns:66px 1fr;gap:12px;padding:14px 16px}
 .meal+.meal{border-top:1px solid var(--line)}
 .mtime{font-family:var(--f-mono);font-weight:600;font-size:14px;padding-top:2px}
 .mbody{min-width:0;display:flex;flex-direction:column;gap:4px}
@@ -250,33 +250,43 @@ const SESS = {
   ]}
 };
 
+const REWE_STOP = [
+  ["2 Roggen-Vollkornbrötchen","Backstation"],
+  ["1 Becher körniger Frischkäse, 200 g","Kühlregal, als Aufstrich"],
+  ["2 gekochte Eier","6er-Pack reicht 3 Tage"],
+  ["1 Packung Mini-Snackpaprika","Vitamin C, hilft bei der Eisenaufnahme"],
+  ["Harzer Käse, ca. 100 g","für 10:30 – riecht, also lieber nicht am Schreibtisch auspacken"],
+  ["1 Apfel","für 10:30"]
+];
 const FOOD = {
-  train: { label:"Trainingstag", days:"Mo, Di, Mi, Fr, Sa", kcal:"2750", p:"180", c:"295", f:"85", meals:[
-    {t:"07:30", n:"Frühstück", items:["3 Eier, Rührei oder gekocht","2 Scheiben Roggenvollkornbrot (100 g)","1 Paprika roh, 1 Kiwi"], m:"555 kcal · P 30 · KH 50 · F 21"},
-    {t:"10:30", n:"Snack", items:["100 g Harzer Käse","1 Apfel","30 g Walnüsse"], m:"400 kcal · P 32 · KH 24 · F 20"},
-    {t:"13:00", n:"Mittag", items:["90 g Vollkornreis (roh gewogen)","150 g Hähnchenbrust","200 g Brokkoli","1 EL Olivenöl, 15 g Parmesan darüber"], m:"735 kcal · P 53 · KH 72 · F 23"},
-    {t:"16:00", n:"Pre-Workout", items:["250 g Skyr","40 g Haferflocken","1 Banane, 1 TL Honig"], m:"445 kcal · P 32 · KH 67 · F 3", note:"3 Stunden vorher, fast ohne Fett: liegt nicht schwer im Magen."},
-    {t:"18:30", n:"Kurz vorm Training", items:["2 Reiswaffeln mit Honig","Kein Kaffee mehr nach 15 Uhr, sonst leidet der Schlaf"], m:"90 kcal · KH 20"},
-    {t:"21:15", n:"Nach dem Training", items:["350 g Kartoffeln mit Schale","200 g körniger Frischkäse mit Schnittlauch","Gurke, Radieschen, Babyspinat","1 EL Leinöl über den Salat"], m:"540 kcal · P 34 · KH 60 · F 19", note:"Wenig Fett, leicht verdaulich. Kohlenhydrate helfen beim Einschlafen, das Casein im Frischkäse versorgt die Muskeln über Nacht."}
+  train: { label:"Trainingstag", days:"Mo, Di, Mi, Fr, Sa", kcal:"2800", p:"200", c:"310", f:"75", meals:[
+    {t:"05:30", n:"Vor der Abfahrt", items:["500 ml Wasser","Optional 1 Banane für die Fahrt, wenn du Hunger hast"], m:"optional"},
+    {t:"07:30", n:"Frühstück von REWE", items:["2 Roggen-Vollkornbrötchen","200 g körniger Frischkäse als Aufstrich","2 gekochte Eier","Mini-Snackpaprika"], m:"715 kcal · P 49 · KH 72 · F 23", note:"Kein Kochen nötig, alles aus dem Kühlregal und von der Backstation."},
+    {t:"10:30", n:"Snack bei der Arbeit", items:["100 g Harzer Käse","1 Apfel","20 g Walnüsse (Tüte bleibt im Spind)"], m:"335 kcal · P 31 · KH 23 · F 14"},
+    {t:"12:30", n:"Mittag aus der Box", items:["80 g Vollkornreis (roh gewogen)","150 g Hähnchenbrust","200 g Brokkoli","1 EL Olivenöl, 15 g Parmesan"], m:"700 kcal · P 52 · KH 65 · F 22", note:"Am Vorabend mitkochen. Schmeckt auch kalt."},
+    {t:"15:45", n:"Pre-Workout zuhause", items:["250 g Skyr","40 g Haferflocken","1 Banane, 1 TL Honig"], m:"445 kcal · P 32 · KH 67 · F 3", note:"Direkt nach dem Heimkommen. Fast ohne Fett, liegt nicht schwer im Magen."},
+    {t:"−45 min", n:"Kurz vorm Training", items:["2 Reiswaffeln mit Honig","Kein Kaffee mehr nach 15 Uhr"], m:"90 kcal · KH 20"},
+    {t:"danach", n:"Nach dem Training", items:["350 g Pellkartoffeln mit Schale","250 g Magerquark mit Schnittlauch","1 EL Leinöl über den Quark","Gurke, Radieschen, Babyspinat"], m:"540 kcal · P 37 · KH 65 · F 11", note:"Klassiker aus dem Spreewald: leicht verdaulich, viel Eiweiß über Nacht. Dabei gleich die Box für morgen fertig machen."}
   ]},
-  rest: { label:"Ruhetag", days:"Do, So und jeder Ausfall-Tag", kcal:"2250", p:"165", c:"190", f:"80", meals:[
-    {t:"07:30", n:"Frühstück", items:["3 Eier, Rührei oder gekocht","2 Scheiben Roggenvollkornbrot (100 g)","1 Paprika roh, 1 Kiwi"], m:"555 kcal · P 30 · KH 50 · F 21"},
-    {t:"10:30", n:"Snack", items:["100 g Harzer Käse","1 Apfel"], m:"205 kcal · P 28 · KH 20 · F 1"},
-    {t:"13:00", n:"Mittag", items:["150 g Lachs aus dem Ofen","60 g Quinoa (roh gewogen)","Salat aus Babyspinat und Paprika","15 g Parmesan"], m:"630 kcal · P 43 · KH 42 · F 28", note:"Lachs an beiden Ruhetagen deckt deinen Omega-3-Bedarf der Woche."},
-    {t:"16:00", n:"Snack", items:["250 g Skyr","150 g Beeren (TK geht)","20 g Walnüsse"], m:"350 kcal · P 30 · KH 25 · F 13"},
-    {t:"19:30", n:"Abendessen", items:["Ofengemüse: 200 g Süßkartoffel, 1 Zucchini, 1 Paprika","200 g körniger Frischkäse","1 EL Leinöl"], m:"520 kcal · P 30 · KH 52 · F 19", note:"Sonntag mit lockerem Lauf: zusätzlich 1 Banane vorher."}
+  rest: { label:"Ruhetag", days:"Do, So und jeder Ausfall-Tag", kcal:"2400", p:"185", c:"215", f:"75", meals:[
+    {t:"05:30", n:"Vor der Abfahrt", items:["500 ml Wasser"], m:"—"},
+    {t:"07:30", n:"Frühstück von REWE", items:["2 Roggen-Vollkornbrötchen","200 g körniger Frischkäse als Aufstrich","2 gekochte Eier","Mini-Snackpaprika"], m:"715 kcal · P 49 · KH 72 · F 23"},
+    {t:"10:30", n:"Snack bei der Arbeit", items:["100 g Harzer Käse","1 Apfel"], m:"205 kcal · P 28 · KH 20 · F 1"},
+    {t:"12:30", n:"Mittag aus der Box", items:["150 g Lachs aus dem Ofen","60 g Quinoa (roh gewogen)","Babyspinat und Paprika","15 g Parmesan"], m:"630 kcal · P 43 · KH 42 · F 28", note:"Mittwochabend für Donnerstag vorbereiten. Lachs an beiden Ruhetagen deckt dein Omega-3."},
+    {t:"15:45", n:"Snack zuhause", items:["250 g Skyr","150 g Beeren (TK geht)","20 g Walnüsse"], m:"350 kcal · P 30 · KH 25 · F 13"},
+    {t:"19:00", n:"Abendessen", items:["Ofengemüse: 200 g Süßkartoffel, 1 Zucchini, 1 Paprika","250 g Magerquark mit Kräutern","1 EL Leinöl"], m:"520 kcal · P 34 · KH 55 · F 11", note:"Sonntag mit lockerem Lauf: zusätzlich 1 Banane vorher."}
   ]}
 };
 const NUTRIENTS = [
-  ["Protein, Calcium, Vitamin B12","Skyr, körniger Frischkäse, Harzer, Parmesan, Eier. Muskelreparatur und Knochen."],
+  ["Protein, Calcium, Vitamin B12","Skyr, körniger Frischkäse, Magerquark, Harzer, Parmesan, Eier. Muskelreparatur und Knochen."],
   ["Omega-3 (EPA/DHA)","Lachs an beiden Ruhetagen, dazu täglich ALA aus Leinöl und Walnüssen. Bremst Entzündungen, hilft der Regeneration."],
-  ["Eisen","Hähnchen, Haferflocken, Vollkorn, Spinat. Paprika und Kiwi im selben Essen verbessern die Aufnahme. Wichtig für den Sauerstofftransport beim Laufen."],
+  ["Eisen","Hähnchen, Haferflocken, Vollkornbrötchen, Spinat. Paprika und Brokkoli im selben Essen verbessern die Aufnahme. Wichtig für den Sauerstofftransport beim Laufen."],
   ["Magnesium und Kalium","Haferflocken, Vollkorn, Walnüsse, Quinoa, Banane, Kartoffeln. Muskelfunktion, weniger Krämpfe."],
   ["Zink und Selen","Hähnchen, Käse, Eier, Lachs, Haferflocken. Stützen das Immunsystem bei hohem Trainingsvolumen."],
-  ["Vitamin C, Folat, Vitamin K","Paprika, Kiwi, Brokkoli, Spinat, Beeren."],
+  ["Vitamin C, Folat, Vitamin K","Paprika, Brokkoli, Spinat, Beeren, Apfel."],
   ["Jod","Jodsalz, Lachs, Milchprodukte."],
   ["Vitamin D","Über Essen kaum zu schaffen (nur Eier, Lachs). Von Oktober bis März in Berlin den Spiegel beim Hausarzt messen lassen und danach entscheiden, ob du ergänzt."],
-  ["Ballaststoffe, rund 40 g","Vollkornbrot, Hafer, Gemüse, Obst, Kartoffeln mit Schale. Nach der Leisten-OP besonders wichtig: weicher Stuhlgang heißt kein Pressen. Funktioniert nur zusammen mit genug Wasser."]
+  ["Ballaststoffe, rund 40 g","Vollkornbrötchen, Hafer, Gemüse, Obst, Kartoffeln mit Schale. Nach der Leisten-OP besonders wichtig: weicher Stuhlgang heißt kein Pressen. Funktioniert nur zusammen mit genug Wasser."]
 ];
 const HYDRATION = [
   "Grundbedarf rund 3 Liter am Tag (35 ml pro kg).",
@@ -287,10 +297,10 @@ const HYDRATION = [
   "Hellgelber Urin heißt: passt."
 ];
 const SHOP = [
-  ["Eiweiß und Milch", [["eier","Eier","24 Stück"],["harzer","Harzer Käse","700 g"],["skyr","Skyr natur","1,75 kg"],["frischkaese","Körniger Frischkäse","7 × 200 g"],["parmesan","Parmesan am Stück","150 g"],["haehnchen","Hähnchenbrust","750 g"],["lachs","Lachsfilet (TK geht)","2 × 150 g"]]],
-  ["Kohlenhydrate", [["brot","Roggenvollkornbrot","1 Laib, 750 g"],["hafer","Haferflocken","500 g"],["reis","Vollkornreis","1 kg"],["quinoa","Quinoa","500 g"],["kartoffeln","Kartoffeln, festkochend","2 kg"],["suesskartoffel","Süßkartoffeln","400 g"],["reiswaffeln","Reiswaffeln","1 Packung"],["honig","Honig","1 Glas"]]],
-  ["Obst und Gemüse", [["bananen","Bananen","6 Stück"],["aepfel","Äpfel","7 Stück"],["kiwi","Kiwis","7 Stück"],["beeren","Beeren, TK","300 g"],["brokkoli","Brokkoli (TK geht)","1 kg"],["paprika","Paprika","9 Stück"],["spinat","Babyspinat","400 g"],["gurke","Gurken","3 Stück"],["radieschen","Radieschen","2 Bund"],["zucchini","Zucchini","2 Stück"],["schnittlauch","Schnittlauch","1 Bund"]]],
-  ["Fette und Sonstiges", [["walnuesse","Walnüsse","200 g"],["leinoel","Leinöl (im Kühlschrank lagern)","250 ml"],["olivenoel","Olivenöl","falls leer"],["salz","Jodsalz","falls leer"],["kokoswasser","Kokoswasser","1 Liter"]]]
+  ["Eiweiß und Milch", [["skyr","Skyr natur","1,75 kg"],["magerquark","Magerquark","7 × 250 g"],["parmesan","Parmesan am Stück","150 g"],["haehnchen","Hähnchenbrust","750 g"],["lachs","Lachsfilet (TK geht)","2 × 150 g"]]],
+  ["Kohlenhydrate", [["hafer","Haferflocken","500 g"],["reis","Vollkornreis","1 kg"],["quinoa","Quinoa","500 g"],["kartoffeln","Kartoffeln, festkochend","2 kg"],["suesskartoffel","Süßkartoffeln","400 g"],["reiswaffeln","Reiswaffeln","1 Packung"],["honig","Honig","1 Glas"]]],
+  ["Obst und Gemüse", [["bananen","Bananen","7 Stück"],["beeren","Beeren, TK","300 g"],["brokkoli","Brokkoli (TK geht)","1 kg"],["paprika","Paprika","4 Stück"],["spinat","Babyspinat","400 g"],["gurke","Gurken","2 Stück"],["radieschen","Radieschen","2 Bund"],["zucchini","Zucchini","2 Stück"],["schnittlauch","Schnittlauch","2 Bund"]]],
+  ["Fette und Sonstiges", [["walnuesse","Walnüsse","200 g"],["leinoel","Leinöl (im Kühlschrank lagern)","250 ml"],["olivenoel","Olivenöl","falls leer"],["salz","Jodsalz","falls leer"],["kokoswasser","Kokoswasser","1 Liter"],["boxen","Meal-Prep-Boxen","2–3 Stück, falls keine da"]]]
 ];
 
 /* ---------- Datum ---------- */
@@ -521,14 +531,16 @@ function foodHtml(today, weeks){
   const type = foodType || tt.type;
   const F = FOOD[type];
   let h = `<header><span class="eyebrow">Ernährung · ${F.days}</span><h1>${F.label}<span class="lvl">${type===tt.type ? "Heute" + (tt.sess && tt.type==="train" ? " · " + esc(SESS[tt.sess].name) : "") : "Vorschau"}</span></h1>`;
-  h += `<p class="reason">Annahme: Ziel ist Leistung bei stabilem Gewicht. Sag mir dein Ziel, dann justiere ich die Mengen.</p></header>`;
+  h += `<p class="reason">Werktags: Frühstück und Snack von REWE, Mittag als Box vom Vorabend, ab 15:45 zuhause. Annahme: Ziel ist Leistung bei stabilem Gewicht.</p></header>`;
   h += `<div class="seg" role="group" aria-label="Tagestyp"><button aria-pressed="${type==="train"}" data-act="foodtype" data-f="train">Trainingstag</button><button aria-pressed="${type==="rest"}" data-act="foodtype" data-f="rest">Ruhetag</button></div>`;
   h += `<div class="tiles"><div class="tile"><b>${F.kcal}</b><span>kcal</span></div><div class="tile"><b>${F.p} g</b><span>Protein</span></div><div class="tile"><b>${F.c} g</b><span>Kohlenhydrate</span></div><div class="tile"><b>${F.f} g</b><span>Fett</span></div></div>`;
   h += `<ul class="meals">` + F.meals.map(m => `<li class="meal"><span class="mtime">${m.t}</span><div class="mbody"><span class="mname">${esc(m.n)}</span><ul>${m.items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul><span class="mmacro">${esc(m.m)}</span>${m.note?`<span class="small">${esc(m.note)}</span>`:""}</div></li>`).join("") + `</ul>`;
+  h += `<section class="section"><h2>Dein REWE-Stopp</h2><div class="card"><span class="small">Jeden Arbeitstag auf dem Weg, rund 6 Euro. Am Wochenende einfach dasselbe kaufen.</span><ul class="plain">${REWE_STOP.map(x=>`<li><b>${esc(x[0])}</b> · <span class="small">${esc(x[1])}</span></li>`).join("")}</ul></div></section>`;
+  h += `<section class="section"><h2>Meal Prep</h2><div class="card"><ul class="plain"><li>Sonntag: 250 g Reis kochen, reicht für Mo bis Mi.</li><li>Jeden Abend beim Kartoffeln-Kochen 150 g Hähnchen und Brokkoli für die Box von morgen mitgaren.</li><li>Mittwochabend: Lachs und Quinoa für Donnerstag.</li><li>Freitagabend: Box für Samstag, falls du unterwegs bist.</li></ul></div></section>`;
   h += `<section class="section"><h2>Trinken und Elektrolyte</h2><div class="card"><ul class="plain">${HYDRATION.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></section>`;
   h += `<section class="section"><h2>Woher die Mikronährstoffe kommen</h2><div class="card nut">${NUTRIENTS.map(n=>`<div><b>${esc(n[0])}</b><span>${esc(n[1])}</span></div>`).join("")}</div></section>`;
   const total = SHOP.reduce((a,g)=>a+g[1].length,0), got = SHOP.reduce((a,g)=>a+g[1].filter(i=>state.shop[i[0]]).length,0);
-  h += `<section class="section"><h2>Einkaufsliste Woche</h2><div class="card"><div class="meter-top"><span class="small">5 Trainingstage, 2 Ruhetage</span><strong class="mono">${got}/${total}</strong></div>`;
+  h += `<section class="section"><h2>Einkaufsliste Woche</h2><div class="card"><div class="meter-top"><span class="small">Wocheneinkauf ohne Frühstück und Vormittags-Snack</span><strong class="mono">${got}/${total}</strong></div>`;
   SHOP.forEach(g => {
     h += `<div class="shop-g"><h3>${esc(g[0])}</h3>` + g[1].map(i => `<label class="item${state.shop[i[0]]?" got":""}" for="shop-${i[0]}"><input type="checkbox" id="shop-${i[0]}" data-shop="${i[0]}"${state.shop[i[0]]?" checked":""}><span>${esc(i[1])}</span><em>${esc(i[2])}</em></label>`).join("") + `</div>`;
   });
