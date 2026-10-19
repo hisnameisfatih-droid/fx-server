@@ -252,15 +252,16 @@ const SESS = {
     ]},
     {n:"Tibialis Raises an der Wand", fig:"tibialis", d:["2×15","2×20","3×15","3×20","3×20","2×12"], w:"Körpergewicht", p:"30 s", note:"Schützt Schienbein und Sprunggelenk bei mehr Laufvolumen."}
   ]},
-  D:{name:"Hyrox-Zirkel", tag:"Kraftausdauer", groups:["legs","run"], prio:2, warm:true, ex:[
-    {n:"Zirkel auf Zeit", subfig:[["run","rower"],"swing","lunge","farmer","deadhang","burpee","wallball"], d:["3 Runden","4 Runden","4 Runden","5 Runden","5 Runden","2 Runden"], w:"zügig, sauber", p:"2 min zwischen Runden", note:"Gesamtzeit notieren. Ziel: gleichmäßige Rundenzeiten.", sub:[
-      "400 m Laufen (ungerade Runden) oder 500 m Rudern (gerade Runden)",
-      ["15 KB Swings · 16 kg","15 KB Swings · 16 kg","15 KB Swings · 20 kg","15 KB Swings · 20 kg","20 KB Swings · 20 kg","12 KB Swings · 16 kg"],
-      ["10 Reverse Lunges/Bein · Körpergewicht","10 Reverse Lunges/Bein · Körpergewicht","10 Reverse Lunges/Bein · 2×8 kg","10 Reverse Lunges/Bein · 2×8 kg","12 Reverse Lunges/Bein · 2×8 kg","8 Reverse Lunges/Bein · Körpergewicht"],
-      ["40 m Farmers Carry · 2×16 kg","40 m Farmers Carry · 2×16 kg","40 m Farmers Carry · 2×20 kg","40 m Farmers Carry · 2×20 kg","60 m Farmers Carry · 2×20 kg","30 m Farmers Carry · 2×12 kg"],
-      ["20 s Dead Hang an der Stange","20 s Dead Hang","30 s Dead Hang","30 s Dead Hang","30 s Dead Hang","15 s Dead Hang"],
-      ["8 Step-back Burpees (ohne Sprung, Schritt für Schritt)","8 Step-back Burpees","10 Step-back Burpees","10 Step-back Burpees","12 Step-back Burpees","6 Step-back Burpees"],
-      ["12 Wall Balls · 4 kg (alt. 10 Goblet Squats 12 kg)","15 Wall Balls · 4 kg","15 Wall Balls · 6 kg","15 Wall Balls · 6 kg","20 Wall Balls · 6 kg","10 Wall Balls · 4 kg"]
+  D:{name:"Kettlebell-Zirkel", tag:"Kraftausdauer", groups:["legs"], prio:2, warm:true, ex:[
+    {n:"Zirkel auf Zeit", subfig:["swing","goblet","bentrow","press","lunge","pushup","halo","deadhang"], d:["3 Runden","3 Runden","4 Runden","4 Runden","4 Runden","2 Runden"], w:"alles an einem Platz", p:["2 min zwischen Runden","2 min zwischen Runden","2 min zwischen Runden","90 s zwischen Runden","90 s zwischen Runden","2 min zwischen Runden"], note:"Übungen direkt hintereinander, Zeit pro Runde stoppen und notieren. Erst wenn alle Runden sauber laufen, schneller werden. Technik vor Tempo.", sub:[
+      ["10 Swings · 16 kg","10 Swings · 16 kg","10 Swings · 20 kg","10 Swings · 20 kg","10 Swings · 20 kg","10 Swings · 16 kg"],
+      ["10 Goblet Squats · 16 kg","10 Goblet Squats · 16 kg","10 Goblet Squats · 16 kg","10 Goblet Squats · 20 kg","10 Goblet Squats · 20 kg","10 Goblet Squats · 12 kg"],
+      ["10 Rudern vorgebeugt (5/Seite) · 16 kg","10 Rudern vorgebeugt (5/Seite) · 16 kg","10 Rudern vorgebeugt (5/Seite) · 20 kg","10 Rudern vorgebeugt (5/Seite) · 20 kg","10 Rudern vorgebeugt (5/Seite) · 24 kg","10 Rudern vorgebeugt (5/Seite) · 16 kg"],
+      ["10 Press einarmig (5/Seite) · 12 kg","10 Press einarmig (5/Seite) · 12 kg","10 Press einarmig (5/Seite) · 16 kg","10 Press einarmig (5/Seite) · 16 kg","10 Press einarmig (5/Seite) · 16 kg","10 Press einarmig (5/Seite) · 12 kg"],
+      ["10 Reverse Lunges (5/Seite) · Körpergewicht","10 Reverse Lunges (5/Seite) · Körpergewicht","10 Reverse Lunges (5/Seite) · 12 kg vor der Brust","10 Reverse Lunges (5/Seite) · 12 kg vor der Brust","10 Reverse Lunges (5/Seite) · 12 kg vor der Brust","10 Reverse Lunges (5/Seite) · Körpergewicht"],
+      ["10 Liegestütz","10 Liegestütz","10 Liegestütz","10 Liegestütz, 3 s runter","10 Liegestütz, 3 s runter","10 Liegestütz"],
+      ["10 Halos (5 je Richtung) · 12 kg","10 Halos (5 je Richtung) · 12 kg","10 Halos (5 je Richtung) · 12 kg","10 Halos (5 je Richtung) · 16 kg","10 Halos (5 je Richtung) · 16 kg","10 Halos (5 je Richtung) · 8–12 kg"],
+      ["20 s Dead Hang an der Klimmzugstange","20 s Dead Hang","30 s Dead Hang","30 s Dead Hang","30 s Dead Hang","15 s Dead Hang"]
     ]}
   ]},
   F:{name:"Oberkörper & Core", tag:"Kraftausdauer", groups:["upper"], prio:2, warm:true, ex:[
@@ -317,7 +318,7 @@ const NUTRIENTS = [
 const HYDRATION = [
   "Grundbedarf rund 3 Liter am Tag (35 ml pro kg).",
   "Pro Trainingsstunde 0,5 bis 0,75 Liter zusätzlich.",
-  "Lauftage (Intervalle, Hyrox-Zirkel, lockerer Lauf): in der ersten Stunde danach 500 ml Wasser mit einer Prise Salz (etwa 1 g) oder Kokoswasser mit einer Prise Salz.",
+  "Lauftage (Intervalle, lockerer Lauf): in der ersten Stunde danach 500 ml Wasser mit einer Prise Salz (etwa 1 g) oder Kokoswasser mit einer Prise Salz.",
   "Harzer, Parmesan und Sojasoße sind salzig. An Trainingstagen passt das, an Ruhetagen nicht extra nachsalzen.",
   "Ab 21:30 höchstens noch 0,5 Liter, sonst musst du nachts raus.",
   "Hellgelber Urin heißt: passt."
@@ -381,6 +382,10 @@ const FIG = {
     {H:[50,8],N:[50,18],P:[50,46],E1:[62,26],W1:[73,30],E2:[52,32],W2:[54,44],K1:[50,68],A1:[48,90],T1:[55,88],K2:[48,68],A2:[40,80],T2:[37,85]},
     {H:[50,2],N:[50,12],P:[50,40],E1:[62,22],W1:[73,26],E2:[52,26],W2:[54,38],K1:[51,60],A1:[52,80],T1:[57,88],K2:[48,60],A2:[40,72],T2:[37,77]}],
     cues:["Auf einem Fuß auf der Stufenkante, Ferse hängt frei, Hand an der Wand","Ganz hoch auf den Ballen drücken","3 Sekunden langsam absenken, bis die Wade dehnt"]},
+  bentrow:{label:"Rudern vorgebeugt", q:"kettlebell row bent over einarmig", frames:[
+    {H:[76,38],N:[68,42],P:[44,54],E1:[68,55],W1:[68,68],kb:[68,74],E2:[64,52],W2:[60,64],K1:[54,72],A1:[52,92],K2:[50,72],A2:[46,92]},
+    {H:[76,38],N:[68,42],P:[44,54],E1:[56,40],W1:[63,51],kb:[63,57],E2:[64,52],W2:[60,64],K1:[54,72],A1:[52,92],K2:[50,72],A2:[46,92]}],
+    cues:["Hüfte nach hinten, Oberkörper vorgebeugt, freie Hand auf dem Oberschenkel","Kugel Richtung Hüfte ziehen, Ellbogen eng am Körper","Rücken bleibt gerade, langsam ablassen"]},
   shortfoot:{label:"Short Foot", q:"short foot übung plattfuß", nob:true, frames:[
     {poly:[[[24,92],[40,88],[58,90],[80,92],[96,92]],[[24,92],[28,80],[46,72],[72,80],[96,90]]]},
     {poly:[[[24,92],[40,80],[58,80],[80,91],[96,92]],[[24,92],[28,77],[46,68],[72,77],[96,90]]]}],
