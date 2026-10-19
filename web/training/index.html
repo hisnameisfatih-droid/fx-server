@@ -272,7 +272,7 @@ const SESS = {
     {n:"Seitstütz + Dead Bug", fig:["sideplank", "deadbug"], d:["3×20 s/S + 3×8/S","3×25 s/S + 3×10/S","3×30 s/S + 3×10/S","3×30 s/S + 3×12/S","3×35 s/S + 3×12/S","2×20 s/S + 2×8/S"], w:"Körpergewicht", p:"45 s"},
     {n:"SkiErg oder Rudergerät", fig:["skierg", "rower"], d:["6×250 m","6×250 m","8×250 m","8×250 m","10×250 m","4×250 m"], w:"zügig, nicht maximal", p:"45 s", note:"SkiErg bevorzugen, wenn vorhanden: Kondition ohne Beinbelastung."}
   ]},
-  E:{name:"Locker laufen oder Padel", tag:"Aktive Erholung", groups:[], prio:3, warm:false, ex:[
+  E:{name:"Locker laufen oder Padel", tag:"Aktive Erholung", groups:[], prio:3, warm:true, ex:[
     {n:"Lockerer Dauerlauf", fig:"run", d:["5 km","6 km","6 km","7 km","7 km","4 km"], w:"5:45–6:15/km", p:"—", note:"Du musst dich dabei unterhalten können."},
     {n:"oder Padel", fig:"padel", d:["60–90 min","60–90 min","60–90 min","60–90 min","60–90 min","60 min"], w:"danach 10 min Mobility", p:"—"},
     {n:"oder Pause", fig:"walk", d:["—","—","—","—","—","—"], w:"Spaziergang", p:"—", note:"Bei Müdigkeit ist das die richtige Wahl."},
@@ -724,7 +724,7 @@ function dayHtml(s, wk, today){
     h += `<div class="detail">`;
     if (!id){
       h += s.recovery
-        ? `<div class="info"><b>Recovery-Einheit, ca. 40 min:</b> 20–30 min Spaziergang oder lockeres Rad. Danach KB-Flow mit 12 kg: Halos 2×5 je Richtung, Goblet-Hold in der Hocke 3×30 s, Turkish Get-up 2×1 pro Seite, Dead Hang 3×20 s, Short Foot 3×20 s. Nichts davon soll anstrengen. Viel trinken, früh schlafen.<div class="figrow">${["walk","halo","goblet","tgu","deadhang","shortfoot"].map(f=>`<figure>${figSvg(f,"sm")}<figcaption>${esc(FIG[f].label)}</figcaption></figure>`).join("")}</div>${howHtml(["halo","goblet","tgu","deadhang","shortfoot"])}</div>`
+        ? `<div class="info"><b>Recovery-Einheit, ca. 40 min:</b> 2 km ganz locker einlaufen (6:30/km oder langsamer), danach 15–20 min Spaziergang. Danach KB-Flow mit 12 kg: Halos 2×5 je Richtung, Goblet-Hold in der Hocke 3×30 s, Turkish Get-up 2×1 pro Seite, Dead Hang 3×20 s, Short Foot 3×20 s. Nichts davon soll anstrengen. Viel trinken, früh schlafen.<div class="figrow">${["walk","halo","goblet","tgu","deadhang","shortfoot"].map(f=>`<figure>${figSvg(f,"sm")}<figcaption>${esc(FIG[f].label)}</figcaption></figure>`).join("")}</div>${howHtml(["halo","goblet","tgu","deadhang","shortfoot"])}</div>`
         : `<div class="info">Für heute ist nichts mehr übrig. Leichte Bewegung ist gut, nichts nachholen.</div>`;
     } else if (s.skipped){
       h += `<div class="info">Ausgefallen. Der Tag zählt jetzt als Pause, die restlichen Einheiten der Woche sind nachgerückt.</div>`;
