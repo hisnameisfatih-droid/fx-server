@@ -526,6 +526,22 @@ da = json.loads((OUT / "public" / "dashboard.json").read_text())["amd"]
 pruefe(da["varianten"][0]["phase"] == "signal" and da["varianten"][0]["state"] == "tp" and da["varianten"][0]["daten"]["tp"] == 209.8,
        "AMD im Dashboard-Export")
 
+print("Gartley")
+from fxserver import harmonisch  # noqa: E402
+pruefe(harmonisch.muster_pruefen((199.0, -1), (201.0, 1), (199.764, -1), (200.528, 1)) is not None
+       and harmonisch.muster_pruefen((199.0, -1), (201.0, 1), (200.5, -1), (200.8, 1)) is None, "Gartley-Verhältnisse (AB 61,8 %, D 78,6 %)")
+punkte = [200.4, 199.0, 201.0, 199.764, 200.528, 199.428, 200.8]
+gk, t0, k = [], DT(2026, 3, 2, 0, 0), punkte[0]
+for von, bis in zip(punkte, punkte[1:]):
+    for j in range(40):
+        neu = von + (bis - von) * (j + 1) / 40
+        t_k = t0 + timedelta(minutes=15 * len(gk))
+        gk.append((t_k.date().isoformat(), t_k, k, max(k, neu) + 0.01, min(k, neu) - 0.01, neu))
+        k = neu
+tr_g = harmonisch.simuliere_gartley(gk, {"id": "g", "tf_min": 15, "k_atr": 2, "tp_anteil": 0.382}, 3.0)
+pruefe(len(tr_g) == 1 and tr_g[0].richtung == 1 and tr_g[0].grund == "tp" and abs(tr_g[0].entry - 199.428) < 0.02,
+       f"Gartley bullisch erkannt, Entry bei D, Ziel erreicht ({[(x.entry, x.grund, x.pips) for x in tr_g]})")
+
 print(f"\nTiingo-Abrufe: {sum('tiingo' in u for u in AUFRUFE)}, Claude-Aufrufe: {sum(u.startswith('claude:') for u in AUFRUFE)}")
 print(f"Ausgabe: {OUT}")
 print("ALLE TESTS OK" if not FEHLER else f"{len(FEHLER)} FEHLER: {FEHLER}")

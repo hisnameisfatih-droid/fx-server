@@ -255,6 +255,9 @@ def server_lauf() -> int:
     out = {"erstellt": datetime.now(timezone.utc).isoformat(), "von": kerzen[0][1].isoformat(),
            "bis": kerzen[-1][1].isoformat(), "handelstage": ntage, "kosten_pips": KOSTEN_PIPS, "setups": {},
            "prognose": prognose_check(kerzen)}
+    from .harmonisch import VARIANTEN as GARTLEY, simuliere_gartley
+    for g in GARTLEY:
+        erg.append((g, simuliere_gartley(kerzen, g, KOSTEN_PIPS)))
     for p, trades in erg:
         out["setups"][p["id"]] = {"name": p["name"], "kennzahlen": kennzahlen(trades),
                                   "letzte": [{"date": t.datum, "richtung": t.richtung, "pips": t.pips, "grund": t.grund}

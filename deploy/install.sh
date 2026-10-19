@@ -73,8 +73,8 @@ systemctl restart fx-alert.service
 chmod 600 "$DATA/fx.db" 2>/dev/null || true
 
 # Neue Strategien (AMD): Backtest einmalig sofort im Hintergrund statt erst Sonntag 12:00
-if [ ! -f "$DATA/.backtest_amd_v1" ]; then
-  touch "$DATA/.backtest_amd_v1"
+if [ ! -f "$DATA/.backtest_gartley_v1" ]; then
+  touch "$DATA/.backtest_amd_v1" "$DATA/.backtest_gartley_v1"
   systemctl start --no-block fx-backtest.service || true
 fi
 
