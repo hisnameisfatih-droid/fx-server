@@ -281,36 +281,36 @@ const SESS = {
 
 const REWE_STOP = [
   ["2 Roggen-Vollkornbrötchen","Backstation"],
-  ["1 Becher körniger Frischkäse, 200 g","Kühlregal, als Aufstrich"],
-  ["1 Dose Thunfisch im eigenen Saft, mit Aufreißlasche","Konservenregal. Alternative: 100 g Räucherlachs oder ein zweiter Becher körniger Frischkäse"],
-  ["1 Packung Mini-Snackpaprika","Vitamin C, hilft bei der Eisenaufnahme"],
-  ["1 Apfel",""]
+  ["2 Protein-Drinks à ca. 250 ml","Kühlregal, z. B. Skyr-Drink oder High-Protein-Drink. Pro Flasche mindestens 20 g Protein, ohne Gelatine"],
+  ["1 Packung Mini-Snackpaprika","isst du aus der Hand, Vitamin C hilft bei der Eisenaufnahme"],
+  ["1 Apfel",""],
+  ["Optional: kleiner Becher Hummus","zum Dippen der Brötchen, wenn sie dir zu trocken sind"]
 ];
 const FOOD = {
-  train: { label:"Trainingstag", kcal:"2500", p:"190", c:"285", f:"60", meals:[
+  train: { label:"Trainingstag", kcal:"2500", p:"185", c:"295", f:"60", meals:[
     {t:"bis 12", n:"Morgens", items:["Wasser und Kaffee, kein Essen","Bis Mittag rund 1 Liter trinken"], m:"—", note:"6 Stunden ohne Essen sind bei Training am Abend kein Problem."},
-    {t:"12:00", n:"Mahlzeit bei der Arbeit (REWE)", items:["2 Roggen-Vollkornbrötchen","200 g körniger Frischkäse als Aufstrich","1 Dose Thunfisch im eigenen Saft dazu oder drauf","Mini-Snackpaprika, 1 Apfel","20 g Walnüsse (Tüte bleibt im Spind)"], m:"850 kcal · P 71 · KH 84 · F 25", note:"Kein Kochen, kein Fleisch. Thunfisch und Fisch sind halal."},
+    {t:"12:00", n:"Mahlzeit bei der Arbeit (REWE)", items:["2 Roggen-Vollkornbrötchen","2 Protein-Drinks (Skyr- oder High-Protein-Drink)","Mini-Snackpaprika, 1 Apfel","30 g Walnüsse (Tüte bleibt im Spind)"], m:"865 kcal · P 65 · KH 96 · F 25", note:"Alles essfertig, ohne Besteck, ohne Fleisch."},
     {t:"15:45", n:"Warm essen zuhause", items:["80 g Vollkornreis (roh gewogen)","150 g Hähnchenbrust (halal) aus der Pfanne","200 g Brokkoli","1 TL Olivenöl, 15 g Hartkäse"], m:"620 kcal · P 52 · KH 65 · F 13", note:"Wenig Fett, damit es bis zum Training verdaut ist."},
     {t:"−60 min", n:"Vor dem Training", items:["250 g Skyr","40 g Haferflocken","1 Banane, 1 TL Honig"], m:"445 kcal · P 32 · KH 67 · F 3"},
     {t:"danach", n:"Nach dem Training", items:["400 g Pellkartoffeln oder Ofenkartoffeln","200 g Tofu natur, in Würfeln angebraten – im Wechsel mit 180 g Pute oder magerem Rindersteak (halal)","Gurke, Radieschen, Babyspinat mit 1 TL Leinöl"], m:"565 kcal · P 36 · KH 67 · F 19 (mit Pute: P 50 · F 7)", note:"Abwechseln: zum Beispiel Tofu an 3 Abenden, Fleisch an 2. Tofu mit Sojasoße, Knoblauch und Paprikapulver anbraten."}
   ]},
-  rest: { label:"Ruhetag", kcal:"2250", p:"175", c:"210", f:"75", meals:[
+  rest: { label:"Ruhetag", kcal:"2250", p:"170", c:"220", f:"73", meals:[
     {t:"bis 12", n:"Morgens", items:["Wasser und Kaffee, kein Essen"], m:"—"},
-    {t:"12:00", n:"Mahlzeit bei der Arbeit (REWE)", items:["2 Roggen-Vollkornbrötchen","200 g körniger Frischkäse als Aufstrich","1 Dose Thunfisch im eigenen Saft dazu oder drauf","Mini-Snackpaprika, 1 Apfel","20 g Walnüsse"], m:"850 kcal · P 71 · KH 84 · F 25"},
+    {t:"12:00", n:"Mahlzeit bei der Arbeit (REWE)", items:["2 Roggen-Vollkornbrötchen","2 Protein-Drinks (Skyr- oder High-Protein-Drink)","Mini-Snackpaprika, 1 Apfel","30 g Walnüsse"], m:"865 kcal · P 65 · KH 96 · F 25"},
     {t:"15:45", n:"Warm essen zuhause", items:["150 g Lachs aus dem Ofen","60 g Quinoa (roh gewogen)","Babyspinat und Paprika","15 g Hartkäse"], m:"630 kcal · P 43 · KH 44 · F 28", note:"Lachs an beiden Ruhetagen deckt dein Omega-3 der Woche."},
     {t:"18:00", n:"Snack", items:["250 g Skyr","150 g Beeren (TK geht)"], m:"220 kcal · P 28 · KH 26 · F 1"},
     {t:"19:30", n:"Abendessen", items:["Ofengemüse: 200 g Süßkartoffel, 1 Zucchini, 1 Paprika","200 g Tofu natur oder 180 g Pute (halal) mit aufs Blech","1 TL Leinöl darüber"], m:"515 kcal · P 34 · KH 54 · F 19", note:"An Tagen mit lockerem Lauf: zusätzlich 1 Banane vorher."}
   ]}
 };
 const NUTRIENTS = [
-  ["Protein, Calcium, Vitamin B12","Skyr, körniger Frischkäse, Hartkäse, Thunfisch, Hähnchen, Pute, Lachs. Tofu liefert zusätzlich Calcium. Muskelreparatur und Knochen."],
+  ["Protein, Calcium, Vitamin B12","Skyr, Protein-Drinks, Hartkäse, Hähnchen, Pute, Lachs. Tofu liefert zusätzlich Calcium. Muskelreparatur und Knochen."],
   ["Omega-3 (EPA/DHA)","Lachs an beiden Ruhetagen, dazu täglich ALA aus Leinöl und Walnüssen. Bremst Entzündungen, hilft der Regeneration."],
   ["Eisen","Hähnchen, Rind, Tofu, Haferflocken, Vollkornbrötchen, Spinat. Paprika und Brokkoli im selben Essen verbessern die Aufnahme. Wichtig für den Sauerstofftransport beim Laufen."],
   ["Magnesium und Kalium","Haferflocken, Vollkorn, Walnüsse, Quinoa, Banane, Kartoffeln. Muskelfunktion, weniger Krämpfe."],
-  ["Zink und Selen","Thunfisch, Hähnchen, Tofu, Käse, Lachs, Haferflocken. Stützen das Immunsystem bei hohem Trainingsvolumen."],
+  ["Zink und Selen","Hähnchen, Tofu, Käse, Lachs, Haferflocken, Walnüsse. Stützen das Immunsystem bei hohem Trainingsvolumen."],
   ["Vitamin C, Folat, Vitamin K","Paprika, Brokkoli, Spinat, Beeren, Apfel."],
   ["Jod","Jodsalz, Lachs, Milchprodukte."],
-  ["Vitamin D","Über Essen kaum zu schaffen (Lachs und Thunfisch helfen etwas). Von Oktober bis März in Berlin den Spiegel beim Hausarzt messen lassen und danach entscheiden, ob du ergänzt."],
+  ["Vitamin D","Über Essen kaum zu schaffen (nur Lachs hilft etwas). Von Oktober bis März in Berlin den Spiegel beim Hausarzt messen lassen und danach entscheiden, ob du ergänzt."],
   ["Ballaststoffe, rund 40 g","Vollkornbrötchen, Hafer, Gemüse, Obst, Kartoffeln mit Schale. Nach der Leisten-OP besonders wichtig: weicher Stuhlgang heißt kein Pressen. Funktioniert nur zusammen mit genug Wasser."]
 ];
 const HYDRATION = [
@@ -322,7 +322,7 @@ const HYDRATION = [
   "Hellgelber Urin heißt: passt."
 ];
 const SHOP = [
-  ["Eiweiß und Milch", [["skyr","Skyr natur","2,5 kg"],["thunfisch","Thunfisch im eigenen Saft (falls du ihn lieber zuhause kaufst)","5 Dosen"],["hartkaese","Hartkäse mit mikrobiellem Lab (nicht Parmigiano, der hat tierisches Lab)","150 g"],["haehnchen","Hähnchenbrust, halal (Fleischer)","750 g"],["tofu","Tofu natur","5 × 200 g"],["pute","Pute oder mageres Rindersteak, halal","550 g"],["lachs","Lachsfilet (TK geht)","2 × 150 g"]]],
+  ["Eiweiß und Milch", [["skyr","Skyr natur","2,5 kg"],["hartkaese","Hartkäse mit mikrobiellem Lab (nicht Parmigiano, der hat tierisches Lab)","150 g"],["haehnchen","Hähnchenbrust, halal (Fleischer)","750 g"],["tofu","Tofu natur","5 × 200 g"],["pute","Pute oder mageres Rindersteak, halal","550 g"],["lachs","Lachsfilet (TK geht)","2 × 150 g"]]],
   ["Kohlenhydrate", [["hafer","Haferflocken","500 g"],["reis","Vollkornreis","1 kg"],["quinoa","Quinoa","500 g"],["kartoffeln","Kartoffeln, festkochend","2 kg"],["suesskartoffel","Süßkartoffeln","400 g"],["honig","Honig","1 Glas"]]],
   ["Obst und Gemüse", [["bananen","Bananen","6 Stück"],["beeren","Beeren, TK","300 g"],["brokkoli","Brokkoli (TK geht)","1 kg"],["paprika","Paprika","4 Stück"],["spinat","Babyspinat","300 g"],["gurke","Gurken","3 Stück"],["radieschen","Radieschen","2 Bund"],["zucchini","Zucchini","2 Stück"],["knoblauch","Knoblauch","1 Knolle"]]],
   ["Fette und Sonstiges", [["walnuesse","Walnüsse","200 g"],["leinoel","Leinöl (im Kühlschrank lagern)","250 ml"],["olivenoel","Olivenöl","falls leer"],["sojasosse","Sojasoße","falls leer"],["salz","Jodsalz","falls leer"],["kokoswasser","Kokoswasser","1 Liter"]]]
@@ -806,7 +806,7 @@ function foodHtml(today, weeks){
   h += `<div class="seg" role="group" aria-label="Tagestyp"><button aria-pressed="${type==="train"}" data-act="foodtype" data-f="train">Trainingstag</button><button aria-pressed="${type==="rest"}" data-act="foodtype" data-f="rest">Ruhetag</button></div>`;
   h += `<div class="tiles"><div class="tile"><b>${F.kcal}</b><span>kcal</span></div><div class="tile"><b>${F.p} g</b><span>Protein</span></div><div class="tile"><b>${F.c} g</b><span>Kohlenhydrate</span></div><div class="tile"><b>${F.f} g</b><span>Fett</span></div></div>`;
   h += `<ul class="meals">` + F.meals.map(m => `<li class="meal"><span class="mtime">${m.t}</span><div class="mbody"><span class="mname">${esc(m.n)}</span><ul>${m.items.map(i=>`<li>${esc(i)}</li>`).join("")}</ul><span class="mmacro">${esc(m.m)}</span>${m.note?`<span class="small">${esc(m.note)}</span>`:""}</div></li>`).join("") + `</ul>`;
-  h += `<section class="section"><h2>Dein REWE-Stopp</h2><div class="card"><span class="small">Für die Mahlzeit um 12 Uhr, rund 6 Euro. Am Wochenende einfach dasselbe zuhause essen.</span><ul class="plain">${REWE_STOP.map(x=>`<li><b>${esc(x[0])}</b> · <span class="small">${esc(x[1])}</span></li>`).join("")}</ul></div></section>`;
+  h += `<section class="section"><h2>Dein REWE-Stopp</h2><div class="card"><span class="small">Für die Mahlzeit um 12 Uhr, rund 7 Euro, alles ohne Besteck. Am Wochenende einfach dasselbe zuhause essen.</span><ul class="plain">${REWE_STOP.map(x=>`<li><b>${esc(x[0])}</b> · <span class="small">${esc(x[1])}</span></li>`).join("")}</ul></div></section>`;
   h += `<section class="section"><h2>Meal Prep</h2><div class="card"><ul class="plain"><li>Sonntag: 240 g Reis (roh) kochen, reicht für Mo bis Mi. Mittwoch noch einmal für Fr und Sa.</li><li>Kartoffeln für 2–3 Tage auf einmal kochen, halten im Kühlschrank.</li><li>Hähnchen frisch in die Pfanne, Brokkoli dazu: 10 Minuten nach dem Heimkommen.</li></ul></div></section>`;
   h += `<section class="section"><h2>Trinken und Elektrolyte</h2><div class="card"><ul class="plain">${HYDRATION.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></section>`;
   h += `<section class="section"><h2>Woher die Mikronährstoffe kommen</h2><div class="card nut">${NUTRIENTS.map(n=>`<div><b>${esc(n[0])}</b><span>${esc(n[1])}</span></div>`).join("")}</div></section>`;
@@ -817,7 +817,7 @@ function foodHtml(today, weeks){
   });
   h += `<div class="actions"><button class="btn ghost" data-act="shop-clear">Haken der Liste entfernen</button></div></div></section>`;
   h += `<section class="section"><h2>Anpassen</h2><div class="card"><ul class="plain">
-    <li>Halal: Fleisch nur vom Fleischer. Bei Käse und Skyr auf „vegetarisch“ oder „mikrobielles Lab“ achten.</li>
+    <li>Halal: Fleisch nur vom Fleischer. Bei Käse, Skyr und Protein-Drinks auf „vegetarisch“, „mikrobielles Lab“ und „ohne Gelatine“ achten.</li>
     <li>Einmal pro Woche, immer am selben Tag, morgens nüchtern wiegen.</li>
     <li>Ziel: 0,25 bis 0,5 kg pro Woche weniger.</li>
     <li>Fällt es schneller oder bist du im Training platt: 40 g Reis zum warmen Essen dazu.</li>
