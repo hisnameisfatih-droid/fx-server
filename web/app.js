@@ -74,7 +74,16 @@ function statusPill(su) {
 }
 function renderTicket() {
   const el = $("ticket"), su = S.dash?.setup, r = S.dash?.report, h = S.dash?.setup_historie?.setups?.london_trend?.gesamt;
-  const histZeile = h ? `<div>Backtest 2012–22: ${h.trefferquote.toLocaleString("de-DE")} % Treffer, Ø ${vz(h.avg_pips, 1)} Pips je Trade nach Kosten, längste Verlustserie ${h.max_verlustserie}</div>` : "";
+  const akt = S.bt?.setups?.london_trend?.kennzahlen;
+  const nurBeobachtung = akt?.n >= 30 && akt.avg_pips <= 0;
+  const histZeile = akt?.n
+    ? `<div>Backtest ${S.bt.von.slice(0, 4)}–${S.bt.bis.slice(0, 4)}: ${akt.n} Trades, ${pz(akt.trefferquote)} Treffer, Ø ${vz(akt.avg_pips, 1)} Pips je Trade nach Kosten</div>`
+    : h ? `<div>Backtest 2012–22: ${h.trefferquote.toLocaleString("de-DE")} % Treffer, Ø ${vz(h.avg_pips, 1)} Pips je Trade nach Kosten, längste Verlustserie ${h.max_verlustserie}</div>` : "";
+  const ts = Math.sign(S.dash?.treiber?.stufe || 0);
+  const warnungen = (richtung) => [
+    nurBeobachtung ? `<div class="t-warn">Nur Beobachtung: In den letzten 2 Jahren hat dieses Setup nach Kosten verloren (Ø ${vz(akt.avg_pips, 1)} Pips je Trade). Nicht danach handeln.</div>` : "",
+    richtung && ts && richtung !== ts ? `<div class="t-warn">Widerspruch: Das Setup folgt nur dem Kurstrend (${richtung > 0 ? "Long" : "Short"}), die Treiber oben sind ${ts > 0 ? "bullish" : "bearish"} → auslassen.</div>` : "",
+  ].join("");
   if (!su) {
     const vor = (r?.vorschau || "").split("\n").filter(Boolean);
     el.innerHTML = `<div class="t-kopf"><div class="t-art">London-Ausbruch in Trendrichtung</div>
@@ -97,7 +106,8 @@ function renderTicket() {
   const zeilen = [["Entry", "var(--entry)", o.entry, long ? "Kauf-Stop" : "Verkauf-Stop"],
     ["Stop", "var(--stop)", o.sl, `−${o.risiko_pips} Pips`], ["Ziel", "var(--ziel)", o.tp, `+${o.ziel_pips} Pips`]];
   el.innerHTML = `<div class="t-kopf"><div class="t-art">${esc(su.name)} · ${esc(TREND[su.trend])}</div>
-      <div class="t-richtung ${long ? "long" : "short"}">${long ? "LONG" : "SHORT"} ${long ? "über" : "unter"} <span class="num">${zahl(o.entry)}</span></div>
+      ${warnungen(o.richtung)}
+      <div class="t-richtung ${long ? "long" : "short"}${nurBeobachtung || (ts && ts !== o.richtung) ? " gedaempft" : ""}">${long ? "LONG" : "SHORT"} ${long ? "über" : "unter"} <span class="num">${zahl(o.entry)}</span></div>
       ${statusPill(su)}</div>
     ${zeilen.map(([n, f, p, d]) => `<div class="lv"><span class="n"><i style="background:${f}"></i>${n}</span><span class="p">${zahl(p)}</span><span class="d">${d}</span></div>`).join("")}
     <div class="t-fuss"><div>Chance zu Risiko <b>1 : 2</b> · Entry gültig bis <b>${esc(su.ende)}</b> · spätestens <b>${esc(su.schluss)}</b> schließen</div>

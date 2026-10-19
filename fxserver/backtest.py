@@ -162,7 +162,7 @@ def teilen(trades, grenze: str):
 # Server: aktueller Zeitraum mit Tiingo-Daten (echter Prüfzeitraum, nach 2022)
 # ------------------------------------------------------------
 VERGLEICH = {
-    "london_beide": {"trendfilter": False},
+    "london_beide": {"trendfilter": False, "name": "London-Ausbruch (beide Richtungen)"},
 }
 
 
