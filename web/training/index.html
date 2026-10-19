@@ -99,7 +99,36 @@ h1 .lvl{display:block;font-size:22px;color:var(--accent);letter-spacing:.03em;ma
 .warm{background:var(--sunk);border-radius:10px;padding:10px 12px;font-size:14px}
 .warm summary{cursor:pointer;font-weight:600}
 .warm ul{margin:8px 0 2px;padding-left:18px}
-.ex{display:grid;grid-template-columns:1fr auto;gap:4px 14px;padding:10px 0;border-top:1px dashed var(--line)}
+.ex{display:grid;grid-template-columns:1fr;gap:12px;padding:12px 0;border-top:1px dashed var(--line)}
+.ex.has-fig{grid-template-columns:auto minmax(0,1fr)}
+.ex-figs{display:flex;flex-direction:column;gap:6px}
+.ex-main{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;min-width:0;align-content:start}
+svg.fig{display:block;width:92px;height:83px;background:var(--sunk);border-radius:10px;flex:none}
+svg.fig.sm{width:58px;height:52px;border-radius:8px}
+@media (max-width:440px){svg.fig{width:76px;height:69px}}
+svg.fig .lim{fill:none;stroke:var(--ink);stroke-width:4.2;stroke-linecap:round;stroke-linejoin:round}
+svg.fig .far{opacity:.3}
+svg.fig .hd{fill:var(--sunk);stroke:var(--ink);stroke-width:3.6}
+svg.fig .pr{fill:none;stroke:var(--muted);stroke-width:2.4;stroke-linecap:round}
+svg.fig rect.pr{fill:var(--surface);stroke-width:1.6}
+svg.fig .gr{stroke:var(--line);stroke-width:2}
+svg.fig .kb circle{fill:var(--accent)}
+svg.fig .kb path{fill:none;stroke:var(--accent);stroke-width:2.2}
+svg.fig .ball{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+svg.fig .rk{fill:none;stroke:var(--accent);stroke-width:2}
+svg.fig .bd{fill:none;stroke:var(--accent);stroke-width:1.8;stroke-dasharray:3 2}
+svg.fig .ghost{opacity:.25}
+.how{grid-column:1/-1;font-size:14px}
+.how summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:13px;padding:4px 0}
+.how ol{margin:4px 0 6px;padding-left:20px;display:flex;flex-direction:column;gap:3px}
+.how a{color:var(--accent);font-size:13px;font-weight:600}
+.how-b{padding:2px 0 6px}
+.figlist{list-style:none;padding-left:0!important;display:flex;flex-direction:column;gap:8px}
+.figlist>li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;align-items:center}
+.figlist .sf{display:flex;gap:4px}
+.figlist .how{grid-column:2}
+.figrow{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.figrow figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted);width:72px;text-align:center}
 .ex:first-of-type{border-top:0}
 .ex-name{font-weight:600;min-width:0}
 .ex-note{grid-column:1/-1;font-size:13px;color:var(--muted)}
@@ -175,7 +204,7 @@ footer input{font:inherit;color:var(--ink);background:var(--surface);border:1px 
 </div>
 
 <script>
-const START_DEFAULT = "2026-10-19";
+const START_DEFAULT = "2026-10-20";
 const DAYS = ["Mo","Di","Mi","Do","Fr","Sa","So"];
 const DAYL = ["Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag","Sonntag"];
 const BASE = ["A","B","C",null,"D","F","E"];
@@ -184,47 +213,47 @@ const CORE = ["A","B","C","D","F"];
 const LEVELNAME = {1:"Grundlage",2:"Volumen",3:"Mehr Last",4:"Volumen +",5:"Peak",6:"Deload"};
 
 const MOBILITY = [
-  "World's Greatest Stretch · 3/Seite, sanft, nicht tief in die Leiste drücken",
-  "90/90-Hüftwechsel · 8",
-  "Knie-zur-Wand (Sprunggelenk) · 10/Seite",
-  "Short Foot (Fußgewölbe hochziehen) · 3×10 s",
-  "Cat-Cow · 8",
-  "Armkreisen oder Band Pull-Aparts · 15"
+  ["World's Greatest Stretch · 3/Seite, sanft, nicht tief in die Leiste drücken","wgs"],
+  ["90/90-Hüftwechsel · 8","hip9090"],
+  ["Knie zur Wand (Sprunggelenk) · 10/Seite","kneewall"],
+  ["Short Foot (Fußgewölbe hochziehen) · 3×10 s","shortfoot"],
+  ["Cat-Cow · 8","catcow"],
+  ["Band Pull-Aparts · 15 (ohne Band: Armkreisen)","pullapart"]
 ];
 
 const SESS = {
   A:{name:"Beine & Füße", tag:"Kraft", groups:["legs"], prio:1, warm:true, ex:[
-    {n:"Goblet Squat", d:["3×10","3×12","4×10","4×12","4×12 (3 s runter)","2×10"], w:["16 kg","16 kg","16–20 kg","20 kg","20 kg","12 kg"], p:"90 s", note:"Maximal 20 kg. Fortschritt über Wiederholungen und Tempo, nicht über Gewicht."},
-    {n:"Einbeiniges RDL", d:["3×8/S","3×10/S","3×10/S","4×10/S","4×10/S","2×8/S"], w:["12 kg","12 kg","16 kg","16 kg","16–20 kg","12 kg"], p:"75 s", note:"KB in der Gegenhand. Fußgewölbe aktiv halten, Hüfte bleibt gerade."},
-    {n:"Step-ups (Kniehöhe)", d:["3×8/S","3×10/S","3×12/S","4×10/S","4×12/S","2×8/S"], w:["Körpergewicht","Körpergewicht","2×8 kg","2×8 kg","2×12 kg","Körpergewicht"], p:"60 s", note:"Ersetzt den Bulgarian Split Squat: weniger Dehnung und Zug in der Leiste."},
-    {n:"Glute Bridge einbeinig", d:["3×10/S","3×12/S","3×12/S","3×15/S","3×15/S","2×10/S"], w:"Körpergewicht", p:"45 s", note:"Starkes Gesäß entlastet Leiste, Knie und Laufstil."},
-    {n:"KB Swing", d:["5×12","5×15","6×15","6×15","8×12","4×10"], w:["16 kg","16 kg","20 kg","20 kg","20 kg","16 kg"], p:"60 s", note:"Oben kräftig ausatmen, Luft nie anhalten. Kein 24er in diesem Block."},
-    {n:"Suitcase Carry", d:["3×30 m/S","3×40 m/S","3×40 m/S","4×40 m/S","4×40 m/S","2×30 m/S"], w:["16 kg","16 kg","20 kg","20 kg","20 kg","12 kg"], p:"60 s", note:"Aufrecht gehen, nicht zur Seite kippen, ruhig weiteratmen."},
-    {n:"Klimmzüge locker", d:["3×3","3×3","3×4","3×4","3×5","2×2"], w:"etwa halbes Maximum", p:"60 s", note:"Technik-Sätze, nie bis zum Versagen. Die schweren Klimmzüge kommen Di und Sa."},
-    {n:"Liegestütz locker", d:["2×10","2×12","2×12","2×15","2×15","2×8"], w:"Körpergewicht", p:"45 s"},
-    {n:"Fuß-Block: Wadenheben einbeinig + Short Foot", d:["3×10/S + 3×20 s","3×12/S + 3×20 s","3×12/S + 3×30 s","3×15/S + 3×30 s","3×15/S + 3×30 s","2×10/S"], w:"Körpergewicht", p:"45 s", note:"3 s absenken. Wichtigste Übung gegen Plattfuß-Beschwerden beim Laufen."}
+    {n:"Goblet Squat", fig:"goblet", d:["3×10","3×12","4×10","4×12","4×12 (3 s runter)","2×10"], w:["16 kg","16 kg","16–20 kg","20 kg","20 kg","12 kg"], p:"90 s", note:"Maximal 20 kg. Fortschritt über Wiederholungen und Tempo, nicht über Gewicht."},
+    {n:"Einbeiniges RDL", fig:"rdl", d:["3×8/S","3×10/S","3×10/S","4×10/S","4×10/S","2×8/S"], w:["12 kg","12 kg","16 kg","16 kg","16–20 kg","12 kg"], p:"75 s", note:"KB in der Gegenhand. Fußgewölbe aktiv halten, Hüfte bleibt gerade."},
+    {n:"Step-ups (Kniehöhe)", fig:"stepup", d:["3×8/S","3×10/S","3×12/S","4×10/S","4×12/S","2×8/S"], w:["Körpergewicht","Körpergewicht","2×8 kg","2×8 kg","2×12 kg","Körpergewicht"], p:"60 s", note:"Ersetzt den Bulgarian Split Squat: weniger Dehnung und Zug in der Leiste."},
+    {n:"Glute Bridge einbeinig", fig:"bridge", d:["3×10/S","3×12/S","3×12/S","3×15/S","3×15/S","2×10/S"], w:"Körpergewicht", p:"45 s", note:"Starkes Gesäß entlastet Leiste, Knie und Laufstil."},
+    {n:"KB Swing", fig:"swing", d:["5×12","5×15","6×15","6×15","8×12","4×10"], w:["16 kg","16 kg","20 kg","20 kg","20 kg","16 kg"], p:"60 s", note:"Oben kräftig ausatmen, Luft nie anhalten. Kein 24er in diesem Block."},
+    {n:"Suitcase Carry", fig:"carry", d:["3×30 m/S","3×40 m/S","3×40 m/S","4×40 m/S","4×40 m/S","2×30 m/S"], w:["16 kg","16 kg","20 kg","20 kg","20 kg","12 kg"], p:"60 s", note:"Aufrecht gehen, nicht zur Seite kippen, ruhig weiteratmen."},
+    {n:"Klimmzüge locker", fig:"pullup", d:["3×3","3×3","3×4","3×4","3×5","2×2"], w:"etwa halbes Maximum", p:"60 s", note:"Technik-Sätze, nie bis zum Versagen. Die schweren Klimmzüge kommen Di und Sa."},
+    {n:"Liegestütz locker", fig:"pushup", d:["2×10","2×12","2×12","2×15","2×15","2×8"], w:"Körpergewicht", p:"45 s"},
+    {n:"Fuß-Block: Wadenheben einbeinig + Short Foot", fig:["calf", "shortfoot"], d:["3×10/S + 3×20 s","3×12/S + 3×20 s","3×12/S + 3×30 s","3×15/S + 3×30 s","3×15/S + 3×30 s","2×10/S"], w:"Körpergewicht", p:"45 s", note:"3 s absenken. Wichtigste Übung gegen Plattfuß-Beschwerden beim Laufen."}
   ]},
   B:{name:"Oberkörper Push & Pull", tag:"Kraft", groups:["upper"], prio:1, warm:true, ex:[
-    {n:"KB Military Press einarmig", d:["3×6/S","3×8/S","4×6/S","4×8/S","5×6/S","2×6/S"], w:["16 kg","16 kg","16–20 kg","20 kg","20 kg","12–16 kg"], p:"90 s", note:"Po und Bauch fest, kein Hohlkreuz."},
-    {n:"Klimmzüge", d:["3×5","3×6","4×6","4×7","5×6","2×5"], w:["KG oder Band","KG","KG","KG","KG, +4 kg wenn sauber","KG"], p:"2 min", note:"Unter 5 saubere Wiederholungen: Band oder Latzug 3×10."},
-    {n:"Dips am Barren", d:["3×6","3×8","4×6","4×8","4×10","2×5"], w:["KG oder Band","KG","KG","KG","KG","KG"], p:"90 s", note:"Nur bis der Oberarm parallel zum Boden ist. Zwickt die Schulter vorne: Bank-Dips nehmen."},
-    {n:"Einarmiges KB-Rudern", d:["3×10/S","3×12/S","4×10/S","4×12/S","4×12/S","2×10/S"], w:["24 kg","24 kg","28 kg","28 kg","32 kg","20 kg"], p:"60 s"},
-    {n:"KB Halo", d:["2×8 je Richtung","2×8 je Richtung","3×8 je Richtung","3×8 je Richtung","3×10 je Richtung","2×6 je Richtung"], w:["12 kg","12 kg","12–16 kg","16 kg","16 kg","8–12 kg"], p:"45 s", note:"Schulter-Mobility unter Last, langsam."},
-    {n:"Dead Bug + Plank Shoulder Taps", d:["3×10/S + 3×20","3×12/S + 3×24","3×12/S + 3×30","3×14/S + 3×30","3×15/S + 3×36","2×8/S + 2×20"], w:"Körpergewicht", p:"45 s"}
+    {n:"KB Military Press einarmig", fig:"press", d:["3×6/S","3×8/S","4×6/S","4×8/S","5×6/S","2×6/S"], w:["16 kg","16 kg","16–20 kg","20 kg","20 kg","12–16 kg"], p:"90 s", note:"Po und Bauch fest, kein Hohlkreuz."},
+    {n:"Klimmzüge", fig:"pullup", d:["3×5","3×6","4×6","4×7","5×6","2×5"], w:["KG oder Band","KG","KG","KG","KG, +4 kg wenn sauber","KG"], p:"2 min", note:"Unter 5 saubere Wiederholungen: Band oder Latzug 3×10."},
+    {n:"Dips am Barren", fig:"dips", d:["3×6","3×8","4×6","4×8","4×10","2×5"], w:["KG oder Band","KG","KG","KG","KG","KG"], p:"90 s", note:"Nur bis der Oberarm parallel zum Boden ist. Zwickt die Schulter vorne: Bank-Dips nehmen."},
+    {n:"Einarmiges KB-Rudern", fig:"row", d:["3×10/S","3×12/S","4×10/S","4×12/S","4×12/S","2×10/S"], w:["24 kg","24 kg","28 kg","28 kg","32 kg","20 kg"], p:"60 s"},
+    {n:"KB Halo", fig:"halo", d:["2×8 je Richtung","2×8 je Richtung","3×8 je Richtung","3×8 je Richtung","3×10 je Richtung","2×6 je Richtung"], w:["12 kg","12 kg","12–16 kg","16 kg","16 kg","8–12 kg"], p:"45 s", note:"Schulter-Mobility unter Last, langsam."},
+    {n:"Dead Bug + Plank Shoulder Taps", fig:["deadbug", "taps"], d:["3×10/S + 3×20","3×12/S + 3×24","3×12/S + 3×30","3×14/S + 3×30","3×15/S + 3×36","2×8/S + 2×20"], w:"Körpergewicht", p:"45 s"}
   ]},
   C:{name:"Lauf-Intervalle + Core", tag:"Kondition", groups:["run"], prio:2, warm:true, ex:[
-    {n:"Intervalle", d:["5×400 m","6×400 m","4×800 m","5×800 m","4×1000 m","4×400 m"], w:["@ 4:30/km","@ 4:30/km","@ 4:40/km","@ 4:40/km","@ 4:40/km","@ 5:00/km"], p:["90 s Trab","90 s Trab","2 min Trab","2 min Trab","2:30 min Trab","2 min Trab"], note:"Stabilschuh, ebener Untergrund. Die letzte Wiederholung muss so schnell sein wie die erste."},
-    {n:"Kraft-Zirkel leicht", d:["3 Runden","3 Runden","3 Runden","3 Runden","3 Runden","2 Runden"], w:"nach den Intervallen", p:"60 s zwischen Runden", note:"Get-up langsam, Blick zur Kugel, ruhig atmen. Klimmzüge und Liegestütz bleiben locker.", sub:[
+    {n:"Intervalle", fig:"run", d:["5×400 m","6×400 m","4×800 m","5×800 m","4×1000 m","4×400 m"], w:["@ 4:30/km","@ 4:30/km","@ 4:40/km","@ 4:40/km","@ 4:40/km","@ 5:00/km"], p:["90 s Trab","90 s Trab","2 min Trab","2 min Trab","2:30 min Trab","2 min Trab"], note:"Stabilschuh, ebener Untergrund. Die letzte Wiederholung muss so schnell sein wie die erste."},
+    {n:"Kraft-Zirkel leicht", subfig:["tgu","pullup","pushup","pallof","sideplank"], d:["3 Runden","3 Runden","3 Runden","3 Runden","3 Runden","2 Runden"], w:"nach den Intervallen", p:"60 s zwischen Runden", note:"Get-up langsam, Blick zur Kugel, ruhig atmen. Klimmzüge und Liegestütz bleiben locker.", sub:[
       ["Turkish Get-up 1/Seite · 12 kg","Turkish Get-up 1/Seite · 12 kg","Turkish Get-up 1/Seite · 16 kg","Turkish Get-up 1/Seite · 16 kg","Turkish Get-up 2/Seite · 16 kg","Turkish Get-up 1/Seite · 12 kg"],
       ["3 Klimmzüge, locker","3 Klimmzüge, locker","4 Klimmzüge, locker","4 Klimmzüge, locker","5 Klimmzüge, locker","2 Klimmzüge"],
       ["10 Liegestütz","12 Liegestütz","12 Liegestütz","15 Liegestütz","15 Liegestütz","8 Liegestütz"],
       ["Pallof Press 8/Seite (Band)","Pallof Press 10/Seite (Band)","Pallof Press 10/Seite (Band)","Pallof Press 12/Seite (Band)","Pallof Press 12/Seite (Band)","Pallof Press 8/Seite (Band)"],
       ["Seitstütz 30 s/Seite","Seitstütz 30 s/Seite","Seitstütz 40 s/Seite","Seitstütz 40 s/Seite","Seitstütz 45 s/Seite","Seitstütz 30 s/Seite"],
     ]},
-    {n:"Tibialis Raises an der Wand", d:["2×15","2×20","3×15","3×20","3×20","2×12"], w:"Körpergewicht", p:"30 s", note:"Schützt Schienbein und Sprunggelenk bei mehr Laufvolumen."}
+    {n:"Tibialis Raises an der Wand", fig:"tibialis", d:["2×15","2×20","3×15","3×20","3×20","2×12"], w:"Körpergewicht", p:"30 s", note:"Schützt Schienbein und Sprunggelenk bei mehr Laufvolumen."}
   ]},
   D:{name:"Hyrox-Zirkel", tag:"Kraftausdauer", groups:["legs","run"], prio:2, warm:true, ex:[
-    {n:"Zirkel auf Zeit", d:["3 Runden","4 Runden","4 Runden","5 Runden","5 Runden","2 Runden"], w:"zügig, sauber", p:"2 min zwischen Runden", note:"Gesamtzeit notieren. Ziel: gleichmäßige Rundenzeiten.", sub:[
+    {n:"Zirkel auf Zeit", subfig:[["run","rower"],"swing","lunge","farmer","deadhang","burpee","wallball"], d:["3 Runden","4 Runden","4 Runden","5 Runden","5 Runden","2 Runden"], w:"zügig, sauber", p:"2 min zwischen Runden", note:"Gesamtzeit notieren. Ziel: gleichmäßige Rundenzeiten.", sub:[
       "400 m Laufen (ungerade Runden) oder 500 m Rudern (gerade Runden)",
       ["15 KB Swings · 16 kg","15 KB Swings · 16 kg","15 KB Swings · 20 kg","15 KB Swings · 20 kg","20 KB Swings · 20 kg","12 KB Swings · 16 kg"],
       ["10 Reverse Lunges/Bein · Körpergewicht","10 Reverse Lunges/Bein · Körpergewicht","10 Reverse Lunges/Bein · 2×8 kg","10 Reverse Lunges/Bein · 2×8 kg","12 Reverse Lunges/Bein · 2×8 kg","8 Reverse Lunges/Bein · Körpergewicht"],
@@ -235,18 +264,18 @@ const SESS = {
     ]}
   ]},
   F:{name:"Oberkörper & Core", tag:"Kraftausdauer", groups:["upper"], prio:2, warm:true, ex:[
-    {n:"KB Floor Press einarmig", d:["3×10/S","3×12/S","4×10/S","4×12/S","4×12/S","2×10/S"], w:["16 kg","16 kg","20 kg","20 kg","20 kg","12–16 kg"], p:"60 s", note:"Im Liegen. Schulter bleibt am Boden, ruhig ausatmen beim Drücken."},
-    {n:"Chin-ups (Untergriff)", d:["3×5","3×6","4×6","4×7","4×8","2×5"], w:["KG oder Band","KG","KG","KG","KG","KG"], p:"90 s", note:"Alternativ Australian Pull-ups an Ringen oder Stange: 3×12."},
-    {n:"Rudern brustgestützt (Schrägbank)", d:["3×12","3×12","3×15","4×12","4×15","2×10"], w:["2×12 kg","2×16 kg","2×16 kg","2×16 kg","2×20 kg","2×12 kg"], p:"60 s", note:"Brust liegt auf, der Rumpf muss nichts halten. Schont die Leiste."},
-    {n:"Liegestütz schwer", d:["3×12","3×15","4×12","4×12","4× max − 2","2×10"], w:["Füße erhöht","Füße erhöht","Füße erhöht","Füße erhöht, 3 s runter","Füße erhöht","Boden"], p:"60 s", note:"Dips waren am Dienstag. Hier drückst du ohne Schulterstress."},
-    {n:"Seitstütz + Dead Bug", d:["3×20 s/S + 3×8/S","3×25 s/S + 3×10/S","3×30 s/S + 3×10/S","3×30 s/S + 3×12/S","3×35 s/S + 3×12/S","2×20 s/S + 2×8/S"], w:"Körpergewicht", p:"45 s"},
-    {n:"SkiErg oder Rudergerät", d:["6×250 m","6×250 m","8×250 m","8×250 m","10×250 m","4×250 m"], w:"zügig, nicht maximal", p:"45 s", note:"SkiErg bevorzugen, wenn vorhanden: Kondition ohne Beinbelastung."}
+    {n:"KB Floor Press einarmig", fig:"floorpress", d:["3×10/S","3×12/S","4×10/S","4×12/S","4×12/S","2×10/S"], w:["16 kg","16 kg","20 kg","20 kg","20 kg","12–16 kg"], p:"60 s", note:"Im Liegen. Schulter bleibt am Boden, ruhig ausatmen beim Drücken."},
+    {n:"Chin-ups (Untergriff)", fig:"chinup", d:["3×5","3×6","4×6","4×7","4×8","2×5"], w:["KG oder Band","KG","KG","KG","KG","KG"], p:"90 s", note:"Alternativ Australian Pull-ups an Ringen oder Stange: 3×12."},
+    {n:"Rudern brustgestützt (Schrägbank)", fig:"chestrow", d:["3×12","3×12","3×15","4×12","4×15","2×10"], w:["2×12 kg","2×16 kg","2×16 kg","2×16 kg","2×20 kg","2×12 kg"], p:"60 s", note:"Brust liegt auf, der Rumpf muss nichts halten. Schont die Leiste."},
+    {n:"Liegestütz schwer", fig:"pushup", d:["3×12","3×15","4×12","4×12","4× max − 2","2×10"], w:["Füße erhöht","Füße erhöht","Füße erhöht","Füße erhöht, 3 s runter","Füße erhöht","Boden"], p:"60 s", note:"Dips waren am Dienstag. Hier drückst du ohne Schulterstress."},
+    {n:"Seitstütz + Dead Bug", fig:["sideplank", "deadbug"], d:["3×20 s/S + 3×8/S","3×25 s/S + 3×10/S","3×30 s/S + 3×10/S","3×30 s/S + 3×12/S","3×35 s/S + 3×12/S","2×20 s/S + 2×8/S"], w:"Körpergewicht", p:"45 s"},
+    {n:"SkiErg oder Rudergerät", fig:["skierg", "rower"], d:["6×250 m","6×250 m","8×250 m","8×250 m","10×250 m","4×250 m"], w:"zügig, nicht maximal", p:"45 s", note:"SkiErg bevorzugen, wenn vorhanden: Kondition ohne Beinbelastung."}
   ]},
   E:{name:"Locker laufen oder Padel", tag:"Aktive Erholung", groups:[], prio:3, warm:false, ex:[
-    {n:"Lockerer Dauerlauf", d:["5 km","6 km","6 km","7 km","7 km","4 km"], w:"5:45–6:15/km", p:"—", note:"Du musst dich dabei unterhalten können."},
-    {n:"oder Padel", d:["60–90 min","60–90 min","60–90 min","60–90 min","60–90 min","60 min"], w:"danach 10 min Mobility", p:"—"},
-    {n:"oder Pause", d:["—","—","—","—","—","—"], w:"Spaziergang", p:"—", note:"Bei Müdigkeit ist das die richtige Wahl."},
-    {n:"Danach immer: KB-Flow", d:["10 min","10 min","10 min","10 min","10 min","10 min"], w:"12 kg", p:"—", note:"Halos 2×5 je Richtung, Goblet-Hold in der Hocke 2×30 s, 1 Turkish Get-up pro Seite, 2×10 Liegestütz. Alles locker."}
+    {n:"Lockerer Dauerlauf", fig:"run", d:["5 km","6 km","6 km","7 km","7 km","4 km"], w:"5:45–6:15/km", p:"—", note:"Du musst dich dabei unterhalten können."},
+    {n:"oder Padel", fig:"padel", d:["60–90 min","60–90 min","60–90 min","60–90 min","60–90 min","60 min"], w:"danach 10 min Mobility", p:"—"},
+    {n:"oder Pause", fig:"walk", d:["—","—","—","—","—","—"], w:"Spaziergang", p:"—", note:"Bei Müdigkeit ist das die richtige Wahl."},
+    {n:"Danach immer: KB-Flow", fig:"halo", d:["10 min","10 min","10 min","10 min","10 min","10 min"], w:"12 kg", p:"—", note:"Halos 2×5 je Richtung, Goblet-Hold in der Hocke 2×30 s, 1 Turkish Get-up pro Seite, 2×10 Liegestütz. Alles locker."}
   ]}
 };
 
@@ -270,7 +299,7 @@ const FOOD = {
     {t:"12:00", n:"Mahlzeit bei der Arbeit (REWE)", items:["2 Roggen-Vollkornbrötchen","200 g körniger Frischkäse als Aufstrich","2 gekochte Eier","Mini-Snackpaprika, 1 Apfel"], m:"805 kcal · P 49 · KH 93 · F 23"},
     {t:"15:45", n:"Warm essen zuhause", items:["150 g Lachs aus dem Ofen","60 g Quinoa (roh gewogen)","Babyspinat und Paprika","15 g Parmesan"], m:"630 kcal · P 43 · KH 44 · F 28", note:"Lachs an beiden Ruhetagen deckt dein Omega-3 der Woche."},
     {t:"18:00", n:"Snack", items:["250 g Skyr","150 g Beeren (TK geht)","20 g Walnüsse"], m:"350 kcal · P 30 · KH 28 · F 13"},
-    {t:"19:30", n:"Abendessen", items:["Ofengemüse: 200 g Süßkartoffel, 1 Zucchini, 1 Paprika","250 g Magerquark mit Kräutern","1 EL Leinöl"], m:"490 kcal · P 34 · KH 60 · F 11", note:"Sonntag mit lockerem Lauf: zusätzlich 1 Banane vorher."}
+    {t:"19:30", n:"Abendessen", items:["Ofengemüse: 200 g Süßkartoffel, 1 Zucchini, 1 Paprika","250 g Magerquark mit Kräutern","1 EL Leinöl"], m:"490 kcal · P 34 · KH 60 · F 11", note:"An Tagen mit lockerem Lauf: zusätzlich 1 Banane vorher."}
   ]}
 };
 const NUTRIENTS = [
@@ -287,7 +316,7 @@ const NUTRIENTS = [
 const HYDRATION = [
   "Grundbedarf rund 3 Liter am Tag (35 ml pro kg).",
   "Pro Trainingsstunde 0,5 bis 0,75 Liter zusätzlich.",
-  "Lauftage (Mi Intervalle, Fr Zirkel, So locker): in der ersten Stunde danach 500 ml Wasser mit einer Prise Salz (etwa 1 g) oder Kokoswasser mit einer Prise Salz.",
+  "Lauftage (Intervalle, Hyrox-Zirkel, lockerer Lauf): in der ersten Stunde danach 500 ml Wasser mit einer Prise Salz (etwa 1 g) oder Kokoswasser mit einer Prise Salz.",
   "Harzer und Parmesan sind salzig. An Trainingstagen passt das, an Ruhetagen nicht extra nachsalzen.",
   "Ab 21:30 höchstens noch 0,5 Liter, sonst musst du nachts raus.",
   "Hellgelber Urin heißt: passt."
@@ -298,6 +327,245 @@ const SHOP = [
   ["Obst und Gemüse", [["bananen","Bananen","6 Stück"],["beeren","Beeren, TK","300 g"],["brokkoli","Brokkoli (TK geht)","1 kg"],["paprika","Paprika","4 Stück"],["spinat","Babyspinat","200 g"],["gurke","Gurken","2 Stück"],["radieschen","Radieschen","2 Bund"],["zwiebeln","Rote Zwiebeln","3 Stück"],["zucchini","Zucchini","2 Stück"],["kraeuter","Schnittlauch oder TK-Kräuter","1 Bund"]]],
   ["Fette und Sonstiges", [["walnuesse","Walnüsse","200 g"],["leinoel","Leinöl (im Kühlschrank lagern)","250 ml"],["olivenoel","Olivenöl","falls leer"],["salz","Jodsalz","falls leer"],["kokoswasser","Kokoswasser","1 Liter"]]]
 ];
+
+/* ---------- Übungsfiguren (Seitenansicht, Blick nach rechts) ---------- */
+const ST = {H:[50,14],N:[50,24],P:[50,52],E1:[51,38],W1:[52,51],K1:[51,72],A1:[50,92]};
+const FRONT = {H:[60,14],N:[60,24],P:[60,52],K1:[64,72],A1:[65,92],T1:[69,93],K2:[56,72],A2:[55,92],T2:[51,93]};
+const PUSH_UP = {H:[78,65],N:[70,70],P:[44,81],E1:[70,82],W1:[70,94],E2:[68,82],W2:[68,94],K1:[29,86],A1:[14,91],T1:[9,94],K2:[29,86],A2:[14,91],T2:[9,94]};
+const PUSH_DN = {H:[76,82],N:[68,86],P:[43,89],E1:[58,79],W1:[70,94],E2:[56,79],W2:[68,94],K1:[28,91],A1:[14,92],T1:[9,94],K2:[28,91],A2:[14,92],T2:[9,94]};
+const HANG = {H:[51,27],N:[50,36],P:[50,64],E1:[48,22],W1:[46,8],E2:[53,22],W2:[54,8],K1:[52,82],A1:[42,92],T1:[40,96],K2:[50,82],A2:[40,92],T2:[38,96]};
+const BAR = [{t:"line",p:[26,8,74,8]}];
+const GOB_DN = {H:[57,37],N:[54,46],P:[42,72],E1:[60,60],W1:[62,51],E2:[58,60],W2:[60,51],K1:[60,74],A1:[50,92],K2:[57,74],A2:[47,92]};
+const BACK = {H:[22,88],N:[30,90],P:[56,90]};
+
+const FIG = {
+  goblet:{label:"Goblet Squat", q:"Goblet Squat Kettlebell richtig", frames:[
+    {...ST,E1:[55,38],W1:[58,30],E2:[53,38],W2:[56,30],kb:[61,32]},
+    {...GOB_DN,kb:[65,53]}],
+    cues:["Kugel vor der Brust halten, Ellbogen zeigen nach unten","Hüfte nach hinten-unten setzen, Brust bleibt aufrecht","Knie schieben nach außen über die Zehen, Fersen bleiben am Boden"]},
+  rdl:{label:"Einbeiniges RDL", q:"single leg romanian deadlift kettlebell", frames:[
+    {...ST,E1:[50,38],W1:[50,51],kb:[50,58],K2:[48,72],A2:[47,92]},
+    {H:[82,44],N:[74,46],P:[48,52],E1:[74,58],W1:[74,70],kb:[74,77],E2:[70,58],W2:[70,68],K1:[50,72],A1:[50,92],K2:[30,54],A2:[12,56],T2:[12,62]}],
+    cues:["Auf einem Bein stehen, Knie leicht gebeugt, Kugel in der Gegenhand","Oberkörper kippt nach vorne, freies Bein geht gerade nach hinten – wie eine Wippe","Rücken gerade, Hüfte zeigt zum Boden, nicht aufdrehen"]},
+  stepup:{label:"Step-up", q:"step ups richtig ausführen", props:[{t:"rect",p:[56,80,34,14]}], frames:[
+    {H:[48,14],N:[48,24],P:[46,52],E1:[49,38],W1:[50,50],E2:[47,38],W2:[46,50],K1:[64,62],A1:[66,80],K2:[46,72],A2:[46,92]},
+    {H:[65,2],N:[65,12],P:[65,40],E1:[66,26],W1:[67,38],E2:[63,26],W2:[62,38],K1:[66,60],A1:[66,80],K2:[80,48],A2:[76,66]}],
+    cues:["Ganzen Fuß auf die Box stellen (Kniehöhe)","Über die Ferse hochdrücken, das untere Bein hilft nicht mit","Langsam und kontrolliert wieder runter"]},
+  bridge:{label:"Glute Bridge einbeinig", q:"single leg glute bridge", frames:[
+    {...BACK,P:[52,90],E1:[40,92],W1:[50,93],E2:[40,92],W2:[50,93],K1:[66,72],A1:[74,92],K2:[70,82],A2:[88,74],T2:[91,69]},
+    {H:[22,88],N:[30,88],P:[52,74],E1:[40,92],W1:[50,93],E2:[40,92],W2:[50,93],K1:[68,70],A1:[74,92],K2:[70,68],A2:[88,62],T2:[91,57]}],
+    cues:["Rückenlage, ein Fuß aufgestellt, anderes Bein gestreckt","Über die Ferse das Becken hochdrücken, bis Knie, Hüfte und Schulter eine Linie bilden","Oben Po fest anspannen, 1 Sekunde halten"]},
+  swing:{label:"Kettlebell Swing", q:"kettlebell swing russian technik", frames:[
+    {H:[71,35],N:[64,40],P:[42,54],E1:[58,52],W1:[52,63],E2:[56,52],W2:[50,63],kb:[47,69],K1:[52,72],A1:[50,92],K2:[49,72],A2:[47,92]},
+    {...ST,E1:[64,26],W1:[78,28],E2:[63,27],W2:[77,29],kb:[84,31]}],
+    cues:["Kugel zwischen den Beinen nach hinten schwingen, Rücken gerade","Hüfte explosiv nach vorne schieben – die Kraft kommt aus Po und Beinen","Arme sind nur Seile, Kugel schwebt bis Brusthöhe. Oben ausatmen"]},
+  carry:{label:"Suitcase Carry", q:"suitcase carry kettlebell", frames:[
+    {...ST,E1:[50,38],W1:[50,51],kb:[50,58],E2:[44,37],W2:[40,47],K1:[56,72],A1:[60,92],K2:[46,72],A2:[40,92]},
+    {...ST,E1:[50,38],W1:[50,51],kb:[50,58],E2:[44,37],W2:[40,47],K1:[46,72],A1:[40,92],K2:[56,72],A2:[60,92]}],
+    cues:["Kugel in einer Hand neben dem Körper","Aufrecht gehen, Schultern bleiben gerade – nicht zur Kugel kippen","Kleine, ruhige Schritte, normal weiteratmen"]},
+  farmer:{label:"Farmers Carry", q:"farmers carry kettlebell", frames:[
+    {...ST,E1:[50,38],W1:[50,51],kb:[50,58],E2:[48,38],W2:[47,51],kb2:[46,58],K1:[56,72],A1:[60,92],K2:[46,72],A2:[40,92]},
+    {...ST,E1:[50,38],W1:[50,51],kb:[50,58],E2:[48,38],W2:[47,51],kb2:[46,58],K1:[46,72],A1:[40,92],K2:[56,72],A2:[60,92]}],
+    cues:["In jeder Hand eine Kugel","Brust raus, Schultern weg von den Ohren","Zügig gehen, Bauch fest"]},
+  pullup:{label:"Klimmzug", q:"klimmzüge richtig lernen", ground:false, props:BAR, frames:[
+    HANG,
+    {H:[51,3],N:[50,14],P:[49,42],E1:[57,22],W1:[47,8],E2:[55,23],W2:[54,8],K1:[51,60],A1:[42,72],T1:[40,76],K2:[49,60],A2:[40,72],T2:[38,76]}],
+    cues:["Obergriff etwas breiter als schulterbreit, ganz hängen","Schulterblätter nach unten ziehen, dann Brust zur Stange","Kinn über die Stange, langsam wieder ganz runter"]},
+  deadhang:{label:"Dead Hang", q:"dead hang richtig", ground:false, props:BAR, frames:[
+    HANG, {...HANG,N:[50,34],H:[51,25],P:[50,62],K1:[52,80],A1:[42,90],T1:[40,94],K2:[50,80],A2:[40,90],T2:[38,94]}],
+    cues:["Stange greifen, Arme gestreckt","Schultern aktiv: leicht nach unten ziehen, nicht passiv in den Gelenken hängen","Ruhig atmen, Beine locker"]},
+  pushup:{label:"Liegestütz", q:"liegestütze richtig ausführen", frames:[PUSH_UP, PUSH_DN],
+    cues:["Hände unter den Schultern, Körper wie ein Brett","Brust bis kurz über den Boden senken, Ellbogen etwa 45° nach hinten","Bauch und Po fest, kein Hohlkreuz"]},
+  calf:{label:"Wadenheben einbeinig", q:"einbeiniges wadenheben treppe", props:[{t:"rect",p:[38,88,26,6]},{t:"line",p:[74,-8,74,94]}], frames:[
+    {H:[50,8],N:[50,18],P:[50,46],E1:[62,26],W1:[73,30],E2:[52,32],W2:[54,44],K1:[50,68],A1:[48,90],T1:[55,88],K2:[48,68],A2:[40,80],T2:[37,85]},
+    {H:[50,2],N:[50,12],P:[50,40],E1:[62,22],W1:[73,26],E2:[52,26],W2:[54,38],K1:[51,60],A1:[52,80],T1:[57,88],K2:[48,60],A2:[40,72],T2:[37,77]}],
+    cues:["Auf einem Fuß auf der Stufenkante, Ferse hängt frei, Hand an der Wand","Ganz hoch auf den Ballen drücken","3 Sekunden langsam absenken, bis die Wade dehnt"]},
+  shortfoot:{label:"Short Foot", q:"short foot übung plattfuß", nob:true, frames:[
+    {poly:[[[24,92],[40,88],[58,90],[80,92],[96,92]],[[24,92],[28,80],[46,72],[72,80],[96,90]]]},
+    {poly:[[[24,92],[40,80],[58,80],[80,91],[96,92]],[[24,92],[28,77],[46,68],[72,77],[96,90]]]}],
+    cues:["Barfuß stehen, Zehen bleiben lang und entspannt","Großzehenballen Richtung Ferse ziehen – das Fußgewölbe hebt sich","Halten, ohne die Zehen zu krallen"]},
+  press:{label:"Kettlebell Press einarmig", q:"kettlebell overhead press einarmig", frames:[
+    {...ST,E1:[54,38],W1:[57,28],kb:[60,26],E2:[42,40],W2:[46,50]},
+    {...ST,E1:[51,10],W1:[51,-4],kb:[53,-7],E2:[42,40],W2:[46,50]}],
+    cues:["Kugel im Rack: an der Brust, Unterarm senkrecht","Po und Bauch fest, Kugel gerade nach oben drücken","Oben Arm am Ohr, langsam zurück ins Rack"]},
+  dips:{label:"Dips am Barren", q:"dips barren richtig", ground:true, props:[{t:"line",p:[38,50,74,50]},{t:"line",p:[70,50,70,94]}], frames:[
+    {H:[50,14],N:[50,24],P:[48,52],E1:[51,37],W1:[52,50],E2:[49,37],W2:[50,50],K1:[50,70],A1:[40,80],T1:[38,84],K2:[48,70],A2:[38,80],T2:[36,84]},
+    {H:[54,30],N:[52,40],P:[46,66],E1:[40,42],W1:[52,50],E2:[38,42],W2:[50,50],K1:[50,82],A1:[40,90],T1:[38,94],K2:[48,82],A2:[38,90],T2:[36,94]}],
+    cues:["Gestreckte Arme am Barren, Schultern weg von den Ohren","Oberkörper leicht nach vorne, langsam absenken","Nur bis der Oberarm waagerecht ist, dann hochdrücken"]},
+  row:{label:"Einarmiges Rudern", q:"einarmiges kettlebell rudern bank", props:[{t:"rect",p:[58,70,40,6]},{t:"line",p:[62,76,62,94]},{t:"line",p:[94,76,94,94]}], frames:[
+    {H:[82,47],N:[74,50],P:[50,56],E1:[74,63],W1:[74,76],kb:[74,82],E2:[80,60],W2:[86,70],K1:[46,74],A1:[44,92],K2:[62,70],A2:[80,70],T2:[84,68]},
+    {H:[82,47],N:[74,50],P:[50,56],E1:[62,44],W1:[70,56],kb:[70,62],E2:[80,60],W2:[86,70],K1:[46,74],A1:[44,92],K2:[62,70],A2:[80,70],T2:[84,68]}],
+    cues:["Eine Hand und ein Knie auf der Bank, Rücken flach","Kugel Richtung Hüfte ziehen, Ellbogen eng am Körper","Oben Schulterblatt zusammenziehen, langsam ablassen"]},
+  halo:{label:"Kettlebell Halo", q:"kettlebell halo", front:true, loop:true, frames:[
+    {...FRONT,E1:[68,40],W1:[63,33],E2:[52,40],W2:[57,33],kb:[60,37]},
+    {...FRONT,E1:[72,28],W1:[70,14],E2:[62,26],W2:[68,12],kb:[72,11]},
+    {...FRONT,E1:[70,16],W1:[63,4],E2:[50,16],W2:[57,4],kb:[60,1]},
+    {...FRONT,E1:[58,26],W1:[52,12],E2:[48,28],W2:[50,14],kb:[48,11]}],
+    cues:["Kugel kopfüber an den Griffseiten halten, vor der Brust","Eng um den Kopf kreisen – abwechselnd links und rechts herum","Bauch fest, Hüfte bleibt ruhig"]},
+  deadbug:{label:"Dead Bug", q:"dead bug übung", frames:[
+    {...BACK,E1:[30,76],W1:[30,62],E2:[32,76],W2:[32,62],K1:[56,72],A1:[72,72],T1:[76,68],K2:[58,72],A2:[74,72],T2:[78,68]},
+    {...BACK,E1:[18,82],W1:[6,86],E2:[32,76],W2:[32,62],K1:[56,72],A1:[72,72],T1:[76,68],K2:[74,86],A2:[92,88],T2:[96,84]}],
+    cues:["Rückenlage, Arme zur Decke, Knie im 90°-Winkel","Unteren Rücken fest in den Boden drücken","Einen Arm und das andere Bein langsam strecken, ohne dass der Rücken abhebt"]},
+  taps:{label:"Plank Shoulder Taps", q:"plank shoulder taps", frames:[PUSH_UP, {...PUSH_UP,E1:[78,80],W1:[70,72]}],
+    cues:["Hohe Plank, Füße etwas breiter als hüftbreit","Abwechselnd mit einer Hand die andere Schulter antippen","Hüfte bleibt ruhig, kein Schaukeln"]},
+  run:{label:"Laufen", q:"lauftechnik richtig laufen", frames:[
+    {H:[56,14],N:[54,24],P:[50,52],E1:[46,36],W1:[54,44],E2:[62,34],W2:[66,24],K1:[64,64],A1:[58,82],T1:[63,84],K2:[42,72],A2:[30,84],T2:[33,89]},
+    {H:[56,14],N:[54,24],P:[50,52],E1:[62,34],W1:[66,24],E2:[46,36],W2:[54,44],K1:[42,72],A1:[30,84],T1:[33,89],K2:[64,64],A2:[58,82],T2:[63,84]}],
+    cues:["Aufrecht, leicht nach vorne lehnen","Fuß landet unter dem Körper, nicht weit vorne","Kurze, schnelle Schritte, Arme schwingen locker mit"]},
+  tgu:{label:"Turkish Get-up", q:"turkish get up kettlebell schritt für schritt", frames:[
+    {...BACK,E1:[31,76],W1:[32,62],kb:[32,58],E2:[38,92],W2:[46,93],K1:[70,74],A1:[78,92],K2:[74,90],A2:[92,91],T2:[96,87]},
+    {H:[40,66],N:[42,74],P:[56,90],E1:[44,60],W1:[45,46],kb:[45,42],E2:[34,84],W2:[30,94],K1:[70,74],A1:[78,92],K2:[74,90],A2:[92,91],T2:[96,87]},
+    {H:[54,32],N:[54,42],P:[54,70],E1:[54,28],W1:[54,14],kb:[54,10],E2:[50,56],W2:[48,68],K1:[72,72],A1:[72,92],K2:[52,90],A2:[32,92],T2:[28,92]},
+    {...ST,E1:[51,10],W1:[51,-4],kb:[52,-7],E2:[49,38],W2:[48,51]}],
+    cues:["Rückenlage, Kugel mit gestrecktem Arm über der Brust – der Blick bleibt immer an der Kugel","Über Ellbogen und Hand aufsetzen, Hüfte heben, Bein nach hinten in den Kniestand fädeln","Aufstehen wie aus einem Ausfallschritt, danach alles rückwärts. Langsam!"]},
+  pallof:{label:"Pallof Press", q:"pallof press band", props:[{t:"line",p:[8,-8,8,94]}], frames:[
+    {H:[60,14],N:[60,24],P:[58,52],E1:[64,38],W1:[66,30],E2:[62,38],W2:[64,30],K1:[62,72],A1:[58,92],K2:[56,72],A2:[52,92],poly:[[[8,32],[66,30]]]},
+    {H:[60,14],N:[60,24],P:[58,52],E1:[73,29],W1:[86,30],E2:[71,30],W2:[84,31],K1:[62,72],A1:[58,92],K2:[56,72],A2:[52,92],poly:[[[8,32],[86,30]]]}],
+    cues:["Seitlich zur Befestigung stehen, Band mit beiden Händen an der Brust","Arme langsam gerade nach vorne drücken – das Band will dich verdrehen, du hältst dagegen","2 Sekunden halten, zurück zur Brust. Beide Seiten"]},
+  sideplank:{label:"Seitstütz", q:"seitstütz unterarm richtig", frames:[
+    {H:[24,72],N:[30,80],P:[60,90],E1:[30,93],W1:[42,94],E2:[42,76],W2:[56,82],K1:[78,91],A1:[94,92],K2:[78,90],A2:[94,90]},
+    {H:[24,72],N:[30,80],P:[60,84],E1:[30,93],W1:[42,94],E2:[42,74],W2:[56,78],K1:[78,88],A1:[94,92],K2:[78,87],A2:[94,90]}],
+    cues:["Auf den Unterarm stützen, Ellbogen unter der Schulter","Hüfte anheben, bis Kopf, Hüfte und Füße eine Linie sind","Halten, Po fest, nicht nach vorne kippen"]},
+  tibialis:{label:"Tibialis Raises", q:"tibialis raises wand", props:[{t:"line",p:[18,-8,18,94]}], frames:[
+    {H:[26,14],N:[25,24],P:[27,52],E1:[24,38],W1:[26,50],K1:[38,71],A1:[50,90],T1:[57,93],K2:[36,71],A2:[48,90],T2:[55,93]},
+    {H:[26,14],N:[25,24],P:[27,52],E1:[24,38],W1:[26,50],K1:[38,71],A1:[50,90],T1:[54,83],K2:[36,71],A2:[48,90],T2:[52,83]}],
+    cues:["Rücken an die Wand, Füße einen großen Schritt vor","Fußspitzen so weit wie möglich hochziehen, Fersen bleiben am Boden","Langsam absenken – es brennt vorne am Schienbein"]},
+  rower:{label:"Rudergerät", q:"rudergerät technik concept2", props:[{t:"line",p:[14,90,98,90]},{t:"line",p:[78,76,78,90]},{t:"rect",p:[92,62,8,28]}], frames:[
+    {H:[68,52],N:[62,60],P:[48,84],E1:[70,64],W1:[82,66],E2:[69,65],W2:[81,67],K1:[62,66],A1:[74,84],T1:[77,78],K2:[60,66],A2:[72,84],T2:[75,78],poly:[[[92,68],[82,66]]]},
+    {H:[30,50],N:[36,58],P:[42,84],E1:[30,68],W1:[44,66],E2:[31,69],W2:[45,67],K1:[60,80],A1:[74,84],T1:[77,78],K2:[58,80],A2:[72,84],T2:[75,78],poly:[[[92,68],[44,66]]]}],
+    cues:["Erst Beine strecken, dann Oberkörper leicht zurück, zuletzt Griff zur Brust","Zurück in umgekehrter Reihenfolge: Arme, Oberkörper, Beine","Rücken bleibt gerade, die Kraft kommt hauptsächlich aus den Beinen"]},
+  skierg:{label:"SkiErg", q:"skierg technik", props:[{t:"rect",p:[84,-10,8,104]}], frames:[
+    {H:[60,14],N:[58,24],P:[52,52],E1:[64,12],W1:[74,2],E2:[63,13],W2:[73,3],K1:[53,72],A1:[50,92],K2:[51,72],A2:[48,92],poly:[[[84,-4],[74,2]]]},
+    {H:[76,40],N:[70,44],P:[46,54],E1:[66,57],W1:[62,70],E2:[65,58],W2:[61,71],K1:[56,72],A1:[50,92],K2:[54,72],A2:[48,92],poly:[[[84,-4],[62,70]]]}],
+    cues:["Griffe über Kopf, leicht auf den Zehen","Mit Bauch und Rücken nach unten ziehen, Hüfte beugt mit","Hände bis neben die Oberschenkel, dann wieder aufrichten"]},
+  lunge:{label:"Reverse Lunge", q:"reverse lunges richtig", frames:[
+    {...ST,E1:[55,38],W1:[58,30],E2:[53,38],W2:[56,30]},
+    {H:[50,30],N:[50,40],P:[50,68],E1:[55,54],W1:[58,46],E2:[53,54],W2:[56,46],K1:[66,74],A1:[64,92],K2:[44,88],A2:[26,90],T2:[22,94]}],
+    cues:["Aufrecht stehen, Hände vor der Brust","Mit einem Bein einen großen Schritt nach hinten, hinteres Knie Richtung Boden","Über die vordere Ferse zurück in den Stand drücken"]},
+  burpee:{label:"Step-back Burpee", q:"step back burpee ohne sprung", frames:[
+    {...ST,E2:[49,38],W2:[48,51]},
+    {H:[66,48],N:[60,54],P:[44,72],E1:[64,70],W1:[66,92],E2:[62,70],W2:[64,92],K1:[60,74],A1:[50,92],K2:[57,74],A2:[47,92]},
+    PUSH_UP],
+    cues:["In die Hocke, Hände vor die Füße auf den Boden","Beine nacheinander nach hinten in den Liegestütz setzen – nicht springen","Nacheinander wieder nach vorne, aufstehen, ausatmen"]},
+  wallball:{label:"Wall Ball", q:"wall ball technik hyrox", props:[{t:"line",p:[96,-12,96,94]}], frames:[
+    {...GOB_DN,E1:[60,56],W1:[62,48],E2:[58,56],W2:[60,48],ball:[67,46]},
+    {...ST,H:[52,14],E1:[56,12],W1:[62,0],E2:[54,12],W2:[60,0],ball:[68,-5]}],
+    cues:["Ball vor der Brust, tief in die Hocke wie beim Goblet Squat","Explosiv aufstehen und den Ball in einem Zug an die Wand werfen","Ball fangen und direkt in die nächste Hocke. Beim Wurf ausatmen"]},
+  floorpress:{label:"Floor Press", q:"kettlebell floor press", frames:[
+    {H:[26,88],N:[34,90],P:[60,90],E1:[40,93],W1:[42,79],kb:[42,75],E2:[38,93],W2:[40,79],K1:[74,74],A1:[82,92],K2:[72,74],A2:[80,92]},
+    {H:[26,88],N:[34,90],P:[60,90],E1:[36,77],W1:[36,63],kb:[36,59],E2:[38,93],W2:[40,79],K1:[74,74],A1:[82,92],K2:[72,74],A2:[80,92]}],
+    cues:["Rückenlage, Knie aufgestellt, Oberarm liegt am Boden","Kugel gerade nach oben drücken, Handgelenk gerade","Langsam zurück, bis der Ellbogen den Boden berührt"]},
+  chestrow:{label:"Rudern brustgestützt", q:"chest supported row schrägbank kurzhantel", props:[{t:"line",p:[34,90,70,38]},{t:"line",p:[52,64,52,94]}], frames:[
+    {H:[70,34],N:[64,42],P:[38,78],E1:[68,56],W1:[70,70],kb:[70,76],K1:[28,86],A1:[20,93],T1:[25,94],K2:[27,86],A2:[19,93],T2:[24,94]},
+    {H:[70,34],N:[64,42],P:[38,78],E1:[52,46],W1:[60,56],kb:[60,62],K1:[28,86],A1:[20,93],T1:[25,94],K2:[27,86],A2:[19,93],T2:[24,94]}],
+    cues:["Mit der Brust auf die Schrägbank legen","Gewichte hängen gerade nach unten","Ellbogen nach hinten-oben ziehen, Schulterblätter zusammen, langsam ablassen"]},
+  wgs:{label:"World's Greatest Stretch", q:"worlds greatest stretch", frames:[
+    {H:[80,58],N:[72,64],P:[50,76],E1:[70,80],W1:[66,93],E2:[68,80],W2:[64,93],K1:[70,74],A1:[72,92],K2:[34,84],A2:[18,92],T2:[14,94]},
+    {H:[80,58],N:[72,64],P:[50,76],E1:[74,50],W1:[76,36],E2:[68,80],W2:[64,93],K1:[70,74],A1:[72,92],K2:[34,84],A2:[18,92],T2:[14,94]}],
+    cues:["Großer Ausfallschritt, beide Hände innen neben den vorderen Fuß","Hinteres Bein lang, Hüfte sinkt Richtung Boden – sanft, nicht in die Leiste drücken","Arm auf der Seite des vorderen Beins zur Decke aufdrehen, Blick folgt der Hand"]},
+  hip9090:{label:"90/90-Hüftwechsel", q:"90 90 hip switch", frames:[
+    {H:[48,52],N:[48,62],P:[50,90],E1:[42,76],W1:[36,93],E2:[44,76],W2:[38,93],K1:[68,84],A1:[70,94],T1:[74,94],K2:[66,88],A2:[54,94],T2:[52,94]},
+    {H:[48,52],N:[48,62],P:[50,90],E1:[42,76],W1:[36,93],E2:[44,76],W2:[38,93],K1:[32,84],A1:[30,94],T1:[26,94],K2:[34,88],A2:[46,94],T2:[48,94]}],
+    cues:["Auf dem Boden sitzen, beide Knie 90° gebeugt, Füße breit","Beide Knie gleichzeitig zur einen Seite ablegen, dann zur anderen","Oberkörper bleibt aufrecht, langsam"]},
+  kneewall:{label:"Knie zur Wand", q:"knee to wall ankle mobility", props:[{t:"line",p:[92,-12,92,94]}], frames:[
+    {H:[60,36],N:[60,46],P:[60,74],E1:[72,50],W1:[86,52],E2:[71,51],W2:[85,53],K1:[78,74],A1:[80,92],K2:[52,92],A2:[34,92],T2:[30,93]},
+    {H:[64,36],N:[64,46],P:[64,74],E1:[76,50],W1:[89,52],E2:[75,51],W2:[88,53],K1:[88,72],A1:[80,92],K2:[52,92],A2:[34,92],T2:[30,93]}],
+    cues:["Halber Kniestand vor der Wand, vorderer Fuß eine Handbreit davor","Knie Richtung Wand schieben, Ferse bleibt am Boden","Berührt das Knie die Wand mühelos: Fuß etwas weiter weg"]},
+  catcow:{label:"Cat-Cow", q:"cat cow übung", frames:[
+    {H:[80,82],N:[74,70],P:[40,70],S:[57,54],E1:[74,82],W1:[74,94],E2:[72,82],W2:[72,94],K1:[40,92],A1:[22,92],T1:[18,93],K2:[38,92],A2:[20,92],T2:[16,93]},
+    {H:[82,62],N:[74,70],P:[40,70],S:[57,82],E1:[74,82],W1:[74,94],E2:[72,82],W2:[72,94],K1:[40,92],A1:[22,92],T1:[18,93],K2:[38,92],A2:[20,92],T2:[16,93]}],
+    cues:["Vierfüßlerstand, Hände unter den Schultern","Ausatmen: Rücken rund machen, Kinn zur Brust","Einatmen: Rücken sanft durchhängen lassen, Blick nach vorne"]},
+  pullapart:{label:"Band Pull-Apart", q:"band pull aparts", front:true, frames:[
+    {...FRONT,E1:[68,32],W1:[64,28],E2:[52,32],W2:[56,28],poly:[[[56,28],[64,28]]]},
+    {...FRONT,E1:[74,25],W1:[89,25],E2:[46,25],W2:[31,25],poly:[[[31,25],[89,25]]]}],
+    cues:["Band schulterbreit greifen, Arme gestreckt vor der Brust","Band auseinanderziehen, bis es die Brust berührt","Schulterblätter zusammen, langsam zurück"]},
+  padel:{label:"Padel", q:"padel vorhand technik anfänger", frames:[
+    {H:[48,14],N:[48,24],P:[50,52],E1:[38,32],W1:[28,36],rk:[16,28],E2:[56,36],W2:[62,44],K1:[56,72],A1:[60,92],K2:[44,72],A2:[38,92]},
+    {H:[52,14],N:[52,24],P:[50,52],E1:[62,30],W1:[72,24],rk:[82,16],E2:[44,38],W2:[40,46],K1:[56,72],A1:[60,92],K2:[44,72],A2:[38,92]}],
+    cues:["Seitlich zum Ball stellen, Schläger früh nach hinten","Aus Beinen und Hüfte schlagen, nicht nur aus dem Arm","Danach 10 Minuten Mobility"]},
+  walk:{label:"Spaziergang", q:"", frames:[
+    {...ST,E1:[46,37],W1:[44,50],E2:[54,37],W2:[57,49],K1:[54,72],A1:[57,92],K2:[47,72],A2:[43,92]},
+    {...ST,E1:[54,37],W1:[57,49],E2:[46,37],W2:[44,50],K1:[47,72],A1:[43,92],K2:[54,72],A2:[57,92]}],
+    cues:["20–30 Minuten locker gehen, gerne draußen","Tempo, bei dem du dich unterhalten kannst"]}
+};
+FIG.chinup = {...FIG.pullup, label:"Chin-up (Untergriff)", q:"chin ups richtig", cues:["Untergriff schulterbreit, ganz hängen","Ellbogen nach unten zu den Rippen ziehen","Kinn über die Stange, langsam ganz runter"]};
+
+const REDUCE = (() => { try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch(e) { return false; } })();
+const FKEYS = ["H","N","P","S","E1","W1","E2","W2","K1","A1","T1","K2","A2","T2","kb","kb2","ball","rk"];
+function normPose(p){
+  const o = {...p}, add = (a,dx,dy) => a ? [a[0]+dx, a[1]+dy] : a;
+  if (!o.nob && o.N){
+    o.E2 = o.E2 || add(o.E1,-3,0); o.W2 = o.W2 || add(o.W1,-3,0);
+    o.K2 = o.K2 || add(o.K1,-3,0); o.A2 = o.A2 || add(o.A1,-3,0);
+    o.T1 = o.T1 || add(o.A1,6,0); o.T2 = o.T2 || add(o.A2,6,0);
+  }
+  return o;
+}
+function lerpPose(a, b, t){
+  const o = {};
+  FKEYS.forEach(k => { if (a[k] && b[k]) o[k] = [a[k][0]+(b[k][0]-a[k][0])*t, a[k][1]+(b[k][1]-a[k][1])*t]; else if (a[k] && t < .5) o[k] = a[k]; else if (b[k] && t >= .5) o[k] = b[k]; });
+  if (a.poly && b.poly) o.poly = a.poly.map((ln,i) => ln.map((pt,j) => { const q = (b.poly[i]||ln)[j] || pt; return [pt[0]+(q[0]-pt[0])*t, pt[1]+(q[1]-pt[1])*t]; }));
+  return o;
+}
+const f1 = v => Math.round(v*10)/10;
+const pts = (...a) => a.filter(Boolean).map(p => f1(p[0])+" "+f1(p[1])).join(" L ");
+function drawPose(F, p, cls){
+  let s = `<g class="${cls||""}">`;
+  if (p.poly) s += p.poly.map(ln => `<path class="${F.nob?"lim":"bd"}" d="M ${pts(...ln)}"/>`).join("");
+  if (!F.nob && p.N){
+    const far = F.front ? "lim" : "lim far";
+    s += `<path class="${far}" d="M ${pts(p.N,p.E2,p.W2)}"/><path class="${far}" d="M ${pts(p.P,p.K2,p.A2,p.T2)}"/>`;
+    s += p.S ? `<path class="lim" d="M ${pts(p.N)} Q ${pts(p.S)} ${pts(p.P)}"/>` : `<path class="lim" d="M ${pts(p.N,p.P)}"/>`;
+    s += `<path class="lim" d="M ${pts(p.P,p.K1,p.A1,p.T1)}"/><path class="lim" d="M ${pts(p.N,p.E1,p.W1)}"/>`;
+    s += `<circle class="hd" cx="${f1(p.H[0])}" cy="${f1(p.H[1])}" r="6.5"/>`;
+  }
+  [p.kb2, p.kb].forEach(k => { if (k) s += `<g class="kb"><path d="M ${f1(k[0]-3)} ${f1(k[1]-3.5)} a3 3.4 0 0 1 6 0"/><circle cx="${f1(k[0])}" cy="${f1(k[1]+1)}" r="4.6"/></g>`; });
+  if (p.ball) s += `<circle class="ball" cx="${f1(p.ball[0])}" cy="${f1(p.ball[1])}" r="5.5"/>`;
+  if (p.rk) s += `<path class="pr" d="M ${pts(p.W1,p.rk)}"/><circle class="rk" cx="${f1(p.rk[0])}" cy="${f1(p.rk[1])}" r="5"/>`;
+  return s + `</g>`;
+}
+function drawFig(F, p){
+  let s = "";
+  if (F.ground !== false) s += `<line class="gr" x1="0" y1="94" x2="120" y2="94"/>`;
+  (F.props||[]).forEach(o => { s += o.t === "rect" ? `<rect class="pr" x="${o.p[0]}" y="${o.p[1]}" width="${o.p[2]}" height="${o.p[3]}" rx="1.5"/>` : `<line class="pr" x1="${o.p[0]}" y1="${o.p[1]}" x2="${o.p[2]}" y2="${o.p[3]}"/>`; });
+  return s + p;
+}
+function staticFig(F){
+  const fr = F.frames.map(normPose);
+  return REDUCE ? drawPose(F, fr[0], "ghost") + drawPose(F, fr[fr.length-1]) : drawPose(F, fr[0]);
+}
+function figSvg(id, size){
+  const F = FIG[id]; if (!F) return "";
+  return `<svg class="fig${size?" "+size:""}" viewBox="0 -12 120 108" data-fig="${id}" role="img" aria-label="${esc(F.label)}">${drawFig(F, staticFig(F))}</svg>`;
+}
+function howHtml(ids){
+  ids = [].concat(ids||[]).filter(id => FIG[id]);
+  if (!ids.length) return "";
+  return `<details class="how"><summary>So geht's</summary>` + ids.map(id => { const F = FIG[id];
+    return `<div class="how-b">${ids.length>1?`<b>${esc(F.label)}</b>`:""}<ol>${F.cues.map(c=>`<li>${esc(c)}</li>`).join("")}</ol>${F.q?`<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(F.q)}" target="_blank" rel="noopener">Video: ${esc(F.label)} ↗</a>`:""}</div>`; }).join("") + `</details>`;
+}
+const FIG_SEQ = {};
+function figSeq(F){
+  const n = F.frames.length; let seq = [...Array(n).keys()];
+  if (F.loop) seq.push(0); else for (let i=n-2; i>=0; i--) seq.push(i);
+  return seq;
+}
+let lastFig = 0;
+function figTick(t){
+  if (t - lastFig > 40){
+    lastFig = t;
+    document.querySelectorAll("svg.fig[data-fig]").forEach(svg => {
+      const id = svg.dataset.fig, F = FIG[id]; if (!F) return;
+      const fr = FIG_SEQ[id] || (FIG_SEQ[id] = { f: F.frames.map(normPose), s: figSeq(F) });
+      const seg = 1000, hold = 350, per = seg + hold, steps = fr.s.length - 1;
+      const local = t % (per * steps), k = Math.floor(local / per), u = Math.max(0, (local - k*per - hold) / seg);
+      const e = u*u*(3-2*u);
+      svg.innerHTML = drawFig(F, drawPose(F, lerpPose(fr.f[fr.s[k]], fr.f[fr.s[k+1]], e)));
+    });
+  }
+  requestAnimationFrame(figTick);
+}
+if (!REDUCE) requestAnimationFrame(figTick);
 
 /* ---------- Datum ---------- */
 const ymd = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
@@ -310,7 +578,7 @@ const todayStr = () => ymd(new Date());
 /* ---------- Zustand ---------- */
 const LS_KEY = "fatih-hybrid-block-v1";
 let state = { start: START_DEFAULT, entries: {}, shop: {} };
-try { const s = JSON.parse(localStorage.getItem(LS_KEY) || "null"); if (s && s.entries) state = { start: s.start || START_DEFAULT, entries: s.entries, shop: s.shop || {} }; } catch(e) {}
+try { const s = JSON.parse(localStorage.getItem(LS_KEY) || "null"); if (s && s.entries) state = { start: (s.start && !(s.start === "2026-10-19" && !Object.keys(s.entries).length)) ? s.start : START_DEFAULT, entries: s.entries, shop: s.shop || {} }; } catch(e) {}
 const saveLocal = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e) {} };
 
 let viewWeek = null, openDs = null, confirmReset = false, foodType = null;
@@ -320,7 +588,7 @@ let syncText = "Nur auf diesem Gerät gespeichert", syncOn = false;
 /* ---------- Wochenlogik ---------- */
 function scheduleWeek(ws, entries, today){
   const slots = [...Array(7)].map((_,i) => { const d = addDays(ws,i), ds = ymd(d);
-    return { i, d, ds, sess: null, skipped: false, recovery: false, easy: false, entry: entries[ds] || null }; });
+    return { i, d, ds, wd: (d.getDay()+6)%7, sess: null, skipped: false, recovery: false, easy: false, entry: entries[ds] || null }; });
   const isDone = s => s.entry && s.entry.s === "done" && s.entry.sess;
   const doneIds = slots.filter(isDone).map(s => s.entry.sess);
   const overlaps = (a,b) => a && b && SESS[a].groups.some(g => SESS[b].groups.includes(g));
@@ -339,9 +607,9 @@ function scheduleWeek(ws, entries, today){
   }
   const notes = [];
   const skips = slots.filter(s => s.skipped && s.sess !== "E");
-  skips.forEach(s => notes.push(`${DAYL[s.i]}: ${SESS[s.sess].name} ausgefallen. Der Tag zählt als Pause, die restlichen Einheiten rücken nach.`));
+  skips.forEach(s => notes.push(`${DAYL[s.wd]}: ${SESS[s.sess].name} ausgefallen. Der Tag zählt als Pause, die restlichen Einheiten rücken nach.`));
   if (skips.length){
-    const rec = slots.filter(s => s.recovery).map(s => DAYL[s.i]);
+    const rec = slots.filter(s => s.recovery).map(s => DAYL[s.wd]);
     notes.push(rec.length ? `Recovery-Tag jetzt: ${rec.join(" und ")}.` : "Kein zusätzlicher Recovery-Tag nötig, der Ausfall war deine Pause.");
   }
   queue.forEach(x => notes.push(x === "E" ? "Die lockere Sonntagseinheit entfällt diese Woche." : `${SESS[x].name} entfällt diese Woche. Nicht doppelt nachholen.`));
@@ -349,7 +617,7 @@ function scheduleWeek(ws, entries, today){
   if (flag){
     let any = false;
     slots.forEach(s => { if (s.i > flag.i && s.sess && SESS[s.sess].groups.includes("legs") && !s.skipped){ s.easy = true; any = true; } });
-    notes.push(`Leiste am ${DAYL[flag.i]} gemeldet${any ? ": restliche Bein- und Zirkel-Einheiten dieser Woche laufen auf Deload-Niveau" : ""}. Nächste Woche bleibt die Stufe.`);
+    notes.push(`Leiste am ${DAYL[flag.wd]} gemeldet${any ? ": restliche Bein- und Zirkel-Einheiten dieser Woche laufen auf Deload-Niveau" : ""}. Nächste Woche bleibt die Stufe.`);
   }
   return { slots, notes, dropped: queue.filter(x => CORE.includes(x)) };
 }
@@ -398,19 +666,23 @@ function sessionHtml(id, level, i){
   const S = SESS[id], li = level === 6 ? 5 : level-1;
   let h = "";
   if (S.warm){
-    h += `<details class="warm"><summary>Aufwärmen: 2 km einlaufen (6:00–6:30/km) + 6 min Mobility</summary><ul>${MOBILITY.map(m=>`<li>${esc(m)}</li>`).join("")}</ul></details>`;
+    h += `<details class="warm"><summary>Aufwärmen: 2 km einlaufen (6:00–6:30/km) + 6 min Mobility</summary><ul class="figlist">${MOBILITY.map(m=>`<li>${figSvg(m[1],"sm")}<span>${esc(m[0])}</span>${howHtml(m[1])}</li>`).join("")}</ul></details>`;
   }
   if (S.groups.includes("legs")) h += `<div class="info">Leiste: beim Anstrengen ausatmen, nie pressen. Zieht es, sofort leichter. Bei Schmerz oder Vorwölbung abbrechen und abklären lassen.</div>`;
   h += `<div><p class="block-h">${level===6?"Leicht – nur Technik":"Hauptteil"}</p>`;
   S.ex.forEach(e => {
-    h += `<div class="ex"><span class="ex-name">${esc(e.n)}</span><span class="ex-dose">${esc(pick(e.d,li))}</span>`;
+    const figs = [].concat(e.fig || []);
+    h += `<div class="ex${figs.length?" has-fig":""}">`;
+    if (figs.length) h += `<div class="ex-figs">${figs.map(f => figSvg(f)).join("")}</div>`;
+    h += `<div class="ex-main"><span class="ex-name">${esc(e.n)}</span><span class="ex-dose">${esc(pick(e.d,li))}</span>`;
     h += `<span class="ex-meta"><span><b>${esc(pick(e.w,li))}</b></span>${pick(e.p,li)!=="—"?`<span>Pause ${esc(pick(e.p,li))}</span>`:""}</span>`;
-    if (e.sub) h += `<ul class="sub">${e.sub.map(x=>`<li>${esc(pick(x,li))}</li>`).join("")}</ul>`;
+    if (e.sub) h += `<ul class="sub${e.subfig?" figlist":""}">${e.sub.map((x,k) => { const sf = e.subfig && e.subfig[k];
+      return sf ? `<li><span class="sf">${[].concat(sf).map(f => figSvg(f,"sm")).join("")}</span><span>${esc(pick(x,li))}</span>${howHtml(sf)}</li>` : `<li>${esc(pick(x,li))}</li>`; }).join("")}</ul>`;
     if (e.note) h += `<span class="ex-note">${esc(e.note)}</span>`;
-    h += `</div>`;
+    h += howHtml(figs) + `</div></div>`;
   });
   h += `</div>`;
-  if (S.warm) h += `<p class="small">Optional: 3 km auslaufen, locker. ${i<5?"Abendessen danach eiweißreich, nicht zu fettig.":""}</p>`;
+  if (S.warm) h += `<p class="small">Optional: 3 km auslaufen, locker. ${i<5 && i>=0?"Abendessen danach eiweißreich, nicht zu fettig.":""}</p>`;
   return h;
 }
 
@@ -427,34 +699,34 @@ function dayHtml(s, wk, today){
     if (isToday){ chip = "Heute"; chipCls = "today"; }
   } else {
     title = SESS[id].name;
-    sub = `${SESS[id].tag}${s.i<5 ? " · abends" : " · flexibel"}`;
+    sub = `${SESS[id].tag}${s.wd<5 ? " · abends" : " · flexibel"}`;
     if (s.entry && s.entry.s === "done"){ chip = "✓ Erledigt"; chipCls = "done"; if (s.entry.f) sub += ` · ${s.entry.f}`; }
     else if (s.skipped){ chip = "Ausgefallen"; chipCls = "skip"; }
     else if (isToday){ chip = "Heute"; chipCls = "today"; }
     else if (s.ds < today){ chip = "Offen"; chipCls = "open"; }
-    else if (shifted && orig >= 0){ chip = `War ${DAYS[orig]}`; chipCls = "moved"; }
+    else if (shifted && orig >= 0){ chip = `War ${DAYS[wk.sched.slots[orig].wd]}`; chipCls = "moved"; }
     else if (id === "E"){ chip = "Locker"; }
     else chip = "Geplant";
   }
   const isOpen = openDs === s.ds;
   let h = `<li class="day${isToday?" today":""}${!id?" rest":""}${s.skipped?" skipped":""}">`;
   h += `<button class="row" id="row-${s.ds}" aria-expanded="${isOpen}" data-act="toggle" data-ds="${s.ds}">`;
-  h += `<span class="dcol"><span class="dname">${DAYS[s.i]}</span><span class="ddate mono">${isToday?"heute":fmt(s.d)}</span></span>`;
+  h += `<span class="dcol"><span class="dname">${DAYS[s.wd]}</span><span class="ddate mono">${isToday?"heute":fmt(s.d)}</span></span>`;
   h += `<span class="scol"><span class="stitle">${esc(title)}</span><br><span class="ssub">${esc(sub)}</span></span>`;
   h += `<span class="chip ${chipCls}">${esc(chip)}</span></button>`;
   if (isOpen){
     h += `<div class="detail">`;
     if (!id){
       h += s.recovery
-        ? `<div class="info"><b>Recovery-Einheit, ca. 40 min:</b> 20–30 min Spaziergang oder lockeres Rad. Danach KB-Flow mit 12 kg: Halos 2×5 je Richtung, Goblet-Hold in der Hocke 3×30 s, Turkish Get-up 2×1 pro Seite, Dead Hang 3×20 s, Short Foot 3×20 s. Nichts davon soll anstrengen. Viel trinken, früh schlafen.</div>`
+        ? `<div class="info"><b>Recovery-Einheit, ca. 40 min:</b> 20–30 min Spaziergang oder lockeres Rad. Danach KB-Flow mit 12 kg: Halos 2×5 je Richtung, Goblet-Hold in der Hocke 3×30 s, Turkish Get-up 2×1 pro Seite, Dead Hang 3×20 s, Short Foot 3×20 s. Nichts davon soll anstrengen. Viel trinken, früh schlafen.<div class="figrow">${["walk","halo","goblet","tgu","deadhang","shortfoot"].map(f=>`<figure>${figSvg(f,"sm")}<figcaption>${esc(FIG[f].label)}</figcaption></figure>`).join("")}</div>${howHtml(["halo","goblet","tgu","deadhang","shortfoot"])}</div>`
         : `<div class="info">Für heute ist nichts mehr übrig. Leichte Bewegung ist gut, nichts nachholen.</div>`;
     } else if (s.skipped){
       h += `<div class="info">Ausgefallen. Der Tag zählt jetzt als Pause, die restlichen Einheiten der Woche sind nachgerückt.</div>`;
       h += `<div class="actions"><button class="btn ghost" data-act="undo" data-ds="${s.ds}">Doch nicht ausgefallen</button></div>`;
     } else {
-      if (shifted && orig >= 0) h += `<div class="info moved">Ursprünglich für ${DAYL[orig]} geplant, nach einem Ausfall nachgerückt.</div>`;
+      if (shifted && orig >= 0) h += `<div class="info moved">Ursprünglich für ${DAYL[wk.sched.slots[orig].wd]} geplant, nach einem Ausfall nachgerückt.</div>`;
       if (s.easy) h += `<div class="info moved">Diese Einheit ist entschärft, weil die Leiste diese Woche gezogen hat.</div>`;
-      h += sessionHtml(id, s.easy ? 6 : wk.level, s.i);
+      h += sessionHtml(id, s.easy ? 6 : wk.level, s.wd);
       if (s.entry && s.entry.s === "done"){
         const f = s.entry.f;
         h += `<div class="feel"><span class="small">Wie war's? Zwei Mal „hart“ in einer Woche hält die Progression an.</span><div class="seg" role="group" aria-label="Belastung">`+
@@ -491,7 +763,7 @@ function render(){
   const notStarted = today < state.start;
   let h = tabs + `<header><span class="eyebrow">3 Tage Training · 1 Tag Recovery · Start ${fmt(startD)}${startD.getFullYear()}</span>`;
   h += `<h1>Woche ${wk.w+1}<span class="lvl">${wk.level===6?"Deload":"Stufe "+wk.level+" · "+LEVELNAME[wk.level]}</span></h1>`;
-  h += `<p class="reason">${esc(wk.reason)}${notStarted && viewWeek===0 ? " Los geht's am Montag." : ""}</p></header>`;
+  h += `<p class="reason">${esc(wk.reason)}${notStarted && viewWeek===0 ? ` Los geht's am ${DAYL[(startD.getDay()+6)%7]}, ${fmt(startD)}` : ""}</p></header>`;
 
   h += `<nav class="weeks" aria-label="Wochen">` + weeks.map(x => {
     const segs = CORE.map((_,k) => k < x.ev.done ? "d" : (k < x.ev.done + x.sched.dropped.length ? "x" : "")).map(c=>`<i class="${c}"></i>`).join("");
@@ -499,7 +771,7 @@ function render(){
   }).join("") + `</nav>`;
 
   const lostN = wk.sched.dropped.length;
-  h += `<section class="meter" aria-label="Fortschritt"><div class="meter-top"><strong class="mono">${wk.ev.done}/5</strong><span class="small">Kerneinheiten · Sonntag ist lockere Erholung</span></div><div class="segs">`;
+  h += `<section class="meter" aria-label="Fortschritt"><div class="meter-top"><strong class="mono">${wk.ev.done}/5</strong><span class="small">Kerneinheiten · ${DAYL[(parse(state.start).getDay()+6+BASE.indexOf("E"))%7]} ist lockere Erholung</span></div><div class="segs">`;
   for (let k=0;k<5;k++) h += `<i class="${k<wk.ev.done?"d":(k<wk.ev.done+lostN?"x":"")}"></i>`;
   h += `</div></section>`;
 
@@ -509,7 +781,7 @@ function render(){
   h += `<ul class="days">${wk.sched.slots.map(s => dayHtml(s, wk, today)).join("")}</ul>`;
 
   h += `<footer><span class="sync${syncOn?" on":""}">${esc(syncText)}</span>`;
-  h += `<label for="start">Blockstart (Montag) <input type="date" id="start" value="${state.start}"></label>`;
+  h += `<label for="start">Blockstart <input type="date" id="start" value="${state.start}"></label>`;
   h += confirmReset
     ? `<div class="confirm"><span>Alle Haken löschen?</span><button class="btn skip" data-act="reset-yes">Ja, löschen</button><button class="btn ghost" data-act="reset-no">Abbrechen</button></div>`
     : `<div><button class="btn ghost" data-act="reset">Alle Haken zurücksetzen</button></div>`;
@@ -526,7 +798,10 @@ function foodHtml(today, weeks){
   const tt = todayType(today, weeks);
   const type = foodType || tt.type;
   const F = FOOD[type];
-  let h = `<header><span class="eyebrow">Ernährung · ${F.days}</span><h1>${F.label}<span class="lvl">${type===tt.type ? "Heute" + (tt.sess && tt.type==="train" ? " · " + esc(SESS[tt.sess].name) : "") : "Vorschau"}</span></h1>`;
+  const sw = (parse(state.start).getDay()+6)%7;
+  const wds = BASE.map((x,i) => ({ x, wd:(sw+i)%7 })).sort((a,b) => a.wd-b.wd);
+  const dayList = type === "train" ? wds.filter(o => CORE.includes(o.x)).map(o => DAYS[o.wd]).join(", ") : wds.filter(o => !CORE.includes(o.x)).map(o => DAYS[o.wd]).join(", ") + " und jeder Ausfall-Tag";
+  let h = `<header><span class="eyebrow">Ernährung · ${dayList}</span><h1>${F.label}<span class="lvl">${type===tt.type ? "Heute" + (tt.sess && tt.type==="train" ? " · " + esc(SESS[tt.sess].name) : "") : "Vorschau"}</span></h1>`;
   h += `<p class="reason">Werktags: eine Mahlzeit um 12 Uhr von REWE, ab 15:45 zuhause. Kalorien liegen rund 350 kcal unter deinem Erhaltungsbedarf: langsam Fett weg, Leistung bleibt.</p></header>`;
   h += `<div class="seg" role="group" aria-label="Tagestyp"><button aria-pressed="${type==="train"}" data-act="foodtype" data-f="train">Trainingstag</button><button aria-pressed="${type==="rest"}" data-act="foodtype" data-f="rest">Ruhetag</button></div>`;
   h += `<div class="tiles"><div class="tile"><b>${F.kcal}</b><span>kcal</span></div><div class="tile"><b>${F.p} g</b><span>Protein</span></div><div class="tile"><b>${F.c} g</b><span>Kohlenhydrate</span></div><div class="tile"><b>${F.f} g</b><span>Fett</span></div></div>`;
@@ -542,7 +817,7 @@ function foodHtml(today, weeks){
   });
   h += `<div class="actions"><button class="btn ghost" data-act="shop-clear">Haken der Liste entfernen</button></div></div></section>`;
   h += `<section class="section"><h2>Anpassen</h2><div class="card"><ul class="plain">
-    <li>Jeden Montag morgens nüchtern wiegen.</li>
+    <li>Einmal pro Woche, immer am selben Tag, morgens nüchtern wiegen.</li>
     <li>Ziel: 0,25 bis 0,5 kg pro Woche weniger.</li>
     <li>Fällt es schneller oder bist du im Training platt: 40 g Reis zum warmen Essen dazu.</li>
     <li>Zwei Wochen gar keine Bewegung auf der Waage: an Trainingstagen die Walnüsse weglassen.</li>
@@ -572,7 +847,7 @@ document.getElementById("app").addEventListener("click", e => {
 });
 document.getElementById("app").addEventListener("change", e => {
   if (e.target.dataset && e.target.dataset.shop){ state.shop[e.target.dataset.shop] = e.target.checked; if (!e.target.checked) delete state.shop[e.target.dataset.shop]; commit(); return; }
-  if (e.target.id === "start" && e.target.value){ state.start = toMonday(e.target.value); viewWeek = null; openDs = null; commit(); }
+  if (e.target.id === "start" && e.target.value){ state.start = e.target.value; viewWeek = null; openDs = null; commit(); }
 });
 
 /* ---------- Speichern im Konto ---------- */
