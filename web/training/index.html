@@ -282,50 +282,50 @@ const SESS = {
 const REWE_STOP = [
   ["2 Roggen-Vollkornbrötchen","Backstation"],
   ["1 Becher körniger Frischkäse, 200 g","Kühlregal, als Aufstrich"],
-  ["2 gekochte Eier","6er-Pack reicht 3 Tage"],
+  ["Hähnchenbrust-Aufschnitt, 100 g","Kühlregal bei der Wurst. Alternative: Putenbrust-Aufschnitt oder 150 g Skyr"],
   ["1 Packung Mini-Snackpaprika","Vitamin C, hilft bei der Eisenaufnahme"],
   ["1 Apfel",""]
 ];
 const FOOD = {
-  train: { label:"Trainingstag", days:"Mo, Di, Mi, Fr, Sa", kcal:"2500", p:"185", c:"270", f:"60", meals:[
+  train: { label:"Trainingstag", kcal:"2450", p:"180", c:"285", f:"60", meals:[
     {t:"bis 12", n:"Morgens", items:["Wasser und Kaffee, kein Essen","Bis Mittag rund 1 Liter trinken"], m:"—", note:"6 Stunden ohne Essen sind bei Training am Abend kein Problem."},
-    {t:"12:00", n:"Mahlzeit bei der Arbeit (REWE)", items:["2 Roggen-Vollkornbrötchen","200 g körniger Frischkäse als Aufstrich","2 gekochte Eier","Mini-Snackpaprika, 1 Apfel"], m:"805 kcal · P 49 · KH 93 · F 23", note:"Kein Kochen, alles aus Kühlregal und Backstation."},
+    {t:"12:00", n:"Mahlzeit bei der Arbeit (REWE)", items:["2 Roggen-Vollkornbrötchen","200 g körniger Frischkäse als Aufstrich","100 g Hähnchenbrust-Aufschnitt drauf","Mini-Snackpaprika, 1 Apfel","20 g Walnüsse (Tüte bleibt im Spind)"], m:"805 kcal · P 60 · KH 84 · F 26", note:"Kein Kochen, alles aus Kühlregal und Backstation."},
     {t:"15:45", n:"Warm essen zuhause", items:["80 g Vollkornreis (roh gewogen)","150 g Hähnchenbrust aus der Pfanne","200 g Brokkoli","1 TL Olivenöl, 15 g Parmesan"], m:"620 kcal · P 52 · KH 65 · F 13", note:"Wenig Fett, damit es bis zum Training verdaut ist."},
-    {t:"−60 min", n:"Vor dem Training", items:["250 g Skyr","30 g Haferflocken","1 Banane, 1 TL Honig"], m:"410 kcal · P 31 · KH 61 · F 2"},
-    {t:"danach", n:"Nach dem Training", items:["300 g Pellkartoffeln mit Schale","150 g Harzer Käse mit Zwiebeln","Gurke und Radieschen mit 1 EL Leinöl","20 g Walnüsse"], m:"655 kcal · P 52 · KH 53 · F 24", note:"Harzer ist Sauermilchkäse: viel langsames Eiweiß für die Nacht, fast kein Fett."}
+    {t:"−60 min", n:"Vor dem Training", items:["250 g Skyr","40 g Haferflocken","1 Banane, 1 TL Honig"], m:"445 kcal · P 32 · KH 67 · F 3"},
+    {t:"danach", n:"Nach dem Training", items:["400 g Pellkartoffeln oder Ofenkartoffeln","200 g Tofu natur, in Würfeln angebraten – im Wechsel mit 180 g Putenbrust oder magerem Rindersteak","Gurke, Radieschen, Babyspinat mit 1 TL Leinöl"], m:"565 kcal · P 36 · KH 67 · F 19 (mit Pute: P 50 · F 7)", note:"Abwechseln: zum Beispiel Tofu an 3 Abenden, Fleisch an 2. Tofu mit Sojasoße, Knoblauch und Paprikapulver anbraten."}
   ]},
-  rest: { label:"Ruhetag", days:"Do, So und jeder Ausfall-Tag", kcal:"2250", p:"160", c:"225", f:"75", meals:[
+  rest: { label:"Ruhetag", kcal:"2200", p:"165", c:"210", f:"75", meals:[
     {t:"bis 12", n:"Morgens", items:["Wasser und Kaffee, kein Essen"], m:"—"},
-    {t:"12:00", n:"Mahlzeit bei der Arbeit (REWE)", items:["2 Roggen-Vollkornbrötchen","200 g körniger Frischkäse als Aufstrich","2 gekochte Eier","Mini-Snackpaprika, 1 Apfel"], m:"805 kcal · P 49 · KH 93 · F 23"},
+    {t:"12:00", n:"Mahlzeit bei der Arbeit (REWE)", items:["2 Roggen-Vollkornbrötchen","200 g körniger Frischkäse als Aufstrich","100 g Hähnchenbrust-Aufschnitt drauf","Mini-Snackpaprika, 1 Apfel","20 g Walnüsse"], m:"805 kcal · P 60 · KH 84 · F 26"},
     {t:"15:45", n:"Warm essen zuhause", items:["150 g Lachs aus dem Ofen","60 g Quinoa (roh gewogen)","Babyspinat und Paprika","15 g Parmesan"], m:"630 kcal · P 43 · KH 44 · F 28", note:"Lachs an beiden Ruhetagen deckt dein Omega-3 der Woche."},
-    {t:"18:00", n:"Snack", items:["250 g Skyr","150 g Beeren (TK geht)","20 g Walnüsse"], m:"350 kcal · P 30 · KH 28 · F 13"},
-    {t:"19:30", n:"Abendessen", items:["Ofengemüse: 200 g Süßkartoffel, 1 Zucchini, 1 Paprika","250 g Magerquark mit Kräutern","1 EL Leinöl"], m:"490 kcal · P 34 · KH 60 · F 11", note:"An Tagen mit lockerem Lauf: zusätzlich 1 Banane vorher."}
+    {t:"18:00", n:"Snack", items:["250 g Skyr","150 g Beeren (TK geht)"], m:"220 kcal · P 28 · KH 26 · F 1"},
+    {t:"19:30", n:"Abendessen", items:["Ofengemüse: 200 g Süßkartoffel, 1 Zucchini, 1 Paprika","200 g Tofu natur oder 180 g Putenbrust mit aufs Blech","1 TL Leinöl darüber"], m:"515 kcal · P 34 · KH 54 · F 19", note:"An Tagen mit lockerem Lauf: zusätzlich 1 Banane vorher."}
   ]}
 };
 const NUTRIENTS = [
-  ["Protein, Calcium, Vitamin B12","Skyr, körniger Frischkäse, Magerquark, Harzer, Parmesan, Eier. Muskelreparatur und Knochen."],
+  ["Protein, Calcium, Vitamin B12","Skyr, körniger Frischkäse, Parmesan, Hähnchen, Pute, Lachs. Tofu liefert zusätzlich Calcium. Muskelreparatur und Knochen."],
   ["Omega-3 (EPA/DHA)","Lachs an beiden Ruhetagen, dazu täglich ALA aus Leinöl und Walnüssen. Bremst Entzündungen, hilft der Regeneration."],
-  ["Eisen","Hähnchen, Haferflocken, Vollkornbrötchen, Spinat. Paprika und Brokkoli im selben Essen verbessern die Aufnahme. Wichtig für den Sauerstofftransport beim Laufen."],
+  ["Eisen","Hähnchen, Rind, Tofu, Haferflocken, Vollkornbrötchen, Spinat. Paprika und Brokkoli im selben Essen verbessern die Aufnahme. Wichtig für den Sauerstofftransport beim Laufen."],
   ["Magnesium und Kalium","Haferflocken, Vollkorn, Walnüsse, Quinoa, Banane, Kartoffeln. Muskelfunktion, weniger Krämpfe."],
-  ["Zink und Selen","Hähnchen, Käse, Eier, Lachs, Haferflocken. Stützen das Immunsystem bei hohem Trainingsvolumen."],
+  ["Zink und Selen","Hähnchen, Tofu, Käse, Lachs, Haferflocken. Stützen das Immunsystem bei hohem Trainingsvolumen."],
   ["Vitamin C, Folat, Vitamin K","Paprika, Brokkoli, Spinat, Beeren, Apfel."],
   ["Jod","Jodsalz, Lachs, Milchprodukte."],
-  ["Vitamin D","Über Essen kaum zu schaffen (nur Eier, Lachs). Von Oktober bis März in Berlin den Spiegel beim Hausarzt messen lassen und danach entscheiden, ob du ergänzt."],
+  ["Vitamin D","Über Essen kaum zu schaffen (fast nur Lachs). Von Oktober bis März in Berlin den Spiegel beim Hausarzt messen lassen und danach entscheiden, ob du ergänzt."],
   ["Ballaststoffe, rund 40 g","Vollkornbrötchen, Hafer, Gemüse, Obst, Kartoffeln mit Schale. Nach der Leisten-OP besonders wichtig: weicher Stuhlgang heißt kein Pressen. Funktioniert nur zusammen mit genug Wasser."]
 ];
 const HYDRATION = [
   "Grundbedarf rund 3 Liter am Tag (35 ml pro kg).",
   "Pro Trainingsstunde 0,5 bis 0,75 Liter zusätzlich.",
   "Lauftage (Intervalle, Hyrox-Zirkel, lockerer Lauf): in der ersten Stunde danach 500 ml Wasser mit einer Prise Salz (etwa 1 g) oder Kokoswasser mit einer Prise Salz.",
-  "Harzer und Parmesan sind salzig. An Trainingstagen passt das, an Ruhetagen nicht extra nachsalzen.",
+  "Aufschnitt und Parmesan sind salzig. An Trainingstagen passt das, an Ruhetagen nicht extra nachsalzen.",
   "Ab 21:30 höchstens noch 0,5 Liter, sonst musst du nachts raus.",
   "Hellgelber Urin heißt: passt."
 ];
 const SHOP = [
-  ["Eiweiß und Milch", [["skyr","Skyr natur","1,75 kg"],["harzer","Harzer Käse","750 g"],["magerquark","Magerquark","2 × 250 g"],["parmesan","Parmesan am Stück","150 g"],["haehnchen","Hähnchenbrust","750 g"],["lachs","Lachsfilet (TK geht)","2 × 150 g"]]],
-  ["Kohlenhydrate", [["hafer","Haferflocken","500 g"],["reis","Vollkornreis","1 kg"],["quinoa","Quinoa","500 g"],["kartoffeln","Kartoffeln, festkochend","1,5 kg"],["suesskartoffel","Süßkartoffeln","400 g"],["honig","Honig","1 Glas"]]],
-  ["Obst und Gemüse", [["bananen","Bananen","6 Stück"],["beeren","Beeren, TK","300 g"],["brokkoli","Brokkoli (TK geht)","1 kg"],["paprika","Paprika","4 Stück"],["spinat","Babyspinat","200 g"],["gurke","Gurken","2 Stück"],["radieschen","Radieschen","2 Bund"],["zwiebeln","Rote Zwiebeln","3 Stück"],["zucchini","Zucchini","2 Stück"],["kraeuter","Schnittlauch oder TK-Kräuter","1 Bund"]]],
-  ["Fette und Sonstiges", [["walnuesse","Walnüsse","200 g"],["leinoel","Leinöl (im Kühlschrank lagern)","250 ml"],["olivenoel","Olivenöl","falls leer"],["salz","Jodsalz","falls leer"],["kokoswasser","Kokoswasser","1 Liter"]]]
+  ["Eiweiß und Milch", [["skyr","Skyr natur","2,5 kg"],["parmesan","Parmesan am Stück","150 g"],["haehnchen","Hähnchenbrust","750 g"],["tofu","Tofu natur","5 × 200 g"],["pute","Putenbrust oder mageres Rindersteak","550 g"],["lachs","Lachsfilet (TK geht)","2 × 150 g"]]],
+  ["Kohlenhydrate", [["hafer","Haferflocken","500 g"],["reis","Vollkornreis","1 kg"],["quinoa","Quinoa","500 g"],["kartoffeln","Kartoffeln, festkochend","2 kg"],["suesskartoffel","Süßkartoffeln","400 g"],["honig","Honig","1 Glas"]]],
+  ["Obst und Gemüse", [["bananen","Bananen","6 Stück"],["beeren","Beeren, TK","300 g"],["brokkoli","Brokkoli (TK geht)","1 kg"],["paprika","Paprika","4 Stück"],["spinat","Babyspinat","300 g"],["gurke","Gurken","3 Stück"],["radieschen","Radieschen","2 Bund"],["zucchini","Zucchini","2 Stück"],["knoblauch","Knoblauch","1 Knolle"]]],
+  ["Fette und Sonstiges", [["walnuesse","Walnüsse","200 g"],["leinoel","Leinöl (im Kühlschrank lagern)","250 ml"],["olivenoel","Olivenöl","falls leer"],["sojasosse","Sojasoße","falls leer"],["salz","Jodsalz","falls leer"],["kokoswasser","Kokoswasser","1 Liter"]]]
 ];
 
 /* ---------- Übungsfiguren (Seitenansicht, Blick nach rechts) ---------- */
