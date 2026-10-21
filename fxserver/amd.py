@@ -17,7 +17,8 @@ from datetime import datetime, time, timedelta, timezone
 from . import forecast
 from .common import TZ_BERLIN, de_zahl, fx_tag, fx_tag_ende, fx_tag_start, get_logger, jetzt_berlin
 from .sources import prices as px_src
-from .strategien import AMD_VARIANTEN, PIP, amd_erkennen, amd_setup, simuliere, tm
+from .strategien import (AMD_VARIANTEN, PIP, Z369_VARIANTEN, amd_erkennen, amd_setup, simuliere, tm, z369_erkennen,
+                         z369_setup, z369_zeiten)
 
 log = get_logger("amd")
 KOSTEN_PIPS = 3.0
@@ -26,6 +27,24 @@ SCHEMA = """CREATE TABLE IF NOT EXISTS amd (
   PRIMARY KEY (date, variante)
 );"""
 RICHTUNG = {1: "LONG", -1: "SHORT"}
+# live verfolgt: beide AMD-Varianten + je Zeitzone die Standard-Variante der 3-6-9 Time Map (Rücklauf, 2R)
+LIVE = AMD_VARIANTEN + [p for p in Z369_VARIANTEN if p["live"]]
+ALLE_MELDEN = __import__("os").getenv("MUSTER_ALLE_MELDEN", "0") == "1"
+
+
+def bewaehrt(vid: str) -> tuple[bool, dict | None]:
+    """WhatsApp nur für Varianten, die im letzten Wochen-Backtest nach Kosten klar positiv waren (✅)."""
+    from .backtest import urteil
+    from .common import PUBLIC_DIR
+    try:
+        k = json.loads((PUBLIC_DIR / "backtest.json").read_text())["setups"][vid]["kennzahlen"]
+    except (OSError, ValueError, KeyError):
+        return False, None
+    return urteil(k)[0] == "✅", k
+
+
+def _ist369(p_or_d) -> bool:
+    return str(p_or_d.get("variante") or p_or_d.get("id", "")).startswith("z369")
 
 
 def _hm(s: str) -> time:
@@ -57,10 +76,17 @@ def _atr(con, heute: str) -> float | None:
 
 
 def _variante(vid: str) -> dict:
-    return next(p for p in AMD_VARIANTEN if p["id"] == vid)
+    return next(p for p in AMD_VARIANTEN + Z369_VARIANTEN if p["id"] == vid)
 
 
 def text_verdacht(d: dict) -> str:
+    if _ist369(d):
+        unten = d["sweep_seite"] < 0
+        return (f"🕵️ 3-6-9 Sweep ({d['name']})\n"
+                f"Spanne {d['range_von']}–{d['range_bis']}: {de_zahl(d['spanne'][1])} – {de_zahl(d['spanne'][0])}\n"
+                f"{'Unter das Tief' if unten else 'Über das Hoch'} gelaufen bis {de_zahl(d['sweep_extrem'])} ({d['sweep_zeit']}).\n"
+                f"Signal erst, wenn bis {d['bis']} eine kräftige 5-Min-Kerze {'über' if unten else 'unter'} "
+                f"{de_zahl(d['mss'])} schließt (Strukturbruch). Noch nicht einsteigen.")
     unten = d["sweep_seite"] < 0
     rand = d["spanne"][1] if unten else d["spanne"][0]
     gegen = d["spanne"][0] if unten else d["spanne"][1]
@@ -75,11 +101,14 @@ def text_verdacht(d: dict) -> str:
 
 def text_signal(d: dict, treiber_stufe: int | None = None) -> str:
     r = d["richtung"]
-    z = [f"🎯 AMD-Signal {RICHTUNG[r]} ({d['name']}) {d['signal_zeit']}",
-         f"Entry ~{de_zahl(d['entry'])} | SL {de_zahl(d['sl'])} (−{d['risiko_pips']} P) | "
+    z = [f"🎯 {'3-6-9' if _ist369(d) else 'AMD'}-Signal {RICHTUNG[r]} ({d['name']}) {d['signal_zeit']}",
+         f"{'Limit-Entry' if d.get('typ') == 'limit' else 'Entry ~'} {de_zahl(d['entry'])} | SL {de_zahl(d['sl'])} (−{d['risiko_pips']} P) | "
          f"TP {de_zahl(d['tp'])} (+{d['ziel_pips']} P) | TP2 {de_zahl(d['tp2'])}",
-         f"Fehlausbruch {'unter' if d['sweep_seite'] < 0 else 'über'} die Spanne bis {de_zahl(d['sweep_extrem'])}, "
-         f"jetzt zurück drin → Distribution Richtung {'Hoch' if r > 0 else 'Tief'} der Spanne."]
+         (f"Sweep {'unter' if d['sweep_seite'] < 0 else 'über'} die Spanne bis {de_zahl(d['sweep_extrem'])}, Strukturbruch "
+          f"{'über' if r > 0 else 'unter'} {de_zahl(d['mss'])} um {d['signal_zeit']}. Limit gültig bis {d['gueltig_bis']}."
+          if _ist369(d) else
+          f"Fehlausbruch {'unter' if d['sweep_seite'] < 0 else 'über'} die Spanne bis {de_zahl(d['sweep_extrem'])}, "
+          f"jetzt zurück drin → Distribution Richtung {'Hoch' if r > 0 else 'Tief'} der Spanne.")]
     if treiber_stufe:
         z.append("Treiber stützen die Richtung." if treiber_stufe * r > 0 else
                  "Achtung: Treiber zeigen in die Gegenrichtung → halbe Größe oder auslassen.")
@@ -88,7 +117,8 @@ def text_signal(d: dict, treiber_stufe: int | None = None) -> str:
 
 
 def _trade(d: dict, kerzen: list[tuple], laufend: bool, kosten: float = 0.0):
-    setup = amd_setup(d, _variante(d["variante"]), _hm(d["start"]))
+    p = _variante(d["variante"])
+    setup = z369_setup(d, p) if _ist369(d) else amd_setup(d, p, _hm(d["start"]))
     return simuliere(setup, kerzen, kosten, d.get("date", ""), laufend=laufend)
 
 
@@ -114,7 +144,9 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
     if not kerzen or not atr:
         return []
     texte = []
-    for p in AMD_VARIANTEN:
+    jetzt_naiv = jetzt.astimezone(TZ_BERLIN).replace(tzinfo=None)
+    k5_fertig = [k for k in k5 if k[0] + timedelta(minutes=5) <= jetzt_naiv]
+    for p in LIVE:
         row = con.execute("SELECT * FROM amd WHERE date=? AND variante=?", (heute, p["id"])).fetchone()
         alt = dict(row) if row else None
         if alt and alt["phase"] == "signal":
@@ -127,12 +159,12 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
                 con.execute("UPDATE amd SET state=?, trade_json=?, updated=? WHERE date=? AND variante=?",
                             (neu_state, json.dumps(_trade_dict(tr)), jetzt.isoformat(), heute, p["id"]))
                 if neu_state in ("tp", "sl", "zeit"):
-                    symbol = {"tp": "✅ AMD-Ziel erreicht", "sl": "❌ AMD-Stop erreicht", "zeit": "⏹ AMD zum Tagesende"}[neu_state]
+                    symbol = {"tp": "✅ Ziel erreicht", "sl": "❌ Stop erreicht", "zeit": "⏹ zum Tagesende geschlossen"}[neu_state]
                     texte.append(f"{symbol} ({d['name']}): {RICHTUNG[tr.richtung]} {de_zahl(tr.entry)} → "
                                  f"{de_zahl(tr.exit)} = {tr.pips:+.0f} Pips | {tr.t_exit:%H:%M}")
             continue
-        erg = amd_erkennen(kerzen, atr, p)
-        if not erg:
+        erg = z369_erkennen(k5_fertig, atr, p, heute) if _ist369(p) else amd_erkennen(kerzen, atr, p)
+        if not erg or not k5_fertig:
             continue
         erg["date"] = heute
         alt_phase = alt["phase"] if alt else None
@@ -151,11 +183,16 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
         elif erg["phase"] == "signal":
             texte.append(text_signal(erg, treiber_stufe))
         elif erg["phase"] == "kein" and alt_phase == "manipulation":
-            texte.append(f"⏹ AMD-Verdacht aufgehoben ({erg['name']}): {erg['grund']}.")
+            texte.append(f"⏹ Verdacht aufgehoben ({erg['name']}): {erg['grund']}.")
     con.commit()
     if texte and senden:
         for t in texte:
-            senden(t)
+            vid = next((p["id"] for p in LIVE if f"({p['name']})" in t), None)
+            ok, _ = bewaehrt(vid) if vid else (False, None)
+            if ok or ALLE_MELDEN:
+                senden(t)
+            else:
+                log.info("Nur Dashboard (Backtest nicht positiv): %s", t.splitlines()[0])
     return texte
 
 
@@ -170,7 +207,7 @@ def abschliessen(con) -> None:
         d = json.loads(row["data_json"])
         try:
             start = fx_tag_start(tag)
-            roh = px_src.kerzen("gbpjpy", "15min", start - timedelta(hours=1))
+            roh = px_src.kerzen("gbpjpy", "5min" if _ist369(d) else "15min", start - timedelta(hours=1))
             kerzen = [(k["t"].astimezone(TZ_BERLIN).replace(tzinfo=None), k["o"], k["h"], k["l"], k["c"])
                       for k in roh if start <= k["t"] < fx_tag_ende(tag)]
         except Exception as e:  # noqa: BLE001
@@ -199,10 +236,16 @@ def export_daten(con, jetzt: datetime) -> dict:
     heute = fx_tag(jetzt).isoformat()
     heute_rows = {r["variante"]: r for r in con.execute("SELECT * FROM amd WHERE date=?", (heute,))}
     varianten = []
-    for p in AMD_VARIANTEN:
+    for p in LIVE:
         r = heute_rows.get(p["id"])
-        varianten.append({"id": p["id"], "name": p["name"], "range_von": p["range_von"].strftime("%H:%M"),
-                          "range_bis": p["range_bis"].strftime("%H:%M"), "manip_bis": p["manip_bis"].strftime("%H:%M"),
+        if _ist369(p):
+            a, m, dz, *_ = z369_zeiten(heute, p["tz"])
+        else:
+            a, m, dz = p["range_von"], p["range_bis"], p["manip_bis"]
+        ok, k = bewaehrt(p["id"])
+        varianten.append({"id": p["id"], "name": p["name"], "familie": "369" if _ist369(p) else "amd",
+                          "bewaehrt": ok, "backtest": k, "range_von": a.strftime("%H:%M"),
+                          "range_bis": m.strftime("%H:%M"), "manip_bis": dz.strftime("%H:%M"),
                           "phase": r["phase"] if r else None, "state": r["state"] if r else None,
                           "daten": json.loads(r["data_json"]) if r else None,
                           "trade": json.loads(r["trade_json"]) if r and r["trade_json"] else None})

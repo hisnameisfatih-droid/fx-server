@@ -318,15 +318,18 @@ function amdSchritte(v) {
   const d = v.daten, ph = v.phase;
   const sp = d?.spanne ? `${zahl(d.spanne[1])} – ${zahl(d.spanne[0])} (${zahl(d.breite_pips, 0)} P)` : "bildet sich";
   const a = { kl: d ? "fertig" : "aktiv", titel: "Akkumulation", text: `${v.range_von}–${v.range_bis}: ${sp}` };
-  let m = { kl: "offen", titel: "Manipulation", text: `Fehlausbruch bis ${v.manip_bis}?` };
-  let di = { kl: "offen", titel: "Distribution", text: "Einstieg erst nach Rücklauf in die Spanne" };
+  const z9 = v.familie === "369";
+  let m = { kl: "offen", titel: "Manipulation", text: z9 ? `Sweep über Hoch/unter Tief bis ${v.manip_bis}?` : `Fehlausbruch bis ${v.manip_bis}?` };
+  let di = { kl: "offen", titel: "Distribution", text: z9 ? "Einstieg erst nach kräftigem Strukturbruch, dann im Rücklauf" : "Einstieg erst nach Rücklauf in die Spanne" };
   if (d?.sweep_seite) m = { kl: ph === "manipulation" ? "aktiv" : "fertig", titel: "Manipulation",
     text: `${d.sweep_seite < 0 ? "unter das Tief" : "über das Hoch"} bis ${zahl(d.sweep_extrem)}${d.sweep_zeit ? ` (${d.sweep_zeit})` : ""}` };
-  if (ph === "manipulation") di.text = `Signal, wenn eine 15-Min-Kerze ${d.sweep_seite < 0 ? "über " + zahl(d.spanne[1]) : "unter " + zahl(d.spanne[0])} schließt`;
+  if (ph === "manipulation") di.text = v.familie === "369"
+    ? `Signal, wenn bis ${d.bis} eine kräftige 5-Min-Kerze ${d.sweep_seite < 0 ? "über" : "unter"} ${zahl(d.mss)} schließt (Strukturbruch)`
+    : `Signal, wenn eine 15-Min-Kerze ${d.sweep_seite < 0 ? "über " + zahl(d.spanne[1]) : "unter " + zahl(d.spanne[0])} schließt`;
   if (ph === "signal") {
     const long = d.richtung > 0;
     di = { kl: long ? "long" : "short", titel: `Distribution: ${long ? "LONG" : "SHORT"}`,
-      text: `Entry ${zahl(d.entry)} · SL ${zahl(d.sl)} (−${d.risiko_pips} P) · TP ${zahl(d.tp)} (+${d.ziel_pips} P) · TP2 ${zahl(d.tp2)}` };
+      text: `${d.typ === "limit" ? `Limit ${zahl(d.entry)} (bis ${d.gueltig_bis})` : `Entry ${zahl(d.entry)}`} · SL ${zahl(d.sl)} (−${d.risiko_pips} P) · TP ${zahl(d.tp)} (+${d.ziel_pips} P) · TP2 ${zahl(d.tp2)}` };
   }
   if (ph === "kein") { const z = d?.sweep_seite ? m : a; if (!d?.sweep_seite) m.text = "–"; di = { kl: "aus", titel: "Kein AMD heute", text: d?.grund || "" }; void z; }
   return [a, m, di];
@@ -342,13 +345,13 @@ function renderAmd() {
   const a = S.dash?.amd, el = $("amd");
   if (!a) { el.innerHTML = `<p class="leer">AMD-Erkennung startet mit dem nächsten Update.</p>`; return; }
   const b = a.bilanz || {}, bt = S.bt?.setups || {};
-  const btz = ["amd_london", "amd_ny"].filter((k) => bt[k]?.kennzahlen?.n).map((k) => `${esc(bt[k].name)}: ${bt[k].kennzahlen.n} Trades, ${pz(bt[k].kennzahlen.trefferquote)} Treffer, Ø ${vz(bt[k].kennzahlen.avg_pips, 1, " P")}`);
   $("amd-bilanz").textContent = b.trades ? `live: ${b.trades} Trades, ${vz(b.summe_pips, 0, " Pips")}` : "neu – wird gemessen";
   el.innerHTML = a.varianten.map((v) => `<div class="amd-zeile">
       <div class="amd-kopf"><b>${esc(v.name)}</b>${amdStatus(v)}</div>
+      <div class="amd-bt ${v.bewaehrt ? "ok" : ""}">${v.backtest?.n ? `${v.bewaehrt ? "✅ Backtest positiv – WhatsApp an" : "🔬 Nur Beobachtung – Backtest nicht positiv, keine WhatsApp"} · ${v.backtest.n} Trades, ${pz(v.backtest.trefferquote)} Treffer, Ø ${vz(v.backtest.avg_pips, 1, " P")} nach Kosten` : "Backtest folgt – bis dahin nur Beobachtung"}</div>
       <ol class="amd-schritte">${amdSchritte(v).map((s) => `<li class="${s.kl}"><span class="t">${esc(s.titel)}</span><span class="x">${esc(s.text)}</span></li>`).join("")}</ol>
     </div>`).join("") +
-    `<p class="hinweis">Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Einstieg in Gegenrichtung, Stop hinter dem Fehlausbruch (+5 Pips), Ziel gegenüberliegende Spannenseite. ${btz.length ? "Backtest 2 Jahre: " + btz.join(" · ") + "." : "Backtest mit 2 Jahren Daten läuft sonntags um 12:00."} Keine Anlageberatung.</p>`;
+    `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. WhatsApp nur für Varianten, die im Wochen-Backtest (2 Jahre, nach Kosten, mind. 50 Trades) positiv sind. Keine Anlageberatung.</p>`;
 }
 
 /* ---------------- Studie: was GBP/JPY bewegt hat ---------------- */

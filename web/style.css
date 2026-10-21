@@ -264,3 +264,5 @@ td.wrap { white-space: normal; }
 
 .t-warn { margin: 8px 0; padding: 7px 10px; border-radius: 8px; background: rgba(242, 184, 75, 0.12); color: var(--entry); font-size: 0.86rem; font-weight: 600; }
 .ticket .t-richtung.gedaempft { opacity: 0.45; font-size: 2rem; }
+.amd-bt { font-size: 0.8rem; color: var(--leise); margin: -2px 0 8px; }
+.amd-bt.ok { color: var(--bull); }

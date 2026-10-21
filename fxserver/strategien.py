@@ -246,7 +246,108 @@ AMD_VARIANTEN = [
      "sl_puffer_pips": 5, "min_r": 1.0},
 ]
 
-STRATEGIEN = {"orb": orb, "reversion": reversion, "trend": trend, "amd": amd}
+# ------------------------------------------------------------
+# 3-6-9 Time Map (T4F): Akkumulation 08:10–08:40, Manipulation 08:40–09:15, Distribution 09:15–09:45
+# auf 5-Min-Kerzen. Zeitzone der Vorlage unbekannt -> Berlin-, London- und New-York-Zeit werden getestet.
+# ------------------------------------------------------------
+def z369_zeiten(datum: str, tz: str) -> tuple[time, time, time, time, time]:
+    """Phasengrenzen (08:10, 08:40, 09:15, 09:45, Limit gültig bis 10:30) in Berliner Zeit für diesen Tag."""
+    from datetime import date as _date
+    from zoneinfo import ZoneInfo
+    d = _date.fromisoformat(datum)
+    z, berlin = ZoneInfo(tz), ZoneInfo("Europe/Berlin")
+    return tuple(datetime(d.year, d.month, d.day, hh, mm, tzinfo=z).astimezone(berlin).time()
+                 for hh, mm in ((8, 10), (8, 40), (9, 15), (9, 45), (10, 30)))
+
+
+def z369_erkennen(kerzen, atr: float, p: dict, datum: str) -> dict | None:
+    """Phase 3: Spanne 08:10–08:40. Phase 6: Sweep über Hoch/unter Tief (mind. min_sweep_pips) bis 09:15.
+    Phase 9: bis 09:45 eine kräftige Kerze (Körper ≥ disp_faktor × Ø Kerzenspanne der Akkumulation) schließt
+    hinter dem letzten Gegen-Swing vor dem Extrem (Strukturbruch/MSS) -> Signal in Gegenrichtung zum Sweep.
+    Einstieg 'retrace': Limit auf halbem Weg zurück zum Extrem (gültig bis 10:30), 'markt': nächste Kerze.
+    Stop: Extrem + sl_puffer_pips. Ziel: tp_r × Risiko."""
+    A, M, D, E, G = z369_zeiten(datum, p["tz"])
+    hm = lambda t: t.strftime("%H:%M")  # noqa: E731
+    rng = [k for k in kerzen if tm(A) <= tm(k[0]) < tm(M)]
+    basis = {"variante": p["id"], "name": p["name"], "range_von": hm(A), "range_bis": hm(M), "manip_bis": hm(D),
+             "bis": hm(E)}
+    if len(rng) < 3:
+        return {**basis, "phase": "warten"} if not kerzen or tm(kerzen[-1][0]) < tm(M) else None
+    hoch, tief = max(k[2] for k in rng), min(k[3] for k in rng)
+    basis.update(spanne=[round(hoch, 3), round(tief, 3)], breite_pips=round((hoch - tief) / PIP, 1))
+    nach = [k for k in kerzen if tm(M) <= tm(k[0]) < tm(E)]
+    if tm(kerzen[-1][0]) < tm(M):
+        return {**basis, "phase": "akkumulation"}
+    if (hoch - tief) / PIP < p["min_breite_pips"]:
+        return {**basis, "phase": "kein", "grund": "Spanne zu eng"}
+    avg = sum(k[2] - k[3] for k in rng) / len(rng)
+    min_sweep = p["min_sweep_pips"] * PIP
+    seite = extrem = ext_i = sweep_t = mss = None
+    alle = rng + nach
+    for i, (t, o, h, l, c) in enumerate(nach):
+        if seite is None:
+            if tm(t) >= tm(D):
+                return {**basis, "phase": "kein", "grund": "kein Sweep bis " + hm(D)}
+            oben, unten = h >= hoch + min_sweep, l <= tief - min_sweep
+            if oben and unten:
+                return {**basis, "phase": "kein", "grund": "beide Seiten in einer Kerze"}
+            if not (oben or unten):
+                continue
+            seite, extrem, ext_i, sweep_t = (1, h, i, t) if oben else (-1, l, i, t)
+        else:   # Lauf durch die Gegenseite ist hier erwünscht (Auslieferung), entscheidend ist der Strukturbruch
+            if (seite > 0 and h > extrem) or (seite < 0 and l < extrem):
+                extrem, ext_i = (h if seite > 0 else l), i
+        vor = alle[:len(rng) + ext_i][-6:]
+        mss = min(k[3] for k in vor) if seite > 0 else max(k[2] for k in vor)
+        if i > ext_i:
+            koerper = abs(c - o)
+            bruch = (c < mss and c < o) if seite > 0 else (c > mss and c > o)
+            if bruch and koerper >= p["disp_faktor"] * avg:
+                richtung = -seite
+                if p["entry"] == "markt":
+                    entry, typ, bis = c, "markt", None
+                else:
+                    entry, typ, bis = c + seite * 0.5 * abs(extrem - c), "limit", hm(G)
+                sl = extrem + seite * p["sl_puffer_pips"] * PIP
+                risiko = abs(entry - sl)
+                start = (t + timedelta(minutes=5)).strftime("%H:%M")
+                return {**basis, "phase": "signal", "sweep_seite": seite, "sweep_extrem": round(extrem, 3),
+                        "sweep_zeit": hm(sweep_t), "signal_zeit": hm(t), "mss": round(mss, 3), "richtung": richtung,
+                        "entry": round(entry, 3), "sl": round(sl, 3), "tp": round(entry + richtung * p["tp_r"] * risiko, 3),
+                        "tp2": round(tief if richtung < 0 else hoch, 3), "risiko_pips": round(risiko / PIP),
+                        "ziel_pips": round(p["tp_r"] * risiko / PIP), "typ": typ, "start": start, "gueltig_bis": bis or start}
+    if seite is None:
+        return {**basis, "phase": "akkumulation"}   # Spanne steht, Sweep-Fenster läuft noch
+    ende_erreicht = tm(kerzen[-1][0]) >= tm(E)
+    d = {**basis, "sweep_seite": seite, "sweep_extrem": round(extrem, 3), "sweep_zeit": hm(sweep_t),
+         "mss": round(mss, 3) if mss is not None else None}
+    return {**d, "phase": "kein", "grund": "keine Bestätigung bis " + hm(E)} if ende_erreicht else {**d, "phase": "manipulation"}
+
+
+def z369_setup(erg: dict, p: dict) -> Setup:
+    h = lambda s: time(int(s[:2]), int(s[3:]))  # noqa: E731
+    return Setup(p["id"], p["name"], erg["typ"], [Order(erg["richtung"], erg["entry"], erg["sl"], erg["tp"])],
+                 h(erg["start"]), h(erg["gueltig_bis"]), p["schluss"], {"tp2": erg["tp2"]})
+
+
+def z369(ctx: Kontext, p: dict) -> Setup | None:
+    erg = z369_erkennen(ctx.kerzen, ctx.atr, p, ctx.datum)
+    if not erg or erg["phase"] != "signal":
+        return None
+    return z369_setup(erg, p)
+
+
+Z369_TZ = {"berlin": ("Europe/Berlin", "Berlin-Zeit"), "london": ("Europe/London", "London-Zeit"),
+           "newyork": ("America/New_York", "New-York-Zeit")}
+Z369_VARIANTEN = [
+    {"strategie": "z369", "id": f"z369_{f}_{e}_{int(r)}r", "name": f"3-6-9 {Z369_TZ[f][1]} · {'Rücklauf' if e == 'retrace' else 'sofort'} · {int(r)}R",
+     "tz": Z369_TZ[f][0], "entry": e, "tp_r": r, "min_sweep_pips": 2, "min_breite_pips": 5, "disp_faktor": 1.0,
+     "sl_puffer_pips": 2, "schluss": time(21, 30) if f == "newyork" else time(21, 0),
+     "live": e == "retrace" and r == 2.0}
+    for f in ("berlin", "london", "newyork") for e in ("retrace", "markt") for r in (2.0, 3.0)
+]
+
+STRATEGIEN = {"orb": orb, "reversion": reversion, "trend": trend, "amd": amd, "z369": z369}
 
 
 # ------------------------------------------------------------

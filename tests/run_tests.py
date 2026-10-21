@@ -526,6 +526,35 @@ da = json.loads((OUT / "public" / "dashboard.json").read_text())["amd"]
 pruefe(da["varianten"][0]["phase"] == "signal" and da["varianten"][0]["state"] == "tp" and da["varianten"][0]["daten"]["tp"] == 209.8,
        "AMD im Dashboard-Export")
 
+print("3-6-9 Time Map")
+from datetime import time as TM  # noqa: E402
+z369_b = next(p for p in strategien.Z369_VARIANTEN if p["id"] == "z369_berlin_retrace_2r")
+TAG369 = "2026-10-21"
+
+
+def k5(hhmm, o, h, l, c):
+    hh, mm = map(int, hhmm.split(":"))
+    return (DT(2026, 10, 21, hh, mm), o, h, l, c)
+
+
+akk = [k5(f"08:{m:02d}", 210.10, 210.20, 210.00, 210.12 if m % 10 else 210.08) for m in range(10, 40, 5)]
+manip = [k5("08:40", 210.12, 210.18, 210.08, 210.15), k5("08:45", 210.15, 210.24, 210.12, 210.22),
+         k5("08:50", 210.22, 210.30, 210.15, 210.17)]                      # Sweep über 210,20 bis 210,30
+vert = [k5("08:55", 210.17, 210.19, 210.08, 210.10), k5("09:00", 210.10, 210.12, 209.88, 209.90),   # kräftig unter MSS
+        k5("09:05", 209.90, 210.10, 209.86, 210.05), k5("09:10", 210.05, 210.12, 209.95, 209.97),
+        k5("09:15", 209.97, 209.99, 209.60, 209.62), k5("09:20", 209.62, 209.64, 209.40, 209.42)]
+e369 = strategien.z369_erkennen(akk + manip + vert, 1.0, z369_b, TAG369)
+pruefe(e369["phase"] == "signal" and e369["richtung"] == -1 and e369["mss"] == 210.0 and e369["signal_zeit"] == "09:00"
+       and e369["typ"] == "limit" and abs(e369["entry"] - 210.10) < 1e-9 and e369["sl"] == 210.32,
+       f"3-6-9: Sweep über Hoch, Strukturbruch 09:00 -> SHORT-Limit {e369.get('entry')} SL {e369.get('sl')} TP {e369.get('tp')}")
+tr369 = strategien.simuliere(strategien.z369_setup(e369, z369_b), akk + manip + vert, 0, TAG369)
+pruefe(tr369 and tr369.grund == "tp" and tr369.entry == 210.10, "3-6-9: Limit im Rücklauf gefüllt, Ziel 2R erreicht")
+pruefe(strategien.z369_erkennen(akk + manip[:2], 1.0, z369_b, TAG369)["phase"] == "manipulation", "3-6-9: nach Sweep erst Verdacht")
+ny = strategien.z369_zeiten("2026-10-21", "America/New_York")
+pruefe(ny[0] == TM(14, 10) and strategien.z369_zeiten("2026-11-03", "America/New_York")[0] == TM(14, 10)
+       and strategien.z369_zeiten("2026-10-28", "America/New_York")[0] == TM(13, 10), "3-6-9: New-York-Zeit inkl. Zeitumstellungs-Woche")
+pruefe(amd_mod.bewaehrt("z369_berlin_retrace_2r")[0] is False, "ohne positiven Backtest: keine WhatsApp, nur Dashboard")
+
 print("Gartley")
 from fxserver import harmonisch  # noqa: E402
 pruefe(harmonisch.muster_pruefen((199.0, -1), (201.0, 1), (199.764, -1), (200.528, 1)) is not None

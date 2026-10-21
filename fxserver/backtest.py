@@ -166,7 +166,7 @@ VERGLEICH = {
 }
 
 
-def lade_tiingo(tage: int = 730, stueck: int = 45) -> list[tuple]:
+def lade_tiingo(tage: int = 730, stueck: int = 45, freq: str = "15min") -> list[tuple]:
     from .common import TZ_BERLIN, fx_tag
     from .sources import prices as px_src
     import time as _time
@@ -176,7 +176,7 @@ def lade_tiingo(tage: int = 730, stueck: int = 45) -> list[tuple]:
     while t < ende:
         bis = min(ende, t + timedelta(days=stueck))
         daten = px_src._get("/tiingo/fx/gbpjpy/prices", {"startDate": t.strftime("%Y-%m-%d"),
-                                                        "endDate": bis.strftime("%Y-%m-%d"), "resampleFreq": "15min"})
+                                                        "endDate": bis.strftime("%Y-%m-%d"), "resampleFreq": freq})
         for c in daten or []:
             from .common import parse_iso
             ts = parse_iso(c["date"])
@@ -189,6 +189,22 @@ def lade_tiingo(tage: int = 730, stueck: int = 45) -> list[tuple]:
             continue
         o, h, l, c = roh[ts]
         erg.append((fx_tag(ts + timedelta(seconds=1)).isoformat(), ts.astimezone(TZ_BERLIN).replace(tzinfo=None), o, h, l, c))
+    return erg
+
+
+def zu_15min(kerzen5: list[tuple]) -> list[tuple]:
+    """5-Min-Kerzen [(fx_datum, t, o, h, l, c)] -> 15-Min-Kerzen (gleiche Form)."""
+    erg, akt = [], None
+    for d, t, o, h, l, c in kerzen5:
+        start = t.replace(minute=t.minute - t.minute % 15, second=0, microsecond=0)
+        if akt and akt[1] == start and akt[0] == d:
+            akt[3], akt[4], akt[5] = max(akt[3], h), min(akt[4], l), c
+        else:
+            if akt:
+                erg.append(tuple(akt))
+            akt = [d, start, o, h, l, c]
+    if akt:
+        erg.append(tuple(akt))
     return erg
 
 
@@ -215,7 +231,7 @@ def prognose_check(kerzen) -> dict:
 def urteil(k: dict) -> tuple[str, str]:
     """Einfaches Urteil nach Kosten: lohnt / knapp / verliert / zu wenige Daten."""
     n, avg, pf = k.get("n", 0), k.get("avg_pips"), k.get("profit_faktor") or 0
-    if n < 30:
+    if n < 50:   # unter 50 Trades kann auch reiner Zufall ✅ zeigen
         return "⏳", f"zu wenige Signale ({n}) für ein Urteil"
     if avg is None or avg <= 0:
         return "❌", "verliert nach Kosten – nicht danach handeln"
@@ -224,9 +240,25 @@ def urteil(k: dict) -> tuple[str, str]:
     return "➖", "knapp positiv – kein verlässlicher Vorteil"
 
 
+FAMILIEN = {"gartley_": "Gartley", "z369_": "3-6-9 Time Map"}
+
+
 def urteil_text(out: dict) -> str:
     z = [f"📊 Wochen-Backtest GBP/JPY ({out['von'][:10]} bis {out['bis'][:10]}, {out['kosten_pips']:.0f} Pips Kosten/Trade)"]
+    for praefix, fname in FAMILIEN.items():   # viele Varianten -> eine Zeile je Familie
+        teil = {k: v for k, v in out["setups"].items() if k.startswith(praefix)}
+        if not teil:
+            continue
+        zaehler = {"✅": 0, "➖": 0, "❌": 0, "⏳": 0}
+        for v in teil.values():
+            zaehler[urteil(v["kennzahlen"])[0]] += 1
+        beste = max(teil.values(), key=lambda v: v["kennzahlen"].get("avg_pips", -99) if v["kennzahlen"].get("n", 0) >= 30 else -99)
+        bk = beste["kennzahlen"]
+        z.append(f"{fname}: {zaehler['✅']} ✅ · {zaehler['➖']} ➖ · {zaehler['❌']} ❌ · {zaehler['⏳']} ⏳ von {len(teil)} Varianten"
+                 + (f" | beste: {beste['name']} ({bk['n']} Trades, Ø {bk['avg_pips']:+.1f} P)".replace(".", ",") if bk.get("n") else ""))
     for sid, d in out["setups"].items():
+        if any(sid.startswith(f) for f in FAMILIEN) and not (sid.startswith("z369_") and sid.endswith("_retrace_2r")):
+            continue
         k = d["kennzahlen"]
         zeichen, text = urteil(k)
         if k.get("n"):
@@ -240,10 +272,11 @@ def urteil_text(out: dict) -> str:
 
 def server_lauf() -> int:
     from .common import get_logger, schreibe_json
-    from .strategien import AMD_VARIANTEN, HAUPT_SETUP
+    from .strategien import AMD_VARIANTEN, HAUPT_SETUP, Z369_VARIANTEN
     log = get_logger("backtest")
     try:
-        kerzen = lade_tiingo()
+        kerzen5 = lade_tiingo(stueck=30, freq="5min")   # einmal 5-Min laden (~25 Abrufe), 15-Min daraus bauen
+        kerzen = zu_15min(kerzen5)
     except Exception as e:  # noqa: BLE001
         log.error("Tiingo-Daten: %s", e)
         return 1
@@ -258,6 +291,7 @@ def server_lauf() -> int:
     from .harmonisch import VARIANTEN as GARTLEY, simuliere_gartley
     for g in GARTLEY:
         erg.append((g, simuliere_gartley(kerzen, g, KOSTEN_PIPS)))
+    erg += lauf(kerzen5, Z369_VARIANTEN)[0]
     for p, trades in erg:
         out["setups"][p["id"]] = {"name": p["name"], "kennzahlen": kennzahlen(trades),
                                   "letzte": [{"date": t.datum, "richtung": t.richtung, "pips": t.pips, "grund": t.grund}
