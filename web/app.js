@@ -21,8 +21,15 @@ async function lade(name) {
   return r.json();
 }
 const livePreis = () => S.live?.pairs?.gbpjpy?.price ?? S.dash?.report?.price ?? null;
-/* Minuten seit FX-Tagesbeginn (23:00 Berlin) -> Zeitstempel */
-const fxZeit = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return S.dash.fx_window[0] + ((h * 60 + m - 23 * 60 + 1440) % 1440) * 60; };
+/* Berliner Uhrzeit "HH:MM" des laufenden FX-Tags -> Zeitstempel.
+   Der FX-Tag beginnt um 17:00 New York: meist 23:00 Berlin, in den Wochen mit versetzter
+   Zeitumstellung (Ende März, Ende Oktober) 22:00 Berlin. Darum Startzeit aus fx_window lesen. */
+const fxZeit = (hhmm) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  const s0 = S.dash.fx_window[0];
+  const [sh, sm] = uhr(new Date(s0 * 1000)).split(":").map(Number);
+  return s0 + ((h * 60 + m - (sh * 60 + sm) + 1440) % 1440) * 60;
+};
 
 /* ---------------- Tooltip ---------------- */
 const tip = $("tip");

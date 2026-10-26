@@ -1,6 +1,7 @@
 """Tages-Setups für GBP/JPY – dieselben Regeln für Backtest und Live-Betrieb.
 
-Alle Zeiten sind Berliner Zeit. Ein FX-Tag beginnt um 23:00 Berlin (17:00 New York).
+Alle Zeiten sind Berliner Zeit. Ein FX-Tag beginnt um 17:00 New York, also meist 23:00 Berlin,
+in den Wochen mit versetzter Zeitumstellung (Ende März, Ende Oktober) um 22:00 Berlin.
 Jede Strategie liefert pro Tag höchstens EIN Setup (Richtung offen bis zum Auslösen):
   - typ "stop":  Kauf-Stop / Verkauf-Stop (Ausbruch), wer zuerst auslöst, gilt (OCO)
   - typ "limit": Kauf-Limit / Verkauf-Limit (Rücklauf), wer zuerst berührt wird, gilt
@@ -18,9 +19,22 @@ from datetime import datetime, time, timedelta
 PIP = 0.01
 
 
+def _neuer_fx_tag(dt: datetime) -> bool:
+    """Liegt ein Zeitpunkt zwischen 22:00 und 23:00 Berlin schon im neuen FX-Tag?
+    Das ist der Fall, wenn New York bereits 17:00 erreicht hat (Wochen, in denen nur Europa
+    oder nur die USA die Uhr umgestellt haben: Ende März und Ende Oktober)."""
+    from zoneinfo import ZoneInfo
+    b = dt.replace(tzinfo=ZoneInfo("Europe/Berlin")) if dt.tzinfo is None else dt
+    return b.astimezone(ZoneInfo("America/New_York")).hour >= 17
+
+
 def tm(t) -> int:
-    """Minuten seit Beginn des FX-Tags (23:00 Berlin = 0). Nimmt time oder datetime."""
+    """Minuten seit 23:00 Berlin (normaler FX-Tagesbeginn = 17:00 New York). Nimmt time oder datetime.
+    Kerzen von 22:00–23:00 Berlin, die wegen versetzter Zeitumstellung schon zum neuen FX-Tag gehören,
+    erhalten negative Werte (−60..−1) und liegen damit vor allen Tagesfenstern statt am Tagesende."""
     if isinstance(t, datetime):
+        if t.hour == 22 and _neuer_fx_tag(t):
+            return t.minute - 60
         t = t.time()
     return ((t.hour * 60 + t.minute) - 23 * 60) % 1440
 
@@ -67,7 +81,7 @@ class Trade:
 @dataclass
 class Kontext:
     datum: str
-    tag_open: float          # Eröffnung 23:00 Berlin
+    tag_open: float          # Eröffnung 17:00 New York (meist 23:00 Berlin)
     atr: float               # ATR(14) der FX-Tage in Kurs-Einheiten
     vortag: dict             # {o,h,l,c}
     ema20: float | None      # EMA(20) der Tagesschlüsse bis Vortag

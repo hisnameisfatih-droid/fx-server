@@ -573,5 +573,23 @@ pruefe(len(tr_g) == 1 and tr_g[0].richtung == 1 and tr_g[0].grund == "tp" and ab
 
 print(f"\nTiingo-Abrufe: {sum('tiingo' in u for u in AUFRUFE)}, Claude-Aufrufe: {sum(u.startswith('claude:') for u in AUFRUFE)}")
 print(f"Ausgabe: {OUT}")
+# --- Zeitumstellung: Woche, in der Europa schon Winterzeit hat, die USA noch Sommerzeit ---
+# FX-Tag Di 27.10.2026 beginnt Mo 26.10. 17:00 New York = 22:00 Berlin (sonst 23:00).
+from datetime import datetime as _dt, time as _time, timedelta as _td
+from fxserver.common import TZ_BERLIN as _TZB, fx_tag_start as _fxs
+from datetime import date as _date
+_s = _fxs(_date(2026, 10, 27)).astimezone(_TZB)
+pruefe((_s.hour, _s.minute) == (22, 0), "Zeitumstellung: FX-Tag 27.10.2026 beginnt 22:00 Berlin")
+_s = _s.replace(tzinfo=None)
+pruefe(strategien.tm(_s) == -60 and strategien.tm(_s + _td(minutes=45)) == -15, "Zeitumstellung: 22:xx im neuen Tag liegt vor Tagesbeginn")
+pruefe(strategien.tm(_dt(2026, 10, 20, 22, 30)) == 1410, "Normale Woche: 22:30 Berlin ist Tagesende")
+pruefe(strategien.tm(_dt(2026, 11, 3, 22, 30)) == 1410, "Nach US-Umstellung: 22:30 Berlin wieder Tagesende")
+_k = [(_s + _td(minutes=15 * i), 210.0, 210.1, 209.9, 210.0) for i in range(4 * 20)]
+_k[44] = (_k[44][0], 210.0, 210.6, 209.9, 210.5)   # 09:00 Berlin: Ausbruch nach oben
+pruefe(_k[44][0].time() == _time(9, 0), "Zeitumstellung: Testkerze liegt um 09:00")
+_set = strategien.Setup("t", "t", "stop", [strategien.Order(1, 210.3, 209.5, 211.9)], _time(9, 0), _time(12, 0), _time(21, 0))
+_tr = strategien.simuliere(_set, _k, 0, "2026-10-27")
+pruefe(_tr is not None and _tr.t_entry == _k[44][0], "Zeitumstellung: Setup löst trotz Tagesbeginn 22:00 aus")
+
 print("ALLE TESTS OK" if not FEHLER else f"{len(FEHLER)} FEHLER: {FEHLER}")
 sys.exit(1 if FEHLER else 0)
