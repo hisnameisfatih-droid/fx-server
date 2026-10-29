@@ -7,7 +7,9 @@ für beide Varianten (Asien → London, London → New York). Nachricht bei
   - Verdacht aufgehoben (echter Ausbruch / kein Rücklauf)
   - Ziel / Stop / Tagesende
 Abschluss mit vollständigen Tiingo-15-Min-Kerzen um 23:05 (evaluate.py). Die Regeln sind identisch mit
-dem Backtest (backtest.py, Variante amd_london / amd_ny). Keine Anlageberatung.
+dem Backtest (backtest.py, Variante amd_london / amd_ny). WhatsApp nur für Varianten mit ✅ im Backtest,
+außer IMMER_MELDEN (Standard: amd_london): Entry/SL/TP mit den letzten Ergebnissen und die TP/SL-Meldung.
+Keine Anlageberatung.
 """
 from __future__ import annotations
 
@@ -30,6 +32,10 @@ RICHTUNG = {1: "LONG", -1: "SHORT"}
 # live verfolgt: beide AMD-Varianten + je Zeitzone die Standard-Variante der 3-6-9 Time Map (Rücklauf, 2R)
 LIVE = AMD_VARIANTEN + [p for p in Z369_VARIANTEN if p["live"]]
 ALLE_MELDEN = __import__("os").getenv("MUSTER_ALLE_MELDEN", "0") == "1"
+# Varianten, deren Entry-Signale und Ergebnisse (TP/SL) immer per WhatsApp kommen – auch ohne ✅ im Backtest.
+# Fatihs Wunsch (29.10.2026): Asien → London. Anpassbar über MUSTER_IMMER=amd_london,amd_ny (leer = keine).
+IMMER_MELDEN = {v.strip() for v in __import__("os").getenv("MUSTER_IMMER", "amd_london").split(",") if v.strip()}
+GRUND_TEXT = {"tp": "✅ TP", "sl": "❌ SL", "zeit": "⏹ Tagesende"}
 
 
 def bewaehrt(vid: str) -> tuple[bool, dict | None]:
@@ -79,6 +85,62 @@ def _variante(vid: str) -> dict:
     return next(p for p in AMD_VARIANTEN + Z369_VARIANTEN if p["id"] == vid)
 
 
+def verlauf(con, vid: str, vor_datum: str | None = None, n: int = 5) -> list[dict]:
+    """Letzte abgeschlossene Live-Signale einer Variante (neueste zuerst): date, richtung, grund, pips.
+    Nimmt das Tiingo-Endergebnis (23:05, nach Kosten), sonst den Live-Stand (TP/SL/Tagesende)."""
+    _db(con)
+    sql = "SELECT * FROM amd WHERE variante=? AND phase='signal'" + (" AND date<?" if vor_datum else "") + " ORDER BY date DESC"
+    erg = []
+    for r in con.execute(sql, (vid, vor_datum) if vor_datum else (vid,)):
+        res = json.loads(r["result_json"]) if r["result_json"] else None
+        tr = json.loads(r["trade_json"]) if r["trade_json"] else None
+        quelle = res if res and res.get("grund") in GRUND_TEXT else (tr if r["state"] in GRUND_TEXT and tr else None)
+        if not quelle:
+            continue
+        erg.append({"date": r["date"], "richtung": quelle.get("richtung") or json.loads(r["data_json"])["richtung"],
+                    "grund": quelle["grund"], "pips": quelle.get("pips")})
+        if len(erg) >= n:
+            break
+    return erg
+
+
+def _vz(x: float, d: int = 0) -> str:
+    """Vorzeichen-Zahl im deutschen Format: +32 / −5,7."""
+    return f"{x:+.{d}f}".replace(".", ",").replace("-", "−")
+
+
+def _kurz_datum(d: str) -> str:
+    return f"{d[8:10]}.{d[5:7]}."
+
+
+def historie_text(con, vid: str, vor_datum: str | None = None) -> str:
+    """Kurzer Block für die WhatsApp: letzte Live-Ergebnisse + Backtest-Bilanz der Variante."""
+    z = []
+    live = verlauf(con, vid, vor_datum)
+    if live:
+        z.append("Letzte Signale live:")
+        z += [f"• {_kurz_datum(t['date'])} {RICHTUNG.get(t['richtung'], '?')} {GRUND_TEXT[t['grund']]}"
+              + (f" {_vz(t['pips'])} P" if t.get("pips") is not None else "") for t in live]
+    else:
+        z.append("Letzte Signale live: noch keine abgeschlossenen.")
+    ok, k = bewaehrt(vid)
+    if k and k.get("n"):
+        from .backtest import urteil
+        z.append(f"Backtest 2 J.: {k['n']} Trades, {de_zahl(k.get('tp_quote', k.get('trefferquote', 0)), 0)} % TP, "
+                 f"Ø {_vz(k.get('avg_pips', 0), 1)} P nach Kosten {urteil(k)[0]}")
+        try:
+            from .common import PUBLIC_DIR
+            bt = json.loads((PUBLIC_DIR / "backtest.json").read_text())["setups"][vid].get("letzte", [])[-5:]
+        except (OSError, ValueError, KeyError):
+            bt = []
+        if bt:
+            z.append("Backtest letzte 5: " + ", ".join(
+                f"{_kurz_datum(t['date'])} {GRUND_TEXT.get(t['grund'], t['grund'])}" for t in reversed(bt)))
+        if not ok:
+            z.append("Im Backtest nicht profitabel → nur kleine Größe.")
+    return "\n".join(z)
+
+
 def text_verdacht(d: dict) -> str:
     if _ist369(d):
         unten = d["sweep_seite"] < 0
@@ -99,7 +161,7 @@ def text_verdacht(d: dict) -> str:
             f"{'LONG' if unten else 'SHORT'}-Signal Richtung {de_zahl(gegen)}. Noch nicht einsteigen.")
 
 
-def text_signal(d: dict, treiber_stufe: int | None = None) -> str:
+def text_signal(d: dict, treiber_stufe: int | None = None, historie: str | None = None) -> str:
     r = d["richtung"]
     z = [f"🎯 {'3-6-9' if _ist369(d) else 'AMD'}-Signal {RICHTUNG[r]} ({d['name']}) {d['signal_zeit']}",
          f"{'Limit-Entry' if d.get('typ') == 'limit' else 'Entry ~'} {de_zahl(d['entry'])} | SL {de_zahl(d['sl'])} (−{d['risiko_pips']} P) | "
@@ -112,6 +174,8 @@ def text_signal(d: dict, treiber_stufe: int | None = None) -> str:
     if treiber_stufe:
         z.append("Treiber stützen die Richtung." if treiber_stufe * r > 0 else
                  "Achtung: Treiber zeigen in die Gegenrichtung → halbe Größe oder auslassen.")
+    if historie:
+        z.append(historie)
     z.append("Neue Regel, Trefferquote wird gemessen. Keine Anlageberatung.")
     return "\n".join(z)
 
@@ -160,8 +224,16 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
                             (neu_state, json.dumps(_trade_dict(tr)), jetzt.isoformat(), heute, p["id"]))
                 if neu_state in ("tp", "sl", "zeit"):
                     symbol = {"tp": "✅ Ziel erreicht", "sl": "❌ Stop erreicht", "zeit": "⏹ zum Tagesende geschlossen"}[neu_state]
-                    texte.append(f"{symbol} ({d['name']}): {RICHTUNG[tr.richtung]} {de_zahl(tr.entry)} → "
-                                 f"{de_zahl(tr.exit)} = {tr.pips:+.0f} Pips | {tr.t_exit:%H:%M}")
+                    txt = (f"{symbol} ({d['name']}): {RICHTUNG[tr.richtung]} {de_zahl(tr.entry)} → "
+                           f"{de_zahl(tr.exit)} = {tr.pips:+.0f} Pips | {tr.t_exit:%H:%M}")
+                    bisher = verlauf(con, p["id"], n=20)
+                    if bisher:
+                        tp_n = sum(1 for t in bisher if t["grund"] == "tp")
+                        sl_n = sum(1 for t in bisher if t["grund"] == "sl")
+                        summe = sum(t["pips"] or 0 for t in bisher)
+                        txt += (f"\nBilanz live (letzte {len(bisher)}): {tp_n}× TP, {sl_n}× SL, "
+                                f"{len(bisher) - tp_n - sl_n}× Tagesende, Summe {_vz(summe)} Pips")
+                    texte.append(txt)
             continue
         erg = z369_erkennen(k5_fertig, atr, p, heute) if _ist369(p) else amd_erkennen(kerzen, atr, p)
         if not erg or not k5_fertig:
@@ -181,7 +253,7 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
         if erg["phase"] == "manipulation":
             texte.append(text_verdacht(erg))
         elif erg["phase"] == "signal":
-            texte.append(text_signal(erg, treiber_stufe))
+            texte.append(text_signal(erg, treiber_stufe, None if _ist369(p) else historie_text(con, p["id"], heute)))
         elif erg["phase"] == "kein" and alt_phase == "manipulation":
             texte.append(f"⏹ Verdacht aufgehoben ({erg['name']}): {erg['grund']}.")
     con.commit()
@@ -189,7 +261,9 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
         for t in texte:
             vid = next((p["id"] for p in LIVE if f"({p['name']})" in t), None)
             ok, _ = bewaehrt(vid) if vid else (False, None)
-            if ok or ALLE_MELDEN:
+            # immer gemeldete Varianten: Entry-Signal und Ergebnis, nicht die Vorwarnungen (Verdacht)
+            immer = vid in IMMER_MELDEN and not t.startswith(("🕵️", "⏹ Verdacht"))
+            if ok or ALLE_MELDEN or immer:
                 senden(t)
             else:
                 log.info("Nur Dashboard (Backtest nicht positiv): %s", t.splitlines()[0])

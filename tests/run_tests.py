@@ -513,6 +513,10 @@ pruefe(e_bull["phase"] == "signal" and e_bull["richtung"] == 1 and e_bull["sl"] 
        f"AMD bullisch (London → New York): LONG {e_bull.get('entry')} SL {e_bull.get('sl')} TP {e_bull.get('tp')}")
 # Live: Verdacht -> Signal -> Ziel, jeweils eine Meldung
 amd_txt = []
+amd_mod._db(con)
+con.execute("INSERT OR REPLACE INTO amd(date, variante, phase, data_json, state, result_json) VALUES(?,?,?,?,?,?)",
+            ("2026-10-20", "amd_london", "signal", json.dumps({"richtung": 1, "name": "Asien → London", "entry": 210.0, "sl": 209.79, "tp": 210.4}), "sl",
+             json.dumps({"richtung": 1, "grund": "sl", "pips": -21.0})))
 jetzt_amd = datetime(TAG_AMD.year, TAG_AMD.month, TAG_AMD.day, 9, 16, tzinfo=common.TZ_BERLIN)
 m1 = amd_mod.pruefen(con, jetzt_amd, senden=amd_txt.append, kerzen_5=bear[:33])
 m2 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=15), senden=amd_txt.append, treiber_stufe=-2, kerzen_5=bear[:34])
@@ -520,7 +524,12 @@ m3 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=16), senden=amd_txt.appe
 m4 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=45), senden=amd_txt.append, kerzen_5=bear)
 pruefe(len(m1) == 1 and "AMD-Verdacht" in m1[0] and len(m2) == 1 and "AMD-Signal SHORT" in m2[0] and "Treiber stützen" in m2[0]
        and m3 == [] and len(m4) == 1 and "Ziel erreicht" in m4[0], f"AMD live: Verdacht, Signal, Ziel ({[x.splitlines()[0] for x in amd_txt]})")
-print("\n    " + m2[0].replace("\n", "\n    ") + "\n")
+pruefe(len(amd_txt) == 2 and "AMD-Signal SHORT" in amd_txt[0] and "Ziel erreicht" in amd_txt[1],
+       "Asien → London: WhatsApp für Entry und Ergebnis trotz ❌-Backtest, ohne Vorwarnung")
+pruefe("Letzte Signale live:" in m2[0] and "20.10. LONG ❌ SL −21 P" in m2[0] and "SL " in m2[0] and "TP " in m2[0],
+       "Signal-WhatsApp: Entry/SL/TP und letzte Ergebnisse")
+pruefe("Bilanz live (letzte 2): 1× TP, 1× SL" in m4[0], f"Ergebnis-WhatsApp: laufende Bilanz ({m4[0].splitlines()[-1]})")
+print("\n    " + m2[0].replace("\n", "\n    ") + "\n\n    " + m4[0].replace("\n", "\n    ") + "\n")
 export.alles(con)
 da = json.loads((OUT / "public" / "dashboard.json").read_text())["amd"]
 pruefe(da["varianten"][0]["phase"] == "signal" and da["varianten"][0]["state"] == "tp" and da["varianten"][0]["daten"]["tp"] == 209.8,
