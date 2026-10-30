@@ -535,6 +535,32 @@ da = json.loads((OUT / "public" / "dashboard.json").read_text())["amd"]
 pruefe(da["varianten"][0]["phase"] == "signal" and da["varianten"][0]["state"] == "tp" and da["varianten"][0]["daten"]["tp"] == 209.8,
        "AMD im Dashboard-Export")
 
+print("Vortage")
+from fxserver import tage as tage_mod  # noqa: E402
+vt = tage_mod.letzte_tage(TAG_AMD)[1]
+setup_mod_db = __import__("fxserver.setup", fromlist=["SCHEMA"])
+con.executescript(setup_mod_db.SCHEMA)
+con.execute("INSERT OR REPLACE INTO setups(date, status, data_json, state, trade_json, result_json, created) VALUES(?,?,?,?,?,?,?)",
+            (vt, "aktiv", json.dumps({"name": "London-Ausbruch", "status": "aktiv", "trend": -1, "start": "09:00", "ende": "12:00",
+                                      "schluss": "21:00", "spanne": [209.5, 210.1],
+                                      "orders": [{"richtung": -1, "entry": 209.5, "sl": 209.9, "tp": 208.7, "risiko_pips": 40, "ziel_pips": 80}]}),
+             "sl", None, json.dumps({"richtung": -1, "entry": 209.5, "sl": 209.9, "tp": 208.7, "exit": 209.9, "t_entry": "09:30",
+                                     "t_exit": "11:15", "grund": "sl", "pips": -43.0}), "x"))
+con.commit()
+(OUT / "public" / "tage.json").unlink(missing_ok=True)
+abrufe_vor = sum("/prices" in u for u in AUFRUFE)
+tage_mod.schreiben(con)
+td = json.loads((OUT / "public" / "tage.json").read_text())
+tag_vt = next((t for t in td["tage"] if t["date"] == vt), None)
+pruefe(len(td["tage"]) >= 15 and all(len(t["kerzen"]) >= 20 for t in td["tage"][:5]) and sum("/prices" in u for u in AUFRUFE) == abrufe_vor + 1,
+       f"Vortage: Kerzen für {len(td['tage'])} Tage mit einem Tiingo-Abruf")
+pruefe(tag_vt and tag_vt["setups"][0]["ergebnis"]["grund"] == "sl" and tag_vt["setups"][0]["ergebnis"]["endgueltig"]
+       and tag_vt["fx_window"][1] - tag_vt["fx_window"][0] >= 23 * 3600, "Vortage: 09:00-Setup mit Ergebnis SL")
+tag_amd = next((t for t in td["tage"] if t["date"] == "2026-10-20"), None)
+pruefe(tag_amd is None or any(x["art"] == "amd" and x["ergebnis"]["grund"] == "sl" for x in tag_amd["setups"]), "Vortage: AMD-Signal mit Ergebnis")
+tage_mod.kerzen_sichern(con)
+pruefe(sum("/prices" in u for u in AUFRUFE) <= abrufe_vor + 2, "Vortage: gespeicherte Tage werden nicht erneut geladen")
+
 print("3-6-9 Time Map")
 from datetime import time as TM  # noqa: E402
 z369_b = next(p for p in strategien.Z369_VARIANTEN if p["id"] == "z369_berlin_retrace_2r")

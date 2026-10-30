@@ -35,6 +35,7 @@ def main() -> int:
     if not offen:
         log.info("Nichts auszuwerten")
         treiber_5_tage(con)
+        vortage(con)
         export.alles(con)
         return 0
     fx_tage_aktualisieren(con, tage=max(10, (jetzt.date() - datetime.fromisoformat(offen[0]["date"]).date()).days + 5))
@@ -59,8 +60,18 @@ def main() -> int:
                  "✓" if e["in_range"] else "✗", "✓" if e["direction_hit"] else "✗", e["deviation_pips"])
     con.commit()
     treiber_5_tage(con)
+    vortage(con)
     export.alles(con)
     return 0
+
+
+def vortage(con) -> None:
+    """Vortage-Ansicht: Kerzen des abgeschlossenen Tages sichern, tage.json mit allen Ergebnissen neu schreiben."""
+    try:
+        from . import tage as tage_mod
+        tage_mod.schreiben(con)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Vortage: %s", e)
 
 
 def treiber_5_tage(con) -> int:

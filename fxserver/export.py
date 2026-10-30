@@ -9,6 +9,7 @@ from pathlib import Path
 from . import forecast
 from . import amd as amd_mod
 from . import setup as setup_mod
+from . import tage as tage_mod
 from . import treiber as treiber_mod
 from .common import PAARE, fx_tag, fx_tag_ende, fx_tag_start, get_logger, jetzt_berlin, schreibe_json
 from .sources.yields import SERIEN
@@ -170,3 +171,7 @@ def alles(con, treiber_daten: dict | None = None) -> None:
         "prev_close": vortag,
         "model": {"spanne_atr": forecast.SPANNE_ATR, "hoch_tief_atr": forecast.HOCH_TIEF_ATR},
     })
+    try:   # Vortage (Kerzen + Setups + Ergebnisse): einmal pro FX-Tag
+        tage_mod.bei_bedarf(con, jetzt)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Vortage: %s", e)

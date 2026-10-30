@@ -4,7 +4,7 @@
 const FLAGGE = { GBP: "🇬🇧", JPY: "🇯🇵", USD: "🇺🇸" };
 const TREND = { 1: "Aufwärtstrend", "-1": "Abwärtstrend", 0: "kein klarer Trend" };
 const NEWS = { "-2": "klar belastend", "-1": "leicht belastend", 0: "neutral", 1: "leicht stützend", 2: "klar stützend" };
-const S = { dash: null, live: null, archiv: null, bt: null, newsFilter: "ALL", offen: null, trOffen: null };
+const S = { dash: null, live: null, archiv: null, bt: null, tage: null, newsFilter: "ALL", offen: null, trOffen: null };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const zahl = (v, d = 3) => (v == null || isNaN(v) ? "–" : Number(v).toLocaleString("de-DE", { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -21,15 +21,15 @@ async function lade(name) {
   return r.json();
 }
 const livePreis = () => S.live?.pairs?.gbpjpy?.price ?? S.dash?.report?.price ?? null;
-/* Berliner Uhrzeit "HH:MM" des laufenden FX-Tags -> Zeitstempel.
+/* Berliner Uhrzeit "HH:MM" eines FX-Tags, der bei s0 beginnt -> Zeitstempel.
    Der FX-Tag beginnt um 17:00 New York: meist 23:00 Berlin, in den Wochen mit versetzter
-   Zeitumstellung (Ende März, Ende Oktober) 22:00 Berlin. Darum Startzeit aus fx_window lesen. */
-const fxZeit = (hhmm) => {
+   Zeitumstellung (Ende März, Ende Oktober) 22:00 Berlin. Darum Startzeit aus dem Fenster lesen. */
+const tagZeit = (s0, hhmm) => {
   const [h, m] = hhmm.split(":").map(Number);
-  const s0 = S.dash.fx_window[0];
   const [sh, sm] = uhr(new Date(s0 * 1000)).split(":").map(Number);
   return s0 + ((h * 60 + m - (sh * 60 + sm) + 1440) % 1440) * 60;
 };
+const fxZeit = (hhmm) => tagZeit(S.dash.fx_window[0], hhmm);
 
 /* ---------------- Tooltip ---------------- */
 const tip = $("tip");
@@ -122,106 +122,191 @@ function renderTicket() {
       ${histZeile}<div>Positionsgröße nach deinem Risiko. Keine Anlageberatung.</div></div>`;
 }
 
-/* ---------------- Chart mit allen Marken ---------------- */
+/* ---------------- Kerzen-Chart (heute und Vortage) ---------------- */
+/* Kerzen [[t, o, h, l, c]] zu Blöcken von `schritt` Sekunden ab x0 zusammenfassen */
+function verdichte(bars, x0, schritt) {
+  const m = new Map();
+  for (const b of bars) {
+    const k = x0 + Math.floor((b[0] - x0) / schritt) * schritt, g = m.get(k);
+    if (!g) m.set(k, [k, b[1], b[2], b[3], b[4]]);
+    else { g[2] = Math.max(g[2], b[2]); g[3] = Math.min(g[3], b[3]); g[4] = b[4]; }
+  }
+  return [...m.values()].sort((a, b) => a[0] - b[0]);
+}
+const KURZ_ART = { setup: "", amd: "AMD ", "369": "3-6-9 " };
+/* Entry/SL/TP-Linien eines Setups (Farben mit Bedeutung: Amber Entry, Rot Stop, Grün Ziel) */
+const setupSchienen = (o, vor = "") => [
+  { y: o.entry, f: "var(--entry)", t: `${vor}Entry`, strich: "6 4" },
+  { y: o.sl, f: "var(--stop)", t: `${vor}SL` },
+  { y: o.tp, f: "var(--ziel)", t: `${vor}TP` },
+];
+/* Einstieg (Dreieck in Trade-Richtung) und Ausstieg (Kreis: grün Ziel, rot Stop, grau Tagesende) */
+function tradeMarken(tr, zeitVon) {
+  const m = [];
+  if (tr?.t_entry && tr.entry != null) m.push({ t: zeitVon(tr.t_entry), y: tr.entry, typ: "entry", richtung: tr.richtung });
+  if (tr?.t_exit && tr.exit != null) m.push({ t: zeitVon(tr.t_exit), y: tr.exit, typ: "exit",
+    f: tr.grund === "tp" ? "var(--ziel)" : tr.grund === "sl" ? "var(--stop)" : "var(--text-2)" });
+  return m;
+}
+function schoenerSchritt(sp) {
+  const roh = sp / 4, p = Math.pow(10, Math.floor(Math.log10(roh)));
+  return [1, 2, 2.5, 5, 10].map((f) => f * p).find((s) => s >= roh) || roh;
+}
+
+/* o: { x0, x1, kerzen, linie, schienen, kaesten, band, marken, ringe, hoehe, aria } */
+function kerzenChart(el, o) {
+  const W = el.clientWidth || 640, klein = W < 520;
+  const H = o.hoehe || (klein ? 300 : 380);
+  const pad = { l: 8, r: klein ? 64 : 72, t: 26, b: 24 };
+  const k = o.kerzen || [], linie = o.linie || [];
+  const kern = k.flatMap((b) => [b[2], b[3]]).concat(linie.map((p) => p[1]))
+    .concat((o.schienen || []).filter((s) => !s.leise).map((s) => s.y))
+    .concat((o.kaesten || []).flatMap((b) => [b.y0, b.y1]).filter((v) => v != null))
+    .concat((o.marken || []).map((m) => m.y)).filter((v) => v != null && !isNaN(v));
+  if (!kern.length) { el.innerHTML = `<p class="leer">Noch keine Kurse für diesen Handelstag.</p>`; return; }
+  let y0 = Math.min(...kern), y1 = Math.max(...kern);
+  const sp0 = (y1 - y0) || 0.5;
+  /* leise Linien (Vortageshoch/-tief, Schluss-Spanne) nur, wenn sie das Bild nicht zusammenquetschen */
+  const nah = (v) => v != null && v >= y0 - sp0 * 0.45 && v <= y1 + sp0 * 0.45;
+  const leise = (o.schienen || []).filter((s) => s.leise && nah(s.y));
+  for (const s of leise) { y0 = Math.min(y0, s.y); y1 = Math.max(y1, s.y); }
+  if (o.band && nah(o.band[0]) && nah(o.band[1])) { y0 = Math.min(y0, ...o.band); y1 = Math.max(y1, ...o.band); }
+  const sp = (y1 - y0) || 0.5; y0 -= sp * 0.06; y1 += sp * 0.06;
+  const { x0, x1 } = o;
+  const X = (v) => pad.l + ((v - x0) / (x1 - x0)) * (W - pad.l - pad.r);
+  const Y = (v) => pad.t + (1 - (v - y0) / (y1 - y0)) * (H - pad.t - pad.b);
+  const unten = H - pad.b, rechts = W - pad.r;
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${esc(o.aria || "GBP/JPY Kerzenchart")}">`;
+  /* Handelssitzungen: Leiste oben + feine Trennlinien. New York ab 08:00 NY = Tagesbeginn + 15 h. */
+  const ny0 = x0 + 15 * 3600, lon0 = tagZeit(x0, "09:00"), as0 = tagZeit(x0, "01:00");
+  for (const [a, b, name, f] of [[as0, lon0, "Asien", "rgba(242,184,75,.16)"], [lon0, ny0, "London", "rgba(127,178,255,.16)"], [ny0, x1, "New York", "rgba(180,140,255,.16)"]]) {
+    s += `<rect x="${X(a)}" y="4" width="${Math.max(0, X(b) - X(a) - 2)}" height="14" rx="3" fill="${f}"/>`;
+    if (X(b) - X(a) > 46) s += `<text x="${X(a) + 6}" y="15" class="sitzung">${name}</text>`;
+    s += `<line x1="${X(a)}" x2="${X(a)}" y1="${pad.t}" y2="${unten}" stroke="var(--raster)" stroke-dasharray="2 4"/>`;
+  }
+  /* Preisraster links */
+  const st = schoenerSchritt(y1 - y0);
+  for (let v = Math.ceil(y0 / st) * st; v <= y1; v += st) {
+    s += `<line x1="${pad.l}" x2="${rechts}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--raster)"/>`;
+    s += `<text x="${pad.l + 2}" y="${Y(v) - 3}" class="raster">${zahl(v, st < 0.1 ? 2 : st < 1 ? 1 : 0)}</text>`;
+  }
+  /* Zeitachse */
+  const schritt = klein ? 6 * 3600 : 3 * 3600;
+  for (let t = Math.ceil(x0 / 3600) * 3600; t <= x1; t += 3600) {
+    const h = Number(uhr(new Date(t * 1000)).slice(0, 2));
+    if (h % (schritt / 3600)) continue;
+    if (X(t) > 20 && X(t) < rechts - 16) s += `<text x="${X(t)}" y="${H - 7}" text-anchor="middle">${uhr(new Date(t * 1000))}</text>`;
+  }
+  /* Schluss-Spanne (68 %) */
+  if (o.band && nah(o.band[0]) && nah(o.band[1])) s += `<rect x="${pad.l}" y="${Y(Math.max(...o.band))}" width="${rechts - pad.l}" height="${Math.abs(Y(o.band[0]) - Y(o.band[1]))}" fill="var(--band)"/>`;
+  /* Kästen: Spannen (Asien, AMD) und Entry-Fenster (ohne y = volle Höhe) */
+  for (const b of o.kaesten || []) {
+    const xa = X(b.t0), xb = X(b.t1);
+    if (b.y0 == null) { s += `<rect x="${xa}" y="${pad.t}" width="${Math.max(0, xb - xa)}" height="${unten - pad.t}" fill="${b.fill}"/>`; continue; }
+    const ya = Y(Math.max(b.y0, b.y1)), yb = Y(Math.min(b.y0, b.y1));
+    s += `<rect x="${xa}" y="${ya}" width="${Math.max(0, xb - xa)}" height="${yb - ya}" fill="${b.fill}" stroke="${b.stroke || "none"}" stroke-dasharray="${b.dash || ""}" rx="2"/>`;
+    if (b.t && xb - xa > 40) s += `<text x="${xa + 4}" y="${ya - 4}" class="kasten-t">${esc(b.t)}</text>`;
+  }
+  /* Linien: leise mit Beschriftung innen, wichtige mit Preisschild rechts (Schilder weichen einander aus) */
+  const innen = [];
+  for (const sch of leise) {
+    const y = Y(sch.y);
+    s += `<line x1="${pad.l}" x2="${rechts}" y1="${y}" y2="${y}" stroke="var(--leise)" stroke-width="1" stroke-dasharray="1 3"/>`;
+    let ty = y - 4;
+    for (let i = 0; i < 4 && innen.some((b) => Math.abs(b - ty) < 13); i++) ty += 13;
+    innen.push(ty);
+    s += `<text x="${rechts - 4}" y="${ty}" text-anchor="end" class="beschr">${esc(sch.t)} ${zahl(sch.y)}</text>`;
+  }
+  const wichtig = (o.schienen || []).filter((x) => !x.leise && x.y != null).map((x) => ({ ...x, py: Y(x.y) })).sort((a, b) => a.py - b.py);
+  let letzte = -99;
+  const beschr = [];
+  for (const w of wichtig) { w.ly = Math.max(w.py, letzte + 17); letzte = w.ly; }
+  for (let i = wichtig.length - 1, grenze = unten - 9; i >= 0; i--) { if (wichtig[i].ly > grenze) wichtig[i].ly = grenze; grenze = wichtig[i].ly - 17; }
+  for (const w of wichtig) {
+    s += `<line x1="${pad.l}" x2="${rechts}" y1="${w.py}" y2="${w.py}" stroke="${w.f}" stroke-width="1.4" stroke-dasharray="${w.strich || ""}" opacity=".9"/>`;
+    /* Beschriftung über der Linie; liegt dort schon eine, weiter nach links ausweichen */
+    let tx = rechts - 4;
+    while (beschr.some((b) => Math.abs(b.y - w.py) < 12 && Math.abs(b.x - tx) < 78) && tx > pad.l + 120) tx -= 82;
+    beschr.push({ x: tx, y: w.py });
+    s += `<text x="${tx}" y="${w.py - 4}" text-anchor="end" class="beschr" style="fill:${w.f}">${esc(w.t)}</text>`;
+    if (Math.abs(w.ly - w.py) > 1) s += `<path d="M${rechts},${w.py} L${rechts + 4},${w.ly}" stroke="${w.f}" fill="none"/>`;
+    s += `<rect x="${rechts + 4}" y="${w.ly - 8.5}" width="${pad.r - 6}" height="17" rx="3" fill="${w.f}"/><text x="${rechts + 4 + (pad.r - 6) / 2}" y="${w.ly + 4}" text-anchor="middle" class="schild">${zahl(w.y)}</text>`;
+  }
+  /* Kerzen */
+  if (k.length) {
+    const sch = o.schritt || 900, bw = Math.max(1, Math.min(9, ((rechts - pad.l) / ((x1 - x0) / sch)) * 0.62));
+    for (const b of k) {
+      const auf = b[4] >= b[1], f = auf ? "var(--bull)" : "var(--bear)";
+      const xm = X(b[0] + sch / 2);
+      const ya = Y(Math.max(b[1], b[4])), yb = Y(Math.min(b[1], b[4]));
+      s += `<line x1="${xm}" x2="${xm}" y1="${Y(b[2])}" y2="${Y(b[3])}" stroke="${f}" stroke-width="1"/>`;
+      s += `<rect x="${xm - bw / 2}" y="${ya}" width="${bw}" height="${Math.max(1, yb - ya)}" fill="${f}"/>`;
+    }
+    const l = k[k.length - 1];
+    if (o.jetzt) s += `<line x1="${pad.l}" x2="${rechts}" y1="${Y(l[4])}" y2="${Y(l[4])}" stroke="var(--kurs)" stroke-dasharray="2 3" opacity=".7"/><rect x="${rechts + 4}" y="${Y(l[4]) - 8.5}" width="${pad.r - 6}" height="17" rx="3" fill="var(--kurs)"/><text x="${rechts + 4 + (pad.r - 6) / 2}" y="${Y(l[4]) + 4}" text-anchor="middle" class="schild">${zahl(l[4])}</text>`;
+  } else if (linie.length > 1) {
+    s += `<path d="${linie.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("")}" fill="none" stroke="var(--kurs)" stroke-width="2"/>`;
+  }
+  /* Fehlausbruch-Ringe und Trade-Marken */
+  for (const r of o.ringe || []) s += `<circle cx="${X(r.t)}" cy="${Y(r.y)}" r="5" fill="none" stroke="${r.f || "var(--amd)"}" stroke-width="2"/>`;
+  for (const m of o.marken || []) {
+    const x = X(m.t), y = Y(m.y);
+    if (m.typ === "entry") s += `<path d="${m.richtung > 0 ? `M${x - 6},${y + 9} L${x + 6},${y + 9} L${x},${y + 1} Z` : `M${x - 6},${y - 9} L${x + 6},${y - 9} L${x},${y - 1} Z`}" fill="var(--entry)" stroke="var(--grund)" stroke-width="1"/>`;
+    else s += `<circle cx="${x}" cy="${y}" r="5.5" fill="${m.f}" stroke="var(--grund)" stroke-width="2"/>`;
+  }
+  s += `<line class="cross" y1="${pad.t}" y2="${unten}" stroke="var(--text-2)" visibility="hidden"/><rect class="hit" x="${pad.l}" y="0" width="${rechts - pad.l}" height="${H}" fill="transparent"/></svg>`;
+  el.innerHTML = s;
+  const punkte = k.length ? k : linie;
+  if (!punkte.length) return;
+  const cross = el.querySelector(".cross"), hit = el.querySelector(".hit");
+  const bewegen = (ev) => {
+    const pt = ev.touches ? ev.touches[0] : ev, rc = el.querySelector("svg").getBoundingClientRect();
+    const xv = x0 + (((pt.clientX - rc.left) * (W / rc.width) - pad.l) / (rechts - pad.l)) * (x1 - x0);
+    let b = punkte[0]; for (const p of punkte) if (Math.abs(p[0] - xv) < Math.abs(b[0] - xv)) b = p;
+    cross.setAttribute("x1", X(b[0])); cross.setAttribute("x2", X(b[0])); cross.setAttribute("visibility", "visible");
+    zeigeTip(pt.clientX, pt.clientY, b.length > 2
+      ? `${uhr(new Date(b[0] * 1000))} · O ${zahl(b[1])} · H ${zahl(b[2])} · T ${zahl(b[3])} · S <b>${zahl(b[4])}</b>`
+      : `${uhr(new Date(b[0] * 1000))} · <b>${zahl(b[1])}</b>`);
+  };
+  const weg = () => { cross.setAttribute("visibility", "hidden"); versteckeTip(); };
+  hit.addEventListener("mousemove", bewegen); hit.addEventListener("mouseleave", weg);
+  hit.addEventListener("touchstart", bewegen, { passive: true }); hit.addEventListener("touchmove", bewegen, { passive: true }); hit.addEventListener("touchend", weg);
+}
+
+/* ---------------- Chart heute ---------------- */
 function renderChart() {
   const el = $("chart"), d = S.dash, r = d?.report, su = d?.setup;
   if (!d) return;
   const [x0, x1] = d.fx_window;
-  const ohlc = (S.live?.pairs?.gbpjpy?.ohlc || []).filter((b) => b[0] >= x0 && b[0] <= x1);
-  const punkte = ohlc.length ? ohlc.map((b) => [b[0], b[4]]) : (S.live?.pairs?.gbpjpy?.bars || []).filter((b) => b[0] >= x0);
-  const W = el.clientWidth || 640, H = W < 520 ? 300 : 340, pad = { l: 6, r: 74, t: 12, b: 24 };
-  const schienen = [];
-  const o = su?.status === "aktiv" ? su.orders : [];
-  for (const x of o) {
-    schienen.push({ y: x.entry, f: "var(--entry)", t: "Entry", strich: "6 4" });
-    schienen.push({ y: x.sl, f: "var(--stop)", t: "Stop" });
-    schienen.push({ y: x.tp, f: "var(--ziel)", t: "Ziel" });
+  const W = el.clientWidth || 640;
+  const roh = (S.live?.pairs?.gbpjpy?.ohlc || []).filter((b) => b[0] >= x0 && b[0] < x1);
+  const schritt = W < 520 ? 1800 : 900, kerzen = verdichte(roh, x0, schritt);
+  const linie = roh.length ? [] : (S.live?.pairs?.gbpjpy?.bars || []).filter((b) => b[0] >= x0);
+  const schienen = [], kaesten = [], marken = [], ringe = [];
+  const aktiv = su?.status === "aktiv";
+  if (aktiv) {
+    const o = su.trade?.richtung ? su.orders.filter((x) => x.richtung === su.trade.richtung) : su.orders;
+    for (const x of o) schienen.push(...setupSchienen(x));
+    kaesten.push({ t0: fxZeit(su.start), t1: fxZeit(su.ende), fill: "rgba(242,184,75,0.05)" });
+    marken.push(...tradeMarken(su.trade, fxZeit));
   }
+  if (su?.spanne) kaesten.push({ t0: fxZeit("01:00"), t1: fxZeit(su.start), y0: su.spanne[0], y1: su.spanne[1], fill: "var(--asien)", stroke: "rgba(242,184,75,.55)", t: "Asien-Spanne" });
   const amdV = (d.amd?.varianten || []).filter((v) => v.daten?.spanne && v.phase !== "kein");
-  for (const v of amdV) if (v.phase === "signal") {
-    schienen.push({ y: v.daten.entry, f: "var(--amd)", t: "AMD Entry", strich: "6 4" });
-    schienen.push({ y: v.daten.sl, f: "var(--amd)", t: "AMD SL", strich: "2 3" });
-    schienen.push({ y: v.daten.tp, f: "var(--amd)", t: "AMD TP" });
-  }
-  if (r?.exp?.[0]) { schienen.push({ y: r.exp[0], f: "var(--leise)", t: "erw. Hoch", strich: "2 4", leise: true }); schienen.push({ y: r.exp[1], f: "var(--leise)", t: "erw. Tief", strich: "2 4", leise: true }); }
-  if (r?.levels?.[0]) { schienen.push({ y: r.levels[0], f: "var(--text-2)", t: "Vortageshoch", strich: "1 3", leise: true }); schienen.push({ y: r.levels[1], f: "var(--text-2)", t: "Vortagestief", strich: "1 3", leise: true }); }
-  const ys = punkte.map((p) => p[1]).concat(schienen.map((s) => s.y)).concat(amdV.flatMap((v) => [v.daten.spanne[0], v.daten.spanne[1], v.daten.sweep_extrem].filter((x) => x != null))).concat(r?.range?.[0] ? r.range : []).concat(su?.spanne || []);
-  if (!ys.length) { el.innerHTML = `<p class="leer">Noch keine Kurse für den heutigen Handelstag.</p>`; return; }
-  let y0 = Math.min(...ys), y1 = Math.max(...ys); const sp = (y1 - y0) || 0.5; y0 -= sp * 0.06; y1 += sp * 0.06;
-  const X = (v) => pad.l + ((v - x0) / (x1 - x0)) * (W - pad.l - pad.r);
-  const Y = (v) => pad.t + (1 - (v - y0) / (y1 - y0)) * (H - pad.t - pad.b);
-  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="GBP/JPY heute mit Setup-Marken">`;
-  // Prognose-Spanne (68 %)
-  if (r?.range?.[0]) s += `<rect x="${pad.l}" y="${Y(r.range[1])}" width="${W - pad.l - pad.r}" height="${Y(r.range[0]) - Y(r.range[1])}" fill="var(--band)"/>`;
-  // Entry-Fenster und Asien-Spanne
-  if (su) {
-    const e0 = fxZeit(su.start), e1 = fxZeit(su.ende);
-    s += `<rect x="${X(e0)}" y="${pad.t}" width="${X(e1) - X(e0)}" height="${H - pad.t - pad.b}" fill="rgba(242,184,75,0.05)"/>`;
-    if (su.spanne) {
-      const a0 = fxZeit("01:00");
-      s += `<rect x="${X(a0)}" y="${Y(su.spanne[1])}" width="${X(e0) - X(a0)}" height="${Y(su.spanne[0]) - Y(su.spanne[1])}" fill="var(--asien)" stroke="rgba(242,184,75,0.5)" stroke-width="1"/>`;
-    }
-  }
-  // AMD: Akkumulations-Kasten und Fehlausbruch-Punkt
   for (const v of amdV) {
-    const sx0 = X(fxZeit(v.range_von)), sx1 = X(fxZeit(v.range_bis)), m1 = X(fxZeit(v.manip_bis));
-    s += `<rect x="${sx0}" y="${Y(v.daten.spanne[0])}" width="${sx1 - sx0}" height="${Y(v.daten.spanne[1]) - Y(v.daten.spanne[0])}" fill="rgba(180,140,255,0.08)" stroke="rgba(180,140,255,0.55)" stroke-dasharray="3 3"/>`;
-    s += `<line x1="${sx1}" x2="${m1}" y1="${Y(v.daten.spanne[0])}" y2="${Y(v.daten.spanne[0])}" stroke="rgba(180,140,255,0.35)"/><line x1="${sx1}" x2="${m1}" y1="${Y(v.daten.spanne[1])}" y2="${Y(v.daten.spanne[1])}" stroke="rgba(180,140,255,0.35)"/>`;
-    if (v.daten.sweep_zeit) s += `<circle cx="${X(fxZeit(v.daten.sweep_zeit)) + 4}" cy="${Y(v.daten.sweep_extrem)}" r="5" fill="none" stroke="var(--amd)" stroke-width="2"/>`;
-  }
-  // Zeitachse
-  const schritt = W < 520 ? 6 * 3600 : 3 * 3600;
-  for (let t = Math.ceil(x0 / schritt) * schritt; t <= x1; t += schritt) {
-    s += `<line x1="${X(t)}" x2="${X(t)}" y1="${pad.t}" y2="${H - pad.b}" stroke="var(--raster)"/>`;
-    if (X(t) > 18 && X(t) < W - pad.r - 14) s += `<text x="${X(t)}" y="${H - 7}" text-anchor="middle">${uhr(new Date(t * 1000))}</text>`;
-  }
-  // Schienen mit Preisschildern rechts (Überlappung vermeiden)
-  const belegt = [], innen = [];
-  for (const sch of schienen.sort((a, b) => (a.leise ? 1 : 0) - (b.leise ? 1 : 0))) {
-    const y = Y(sch.y);
-    s += `<line x1="${pad.l}" x2="${W - pad.r}" y1="${y}" y2="${y}" stroke="${sch.f}" stroke-width="${sch.leise ? 1 : 1.6}" stroke-dasharray="${sch.strich || ""}"/>`;
-    if (sch.leise) {
-      // Beschriftung mit Zahl innen am rechten Rand, Überlappungen nach oben/unten ausweichen
-      let ty = y - 4;
-      for (let i = 0; i < 4 && innen.some((b) => Math.abs(b - ty) < 13); i++) ty += sch.t.includes("Tief") || sch.t.includes("tief") ? 13 : -13;
-      innen.push(ty);
-      s += `<text x="${W - pad.r - 4}" y="${ty}" text-anchor="end" style="fill:${sch.f === "var(--leise)" ? "#a3b0c4" : "var(--text-2)"};paint-order:stroke;stroke:var(--flaeche);stroke-width:4px;stroke-linejoin:round">${esc(sch.t)} ${zahl(sch.y)}</text>`;
-      continue;
+    kaesten.push({ t0: fxZeit(v.range_von), t1: fxZeit(v.range_bis), y0: v.daten.spanne[0], y1: v.daten.spanne[1], fill: "rgba(180,140,255,0.08)", stroke: "rgba(180,140,255,0.6)", dash: "3 3" });
+    if (v.daten.sweep_zeit) ringe.push({ t: fxZeit(v.daten.sweep_zeit), y: v.daten.sweep_extrem });
+    if (v.phase === "signal") {
+      const vor = v.familie === "369" ? "3-6-9 " : "AMD ";
+      if (!["tp", "sl", "zeit"].includes(v.state)) schienen.push(...setupSchienen(v.daten, vor));
+      marken.push(...tradeMarken(v.trade, fxZeit));
     }
-    if (belegt.some((b) => Math.abs(b - y) < 15)) continue;
-    belegt.push(y);
-    s += `<rect x="${W - pad.r + 2}" y="${y - 9}" width="${pad.r - 4}" height="18" rx="3" fill="${sch.f}"/><text x="${W - pad.r + 6}" y="${y + 4}" style="fill:#0e1420;font-weight:600">${zahl(sch.y)}</text>`;
   }
-  // Kursverlauf
-  if (punkte.length > 1) {
-    s += `<path d="${punkte.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("")}" fill="none" stroke="var(--kurs)" stroke-width="2" stroke-linejoin="round"/>`;
-    const l = punkte[punkte.length - 1];
-    s += `<circle cx="${X(l[0])}" cy="${Y(l[1])}" r="4" fill="var(--kurs)" stroke="var(--flaeche)" stroke-width="2"/>`;
-  }
-  // Entry/Exit-Punkte des Trades
-  const tr = su?.trade;
-  if (tr?.t_entry) s += `<circle cx="${X(fxZeit(tr.t_entry))}" cy="${Y(tr.entry)}" r="5" fill="var(--entry)" stroke="var(--flaeche)" stroke-width="2"/>`;
-  if (tr?.t_exit && tr.exit) s += `<circle cx="${X(fxZeit(tr.t_exit))}" cy="${Y(tr.exit)}" r="5" fill="${tr.grund === "tp" ? "var(--ziel)" : tr.grund === "sl" ? "var(--stop)" : "var(--text-2)"}" stroke="var(--flaeche)" stroke-width="2"/>`;
-  s += `<line class="cross" y1="${pad.t}" y2="${H - pad.b}" stroke="var(--text-2)" visibility="hidden"/><rect class="hit" x="${pad.l}" y="0" width="${W - pad.l - pad.r}" height="${H}" fill="transparent"/></svg>`;
-  el.innerHTML = s;
-  const cross = el.querySelector(".cross");
-  const bewegen = (ev) => {
-    if (!punkte.length) return;
-    const pt = ev.touches ? ev.touches[0] : ev, rc = el.querySelector("svg").getBoundingClientRect();
-    const xv = x0 + (((pt.clientX - rc.left) * (W / rc.width) - pad.l) / (W - pad.l - pad.r)) * (x1 - x0);
-    let b = punkte[0]; for (const p of punkte) if (Math.abs(p[0] - xv) < Math.abs(b[0] - xv)) b = p;
-    cross.setAttribute("x1", X(b[0])); cross.setAttribute("x2", X(b[0])); cross.setAttribute("visibility", "visible");
-    zeigeTip(pt.clientX, pt.clientY, `${uhr(new Date(b[0] * 1000))} · <b>${zahl(b[1])}</b>`);
-  };
-  const weg = () => { cross.setAttribute("visibility", "hidden"); versteckeTip(); };
-  const hit = el.querySelector(".hit");
-  hit.addEventListener("mousemove", bewegen); hit.addEventListener("mouseleave", weg);
-  hit.addEventListener("touchstart", bewegen, { passive: true }); hit.addEventListener("touchmove", bewegen, { passive: true }); hit.addEventListener("touchend", weg);
-  $("legende").innerHTML = `<span><i style="background:var(--kurs)"></i>Kurs</span>` +
-    (o.length ? `<span><i style="background:var(--entry)"></i>Entry</span><span><i style="background:var(--stop)"></i>Stop</span><span><i style="background:var(--ziel)"></i>Ziel</span>` : "") +
-    (su?.spanne ? `<span><i class="kasten" style="background:var(--asien);border:1px solid rgba(242,184,75,.5)"></i>Asien-Spanne</span>` : "") +
+  if (r?.levels?.[0]) schienen.push({ y: r.levels[0], t: "Vortageshoch", leise: true }, { y: r.levels[1], t: "Vortagestief", leise: true });
+  kerzenChart(el, { x0, x1, kerzen, schritt, linie, schienen, kaesten, marken, ringe, band: r?.range?.[0] ? r.range : null, jetzt: true, aria: "GBP/JPY heute mit Setup-Marken" });
+  $("legende").innerHTML = `<span><i class="kasten" style="background:var(--bull)"></i>steigend</span><span><i class="kasten" style="background:var(--bear)"></i>fallend</span>` +
+    (aktiv || amdV.some((v) => v.phase === "signal") ? `<span><i style="background:var(--entry)"></i>Entry</span><span><i style="background:var(--stop)"></i>SL</span><span><i style="background:var(--ziel)"></i>TP</span>` : "") +
     (r?.range?.[0] ? `<span><i class="kasten" style="background:rgba(127,178,255,.25)"></i>Schluss-Spanne 68 %</span>` : "") +
-    (amdV.length ? `<span><i class="kasten" style="background:rgba(180,140,255,.25);border:1px dashed rgba(180,140,255,.6)"></i>AMD-Spanne</span>` : "");
+    (amdV.length ? `<span><i class="kasten" style="background:rgba(180,140,255,.25);border:1px dashed rgba(180,140,255,.6)"></i>Muster-Spanne</span>` : "");
 }
 
 /* ---------------- Treiber und Empfehlung ---------------- */
@@ -353,12 +438,14 @@ function renderAmd() {
   if (!a) { el.innerHTML = `<p class="leer">AMD-Erkennung startet mit dem nächsten Update.</p>`; return; }
   const b = a.bilanz || {}, bt = S.bt?.setups || {};
   $("amd-bilanz").textContent = b.trades ? `live: ${b.trades} Trades, ${vz(b.summe_pips, 0, " Pips")}` : "neu – wird gemessen";
-  el.innerHTML = a.varianten.map((v) => `<div class="amd-zeile">
-      <div class="amd-kopf"><b>${esc(v.name)}</b>${amdStatus(v)}</div>
-      <div class="amd-bt ${v.bewaehrt ? "ok" : ""}">${v.backtest?.n ? `${v.bewaehrt ? "✅ Backtest positiv – WhatsApp an" : "🔬 Nur Beobachtung – Backtest nicht positiv, keine WhatsApp"} · ${v.backtest.n} Trades, ${pz(v.backtest.trefferquote)} Treffer, Ø ${vz(v.backtest.avg_pips, 1, " P")} nach Kosten` : "Backtest folgt – bis dahin nur Beobachtung"}</div>
+  const PHASE = { akkumulation: "Spanne bildet sich", warten: "wartet auf das Zeitfenster", kein: "heute kein Muster" };
+  const auf = [...el.querySelectorAll("details.amd-zeile")].reduce((m, d) => ({ ...m, [d.dataset.id]: d.open }), {});
+  el.innerHTML = a.varianten.map((v) => `<details class="amd-zeile" data-id="${esc(v.id)}"${(auf[v.id] ?? ["manipulation", "signal"].includes(v.phase)) ? " open" : ""}>
+      <summary class="amd-kopf"><b>${esc(v.familie === "369" ? v.name.split(" · ")[0] : v.name)}</b>${amdStatus(v) || `<span class="status neutral">${esc(PHASE[v.phase] || (v.phase ? v.phase : "wartet auf das Zeitfenster"))}</span>`}</summary>
+      <div class="amd-bt ${v.bewaehrt ? "ok" : ""}">${v.backtest?.n ? `${v.bewaehrt ? "✅ Backtest positiv – WhatsApp an" : (v.id === "amd_london" ? "📲 WhatsApp an (dein Wunsch) – Backtest nicht positiv" : "🔬 Nur Beobachtung – Backtest nicht positiv, keine WhatsApp")} · ${v.backtest.n} Trades, ${pz(v.backtest.trefferquote)} Treffer, Ø ${vz(v.backtest.avg_pips, 1, " P")} nach Kosten` : "Backtest folgt – bis dahin nur Beobachtung"}</div>
       <ol class="amd-schritte">${amdSchritte(v).map((s) => `<li class="${s.kl}"><span class="t">${esc(s.titel)}</span><span class="x">${esc(s.text)}</span></li>`).join("")}</ol>
-    </div>`).join("") +
-    `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. WhatsApp nur für Varianten, die im Wochen-Backtest (2 Jahre, nach Kosten, mind. 50 Trades) positiv sind. Keine Anlageberatung.</p>`;
+    </details>`).join("") +
+    `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. WhatsApp für Varianten, die im Wochen-Backtest (2 Jahre, nach Kosten, mind. 50 Trades) positiv sind, und immer für Asien → London. Keine Anlageberatung.</p>`;
 }
 
 /* ---------------- Studie: was GBP/JPY bewegt hat ---------------- */
@@ -508,6 +595,89 @@ function renderRenditen() {
   el.innerHTML = s;
 }
 
+
+/* ---------------- Vortage: welche Setups gab es, wie sind sie ausgegangen ---------------- */
+const ERG_CHIP = { tp: ["tp", "✅", "Ziel erreicht"], sl: ["sl", "❌", "Stop erreicht"], zeit: ["neutral", "⏹", "zum Tagesende geschlossen"],
+  kein_entry: ["leise", "–", "nicht ausgelöst"], offen: ["laeuft", "…", "lief zum Stand noch"], wartet: ["leise", "…", "Ergebnis folgt"] };
+const ENDE_GRUENDE = ["tp", "sl", "zeit"];
+const setupName = (x) => x.art === "setup" ? "09:00-Setup" : x.art === "amd" ? `AMD ${x.name}` : x.name.split(" · ")[0];
+function ergChip(x) {
+  if (x.status !== "aktiv") return `<span class="vt-chip leise">${esc(setupName(x))}: kein Setup</span>`;
+  const e = x.ergebnis || {}, c = ERG_CHIP[e.grund] || ERG_CHIP.wartet, r = e.richtung ?? x.orders?.[0]?.richtung;
+  const p = ENDE_GRUENDE.includes(e.grund) && e.pips != null ? ` ${vz(e.pips, 0)}` : "";
+  const symbol = ENDE_GRUENDE.includes(e.grund) ? c[1] : c[2];
+  return `<span class="vt-chip ${c[0]}" title="${esc(c[2])}">${esc(setupName(x))} ${r > 0 ? "▲" : r < 0 ? "▼" : ""} ${esc(symbol)}${p}</span>`;
+}
+function tagBewegung(t) {
+  if (t.report?.eval?.change_pips != null) return t.report.eval.change_pips;
+  const k = t.kerzen; return k.length ? (k[k.length - 1][4] - k[0][1]) / PIP : null;
+}
+function setupZeile(x) {
+  if (x.status !== "aktiv") return `<div class="vt-s"><div class="vt-s-k"><b>${esc(setupName(x))}</b><span class="vt-chip leise">kein Setup</span></div>${x.grund_kein ? `<div class="vt-s-t">${esc(x.grund_kein)}</div>` : ""}</div>`;
+  const e = x.ergebnis || {}, r = e.richtung ?? x.orders[0].richtung;
+  const o = x.orders.find((z) => z.richtung === r) || x.orders[0], c = ERG_CHIP[e.grund] || ERG_CHIP.wartet;
+  const einstieg = e.t_entry ? `Einstieg ${esc(e.t_entry)}${e.entry != null ? ` zu ${zahl(e.entry)}` : ""}` : "";
+  const ausgang = ENDE_GRUENDE.includes(e.grund) ? `${c[2]}${e.t_exit ? ` um ${esc(e.t_exit)}` : ""}${e.exit != null ? ` bei ${zahl(e.exit)}` : ""} · <b class="${e.pips > 0 ? "ok" : e.pips < 0 ? "nein" : ""}">${vz(e.pips, 0, " Pips")}</b>${e.endgueltig ? " nach Kosten" : ""}`
+    : e.grund === "kein_entry" ? "Entry wurde nicht erreicht" : c[2];
+  return `<div class="vt-s"><div class="vt-s-k"><b>${esc(setupName(x))} · <span class="${r > 0 ? "ok" : "nein"}">${r > 0 ? "LONG" : "SHORT"}</span></b><span class="vt-chip ${c[0]}">${c[1]} ${esc(c[2])}</span></div>
+    <div class="vt-s-t num">${x.typ === "limit" ? "Limit" : "Entry"} ${zahl(o.entry)} · SL ${zahl(o.sl)}${o.risiko_pips ? ` (−${o.risiko_pips} P)` : ""} · TP ${zahl(o.tp)}${o.ziel_pips ? ` (+${o.ziel_pips} P)` : ""}${x.signal_zeit ? ` · Signal ${esc(x.signal_zeit)}` : ""}</div>
+    <div class="vt-s-t">${[einstieg, ausgang].filter(Boolean).join(" → ")}</div></div>`;
+}
+function reportZeile(t) {
+  const r = t.report; if (!r) return "";
+  const e = r.eval;
+  return `<details class="vt-report"><summary>Morgenreport: ${esc(r.bias || "–")} · Schluss-Spanne ${zahl(r.range[0])} – ${zahl(r.range[1])}${e ? ` · <span class="${e.in_range ? "ok" : "nein"}">Schluss ${zahl(e.close)} ${e.in_range ? "drin" : "außerhalb"}</span>` : ""}</summary><pre>${esc(r.message || "")}</pre></details>`;
+}
+function zeichneTag(dt) {
+  const t = S.tage?.tage?.find((x) => x.date === dt.dataset.d), el = dt.querySelector(".vt-chart");
+  if (!t || !el) return;
+  if (!t.kerzen.length) { el.innerHTML = `<p class="leer">Für diesen Tag sind keine Kerzen gespeichert.</p>`; return; }
+  const [x0, x1] = t.fx_window, W = el.clientWidth || 640, schritt = W < 520 ? 1800 : 900, zeit = (hm) => tagZeit(x0, hm);
+  const aktive = t.setups.filter((x) => x.status === "aktiv"), schienen = [], kaesten = [], marken = [], ringe = [];
+  for (const x of t.setups) {
+    const lila = x.art !== "setup";
+    if (x.spanne && x.spanne_von && x.start) kaesten.push({ t0: zeit(x.spanne_von), t1: zeit(x.start), y0: x.spanne[0], y1: x.spanne[1],
+      fill: lila ? "rgba(180,140,255,0.08)" : "var(--asien)", stroke: lila ? "rgba(180,140,255,.6)" : "rgba(242,184,75,.55)", dash: lila ? "3 3" : "" });
+    if (x.status !== "aktiv") continue;
+    const e = x.ergebnis || {};
+    for (const o of e.richtung ? x.orders.filter((z) => z.richtung === e.richtung) : x.orders) schienen.push(...setupSchienen(o, aktive.length > 1 ? KURZ_ART[x.art] : ""));
+    marken.push(...tradeMarken(e, zeit));
+    if (x.sweep?.[0]) ringe.push({ t: zeit(x.sweep[0]), y: x.sweep[1] });
+  }
+  kerzenChart(el, { x0, x1, kerzen: verdichte(t.kerzen, x0, schritt), schritt, schienen, kaesten, marken, ringe,
+    band: t.report?.range?.[0] ? t.report.range : null, hoehe: W < 520 ? 260 : 320, aria: `GBP/JPY am ${datumLang(t.date)} mit Setups` });
+}
+function renderVortage() {
+  const el = $("vortage"), T = S.tage;
+  if (!T) { el.innerHTML = `<p class="leer">Wird geladen …</p>`; return; }
+  if (!T.tage?.length) { el.innerHTML = `<p class="leer">Noch keine abgeschlossenen Tage gespeichert. Die Ansicht füllt sich jeden Abend um 23:05.</p>`; return; }
+  const fam = new Map();
+  for (const t of T.tage) for (const x of t.setups) {
+    if (x.status !== "aktiv") continue;
+    const n = setupName(x), f = fam.get(n) || { n, sig: 0, tp: 0, sl: 0, zeit: 0, kein: 0, pips: 0 }, g = x.ergebnis?.grund;
+    f.sig++;
+    if (ENDE_GRUENDE.includes(g)) { f[g]++; f.pips += x.ergebnis.pips || 0; } else if (g === "kein_entry") f.kein++;
+    fam.set(n, f);
+  }
+  $("vt-stand").textContent = `${T.tage.length} Handelstage · Stand ${standText(T.erstellt)}`;
+  const zeilen = [...fam.values()];
+  let h = zeilen.length ? `<div class="tabbox"><table class="vt-bilanz"><thead><tr><th>Setup</th><th class="r">Signale</th><th class="r">✅ Ziel</th><th class="r">❌ Stop</th><th class="r schmal-weg">⏹ Ende</th><th class="r schmal-weg">nicht ausgelöst</th><th class="r">Summe</th></tr></thead><tbody>` +
+    zeilen.map((f) => `<tr><td>${esc(f.n)}</td><td class="r">${f.sig}</td><td class="r ok">${f.tp}</td><td class="r nein">${f.sl}</td><td class="r schmal-weg">${f.zeit}</td><td class="r schmal-weg">${f.kein}</td><td class="r ${f.pips > 0 ? "ok" : f.pips < 0 ? "nein" : ""}"><b>${vz(f.pips, 0, " P")}</b></td></tr>`).join("") +
+    `</tbody></table></div>` : `<p class="hinweis">In diesem Zeitraum gab es noch keine ausgelösten Setups.</p>`;
+  h += `<div class="vt-liste-tage">` + T.tage.map((t) => {
+    const bew = tagBewegung(t);
+    const chips = t.setups.length ? t.setups.map(ergChip).join("") : `<span class="vt-chip leise">keine Signale</span>`;
+    return `<details class="vt-tag" data-d="${t.date}"><summary><span class="vt-datum">${wochentag(t.date)} ${datumLang(t.date).slice(0, 6)}</span><span class="vt-chips">${chips}</span><span class="vt-bew num ${bew > 0 ? "auf" : bew < 0 ? "ab" : ""}">${vz(bew, 0, " P")}</span></summary>
+      <div class="vt-inhalt"><div class="chart vt-chart"></div><div class="vt-setups">${t.setups.map(setupZeile).join("") || `<p class="hinweis">An diesem Tag hat keine Regel ein Signal geliefert.</p>`}</div>${reportZeile(t)}</div></details>`;
+  }).join("") + `</div><p class="hinweis">Klick auf einen Tag zeigt den Kerzenchart mit Entry (Dreieck), Stop/Ziel-Linien und Ausstieg (Kreis: grün Ziel, rot Stop, grau Tagesende). Ergebnisse nach 23:05 sind mit Tiingo-Kerzen und 3 Pips Kosten abgerechnet. Keine Anlageberatung.</p>`;
+  const offen = [...el.querySelectorAll("details.vt-tag[open]")].map((d) => d.dataset.d);
+  el.innerHTML = h;
+  el.querySelectorAll("details.vt-tag").forEach((dt) => {
+    if (offen.includes(dt.dataset.d)) { dt.open = true; zeichneTag(dt); }
+    dt.addEventListener("toggle", () => { if (dt.open) zeichneTag(dt); });
+  });
+}
+
 /* ---------------- Archiv ---------------- */
 function quoten(ev) {
   const pct = (f) => { const w = ev.map((e) => e[f]).filter((x) => x != null); return w.length ? Math.round((100 * w.reduce((a, b) => a + b, 0)) / w.length) : null; };
@@ -539,12 +709,14 @@ async function ladeDash() {
   try { S.bt = await lade("backtest.json"); } catch (e) { S.bt = null; }
   allesZeichnen();
 }
+async function ladeTage() { try { S.tage = await lade("tage.json"); } catch (e) { S.tage = { tage: [] }; } renderVortage(); }
 async function ladeArchiv() { try { S.archiv = await lade("archive.json"); } catch (e) { S.archiv = { reports: [] }; } renderArchiv(); }
 (async () => {
-  await ladeDash(); await ladeLive();
+  await ladeDash(); await ladeLive(); ladeTage();
   setInterval(ladeLive, 30000);
+  setInterval(ladeTage, 15 * 60000);
   setInterval(ladeDash, 60000);
   setInterval(renderCountdown, 1000);
   let w = window.innerWidth;
-  window.addEventListener("resize", () => { if (Math.abs(window.innerWidth - w) > 40) { w = window.innerWidth; renderChart(); renderRenditen(); } });
+  window.addEventListener("resize", () => { if (Math.abs(window.innerWidth - w) > 40) { w = window.innerWidth; renderChart(); renderRenditen(); document.querySelectorAll("details.vt-tag[open]").forEach(zeichneTag); } });
 })();

@@ -34,25 +34,28 @@
     </div>
   </details>
 
-  <div class="oben">
-    <section class="ticket" id="ticket" aria-live="polite"></section>
-    <section class="karte chartkarte">
-      <div class="chartkopf"><h2>Heute</h2><div class="legende" id="legende"></div></div>
-      <div id="chart" class="chart"></div>
-    </section>
-  </div>
-
-
-  <section class="karte amd" aria-labelledby="h-amd">
-    <div class="zeile-kopf"><h2 id="h-amd">Muster live: AMD und 3-6-9</h2><span class="countdown" id="amd-bilanz"></span></div>
-    <div id="amd"></div>
+  <section class="karte chartkarte" aria-labelledby="h-heute">
+    <div class="chartkopf"><h2 id="h-heute">Heute</h2><div class="legende" id="legende"></div></div>
+    <div id="chart" class="chart"></div>
+    <div class="blick" id="blick" aria-label="Tag auf einen Blick"></div>
   </section>
 
-  <section class="blick" id="blick" aria-label="Tag auf einen Blick"></section>
+  <div class="oben">
+    <section class="ticket" id="ticket" aria-live="polite"></section>
+    <section class="karte amd" aria-labelledby="h-amd">
+      <div class="zeile-kopf"><h2 id="h-amd">Muster live: AMD und 3-6-9</h2><span class="countdown" id="amd-bilanz"></span></div>
+      <div id="amd"></div>
+    </section>
+  </div>
 
   <section class="karte">
     <div class="zeile-kopf"><h2>Termine heute</h2><span class="countdown" id="countdown"></span></div>
     <div id="termine"></div>
+  </section>
+
+  <section class="karte" aria-labelledby="h-vortage">
+    <div class="zeile-kopf"><h2 id="h-vortage">Vortage: Setups und Ergebnisse</h2><span class="countdown" id="vt-stand"></span></div>
+    <div id="vortage"></div>
   </section>
 
   <details class="mehr" id="d-lage">
@@ -86,7 +89,7 @@
   </details>
 
   <details class="mehr" id="d-archiv">
-    <summary><h2>Archiv</h2><span class="sumhint">Alle Reports und Setups</span></summary>
+    <summary><h2>Archiv Morgenreports</h2><span class="sumhint">Alle Reports mit Auswertung</span></summary>
     <div class="inhalt">
       <div class="filter">
         <label>von <input type="date" id="von"></label>
