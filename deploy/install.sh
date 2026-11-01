@@ -78,6 +78,13 @@ if [ ! -f "$DATA/.backtest_woche_v1" ]; then
   systemctl start --no-block fx-backtest.service || true
 fi
 
+# Wochen-Rückblick einmalig sofort nachholen (nur 2 Tiingo-Abrufe, unabhängig vom großen Backtest)
+if [ ! -f "$DATA/.wochenrueckblick_v2" ]; then
+  touch "$DATA/.wochenrueckblick_v2"
+  systemd-run --no-block --unit="fx-wochenrueckblick-$(date +%s)" --working-directory="$REPO" \
+    "$REPO/venv/bin/python" -m fxserver.backtest --woche || true
+fi
+
 # Trainingsseite (web/training/): Link einmalig per Nachricht schicken
 if [ -n "$HOST" ] && [ -f web/training/index.html ] && [ ! -f "$DATA/.training_link_v1" ]; then
   FX_MELDUNG="🏋️ Dein Trainings- und Ernährungsplan (Link geheim halten):

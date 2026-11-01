@@ -305,11 +305,11 @@ def server_lauf() -> int:
         kerzen5 = lade_tiingo(stueck=30, freq="5min")   # einmal 5-Min laden (~25 Abrufe), 15-Min daraus bauen
         kerzen = zu_15min(kerzen5)
     except Exception as e:  # noqa: BLE001
-        log.error("Tiingo-Daten: %s", e)
-        return 1
+        log.error("Tiingo-Daten (2 Jahre): %s – Wochen-Rückblick mit kurzem Zeitraum", e)
+        return wochen_lauf()
     if len(kerzen) < 2000:
-        log.error("Zu wenige Kerzen (%d)", len(kerzen))
-        return 1
+        log.error("Zu wenige Kerzen (%d) – Wochen-Rückblick mit kurzem Zeitraum", len(kerzen))
+        return wochen_lauf()
     varianten = [HAUPT_SETUP] + [dict(HAUPT_SETUP, id=k, **v) for k, v in VERGLEICH.items()] + AMD_VARIANTEN
     erg, ntage = lauf(kerzen, varianten)
     out = {"erstellt": datetime.now(timezone.utc).isoformat(), "von": kerzen[0][1].isoformat(),
@@ -336,14 +336,48 @@ def server_lauf() -> int:
     return 0
 
 
+def wochen_lauf() -> int:
+    """Nur der Wochen-Rückblick: 45 Tage 5-Min-Kerzen (2 Tiingo-Abrufe, genug Vorlauf für ATR/Trend),
+    dieselben Regeln wie live. Ergänzt backtest.json um "woche" und schickt die Sonntags-Nachricht."""
+    from .common import PUBLIC_DIR, get_logger, jetzt_berlin, schreibe_json, whatsapp
+    from .strategien import AMD_VARIANTEN, HAUPT_SETUP, Z369_VARIANTEN
+    log = get_logger("backtest")
+    kerzen5 = None
+    for versuch in range(3):   # Tiingo-Stundenlimit: notfalls warten und erneut versuchen
+        try:
+            kerzen5 = lade_tiingo(tage=45, stueck=30, freq="5min")
+            break
+        except Exception as e:  # noqa: BLE001
+            log.warning("Wochen-Rückblick, Tiingo (Versuch %d): %s", versuch + 1, e)
+            if versuch < 2:
+                import time as _t
+                _t.sleep(20 * 60)
+    if not kerzen5:
+        return 1
+    erg = lauf(zu_15min(kerzen5), [HAUPT_SETUP] + AMD_VARIANTEN)[0] + lauf(kerzen5, [p for p in Z369_VARIANTEN if p["live"]])[0]
+    woche = wochen_auswertung(erg, *letzte_woche(jetzt_berlin().date()))
+    try:
+        out = json.loads((PUBLIC_DIR / "backtest.json").read_text())
+    except (OSError, ValueError):
+        out = {"setups": {}}
+    out["woche"] = woche
+    schreibe_json("backtest.json", out)
+    whatsapp(wochen_text(woche), log)
+    log.info("Wochen-Rückblick %s bis %s gesendet", woche["von"], woche["bis"])
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--tiingo", action="store_true", help="Serverlauf mit Tiingo-Daten der letzten 2 Jahre")
+    ap.add_argument("--woche", action="store_true", help="nur Wochen-Rückblick (45 Tage, 2 Tiingo-Abrufe)")
     ap.add_argument("--csv")
     ap.add_argument("--csv-offset-std", type=float, default=-1.0)
     ap.add_argument("--grenze", default="2019-01-01", help="ab hier Out-of-Sample")
     ap.add_argument("--json")
     a = ap.parse_args()
+    if a.woche:
+        raise SystemExit(wochen_lauf())
     if a.tiingo:
         raise SystemExit(server_lauf())
     kerzen = lade_csv(a.csv, a.csv_offset_std)

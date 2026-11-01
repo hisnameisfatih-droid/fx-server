@@ -642,6 +642,12 @@ pruefe(list(_w["setups"]) == ["london_trend", "amd_london"] and len(_w["setups"]
        and "Di ▲ ✅ +27 | Do ▼ ❌ −23" in _txt and "Summe +4 Pips" in _txt and "09:00-Setup: keine Trades" in _txt
        and "2 J" not in _txt and "Gesamt: 2 Trades, +4 Pips" in _txt, "Wochen-Rückblick: nur Trades der Woche, nur Live-Setups")
 print("\n    " + _txt.replace("\n", "\n    ") + "\n")
+common.whatsapp = lambda text, log=None: GESENDET.append(text) or True
+_abrufe = sum("/prices" in u for u in AUFRUFE)
+pruefe(bt_mod.wochen_lauf() == 0 and GESENDET[-1].startswith("📊 Wochen-Rückblick")
+       and "woche" in json.loads((OUT / "public" / "backtest.json").read_text())
+       and sum("/prices" in u for u in AUFRUFE) - _abrufe <= 2, "Wochen-Rückblick allein: max. 2 Tiingo-Abrufe, Nachricht gesendet")
+
 
 print("ALLE TESTS OK" if not FEHLER else f"{len(FEHLER)} FEHLER: {FEHLER}")
 sys.exit(1 if FEHLER else 0)
