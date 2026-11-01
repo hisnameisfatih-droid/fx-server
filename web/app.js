@@ -536,8 +536,18 @@ const pz = (x) => (x == null ? "–" : `${x.toLocaleString("de-DE")} %`);
 function renderBilanz() {
   const d = S.dash; if (!d) return;
   const b = d.setup_bilanz || {}, hist = d.setup_historie, q = d.stats?.q30 || {}, bt = S.bt;
-  $("sum-bilanz").textContent = b.trades ? `Setup live: ${b.trades} Trades, ${vz(b.summe_pips, 0, " Pips")}` : "Backtest und Live-Bilanz";
-  let h = `<h3>Setup live (seit Start)</h3><div class="kpis">${kpi(b.trades ?? 0, "Trades", `${b.aktive_tage ?? 0} von ${b.tage ?? 0} Tagen mit Setup`)}
+  $("sum-bilanz").textContent = bt?.woche ? `Letzte Woche: ${Object.values(bt.woche.setups || {}).reduce((a, x) => a + (x.trades || []).length, 0)} Trades, ${vz(Object.values(bt.woche.setups || {}).reduce((a, x) => a + (x.trades || []).reduce((c, y) => c + y.pips, 0), 0), 0, " Pips")}` : b.trades ? `Setup live: ${b.trades} Trades, ${vz(b.summe_pips, 0, " Pips")}` : "Backtest und Live-Bilanz";
+  const wo = bt?.woche, ERGZ = { tp: "✅", sl: "❌", zeit: "⏹" };
+  let h = "";
+  if (wo) {
+    const zeilen = Object.values(wo.setups || {});
+    h += `<h3>Letzte Woche ${datumLang(wo.von).slice(0, 6)}–${datumLang(wo.bis).slice(0, 6)} (Regeln wie live, 3 Pips Kosten)</h3><div class="tabbox"><table class="vt-bilanz"><thead><tr><th>Setup</th><th class="r">Trades</th><th class="r">✅ Ziel</th><th class="r">❌ Stop</th><th>Tage</th><th class="r">Summe</th></tr></thead><tbody>` +
+      zeilen.map((x) => { const t = x.trades || [], sum = t.reduce((a, b) => a + b.pips, 0);
+        return `<tr><td>${esc(x.name)}</td><td class="r">${t.length}</td><td class="r ok">${t.filter((y) => y.grund === "tp").length}</td><td class="r nein">${t.filter((y) => y.grund === "sl").length}</td>
+          <td class="wrap">${t.map((y) => `${wochentag(y.date)} ${y.richtung > 0 ? "▲" : "▼"} ${ERGZ[y.grund] || ""} ${vz(y.pips, 0)}`).join(" · ") || `<span class="hinweis">keine</span>`}</td>
+          <td class="r ${sum > 0 ? "ok" : sum < 0 ? "nein" : ""}"><b>${t.length ? vz(sum, 0, " P") : "–"}</b></td></tr>`; }).join("") + `</tbody></table></div>`;
+  }
+  h += `<h3>Setup live (seit Start)</h3><div class="kpis">${kpi(b.trades ?? 0, "Trades", `${b.aktive_tage ?? 0} von ${b.tage ?? 0} Tagen mit Setup`)}
     ${kpi(pz(b.treffer_pct), "Gewinner")}${kpi(vz(b.summe_pips, 0, " P"), "Summe nach 3 Pips Kosten")}${kpi(vz(b.avg_pips, 1, " P"), "Ø je Trade")}</div>`;
   const liste = d.setup_liste || [];
   if (liste.length) {
@@ -550,7 +560,7 @@ function renderBilanz() {
   }
   if (bt?.setups?.london_trend) {
     const k = bt.setups.london_trend.kennzahlen, kb = bt.setups.london_beide?.kennzahlen;
-    h += `<h3>Backtest mit aktuellen Daten (${datumLang(bt.von.slice(0, 10))} – ${datumLang(bt.bis.slice(0, 10))})</h3>
+    h += `<h3>Zum Vergleich: 09:00-Setup über 2 Jahre (${datumLang(bt.von.slice(0, 10))} – ${datumLang(bt.bis.slice(0, 10))})</h3>
       <div class="kpis">${kpi(k.n ?? 0, "Trades")}${kpi(pz(k.trefferquote), "Gewinner")}${kpi(vz(k.avg_pips, 1, " P"), "Ø je Trade nach Kosten", kb ? `ohne Trendfilter: ${vz(kb.avg_pips, 1, " P")}` : "")}${kpi(k.profit_faktor == null ? "–" : k.profit_faktor.toLocaleString("de-DE"), "Profit-Faktor", `max. Rückgang ${k.max_drawdown_pips ?? "–"} P`)}</div>
       <p class="hinweis">Diesen Zeitraum kannte ich beim Entwickeln der Regel nicht. Er ist deshalb der ehrlichste Test. Prognose-Spanne traf hier ${pz(bt.prognose?.spanne_abdeckung_pct)} der Tagesschlüsse (Ziel 68 %).</p>`;
   }

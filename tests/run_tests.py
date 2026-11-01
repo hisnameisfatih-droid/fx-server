@@ -626,5 +626,22 @@ _set = strategien.Setup("t", "t", "stop", [strategien.Order(1, 210.3, 209.5, 211
 _tr = strategien.simuliere(_set, _k, 0, "2026-10-27")
 pruefe(_tr is not None and _tr.t_entry == _k[44][0], "Zeitumstellung: Setup löst trotz Tagesbeginn 22:00 aus")
 
+# --- Wochen-Rückblick: nur die abgeschlossene Woche ---
+from fxserver import backtest as bt_mod  # noqa: E402
+from datetime import date as _d2  # noqa: E402
+pruefe(bt_mod.letzte_woche(_d2(2026, 11, 1)) == ("2026-10-26", "2026-10-30") and bt_mod.letzte_woche(_d2(2026, 11, 3)) == ("2026-10-26", "2026-10-30"),
+       "Wochen-Rückblick: Sonntag und Dienstag zeigen die zuletzt abgeschlossene Woche")
+_T = strategien.Trade
+_erg = [({"id": "amd_london"}, [_T("2026-10-23", "amd", 1, 210, 209.8, 210.3, pips=-23.0, grund="sl"),
+                                 _T("2026-10-27", "amd", 1, 210, 209.8, 210.3, pips=27.0, grund="tp"),
+                                 _T("2026-10-29", "amd", -1, 210, 210.2, 209.7, pips=-23.0, grund="sl")]),
+        ({"id": "london_trend"}, []), ({"id": "gartley_x"}, [_T("2026-10-27", "g", 1, 1, 0, 2, pips=50.0, grund="tp")])]
+_w = bt_mod.wochen_auswertung(_erg, "2026-10-26", "2026-10-30")
+_txt = bt_mod.wochen_text(_w)
+pruefe(list(_w["setups"]) == ["london_trend", "amd_london"] and len(_w["setups"]["amd_london"]["trades"]) == 2
+       and "Di ▲ ✅ +27 | Do ▼ ❌ −23" in _txt and "Summe +4 Pips" in _txt and "09:00-Setup: keine Trades" in _txt
+       and "2 J" not in _txt and "Gesamt: 2 Trades, +4 Pips" in _txt, "Wochen-Rückblick: nur Trades der Woche, nur Live-Setups")
+print("\n    " + _txt.replace("\n", "\n    ") + "\n")
+
 print("ALLE TESTS OK" if not FEHLER else f"{len(FEHLER)} FEHLER: {FEHLER}")
 sys.exit(1 if FEHLER else 0)

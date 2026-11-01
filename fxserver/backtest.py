@@ -239,34 +239,61 @@ def urteil(k: dict) -> tuple[str, str]:
         return "✅", "positiv nach Kosten – vorsichtig nutzbar"
     return "➖", "knapp positiv – kein verlässlicher Vorteil"
 
+# ------------------------------------------------------------
+# Wochen-Rückblick (Sonntag): nur die abgeschlossene Woche, gleiche Regeln wie live
+# ------------------------------------------------------------
+WOCHE_SETUPS = {"london_trend": "09:00-Setup", "amd_london": "AMD Asien → London", "amd_ny": "AMD London → New York",
+                "z369_berlin_retrace_2r": "3-6-9 Berlin-Zeit", "z369_london_retrace_2r": "3-6-9 London-Zeit",
+                "z369_newyork_retrace_2r": "3-6-9 New-York-Zeit"}
+WOCHENTAG = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+ERGEBNIS = {"tp": "✅", "sl": "❌", "zeit": "⏹"}
 
-FAMILIEN = {"gartley_": "Gartley", "z369_": "3-6-9 Time Map"}
+
+def letzte_woche(heute) -> tuple[str, str]:
+    """Mo–Fr der zuletzt abgeschlossenen Handelswoche (am Wochenende: die gerade beendete Woche)."""
+    montag = heute - timedelta(days=heute.weekday())
+    if heute.weekday() < 5:
+        montag -= timedelta(days=7)
+    return montag.isoformat(), (montag + timedelta(days=4)).isoformat()
 
 
-def urteil_text(out: dict) -> str:
-    z = [f"📊 Wochen-Backtest GBP/JPY ({out['von'][:10]} bis {out['bis'][:10]}, {out['kosten_pips']:.0f} Pips Kosten/Trade)"]
-    for praefix, fname in FAMILIEN.items():   # viele Varianten -> eine Zeile je Familie
-        teil = {k: v for k, v in out["setups"].items() if k.startswith(praefix)}
-        if not teil:
+def wochen_auswertung(erg, von: str, bis: str) -> dict:
+    setups = {}
+    for p, trades in erg:
+        if p["id"] not in WOCHE_SETUPS:
             continue
-        zaehler = {"✅": 0, "➖": 0, "❌": 0, "⏳": 0}
-        for v in teil.values():
-            zaehler[urteil(v["kennzahlen"])[0]] += 1
-        beste = max(teil.values(), key=lambda v: v["kennzahlen"].get("avg_pips", -99) if v["kennzahlen"].get("n", 0) >= 30 else -99)
-        bk = beste["kennzahlen"]
-        z.append(f"{fname}: {zaehler['✅']} ✅ · {zaehler['➖']} ➖ · {zaehler['❌']} ❌ · {zaehler['⏳']} ⏳ von {len(teil)} Varianten"
-                 + (f" | beste: {beste['name']} ({bk['n']} Trades, Ø {bk['avg_pips']:+.1f} P)".replace(".", ",") if bk.get("n") else ""))
-    for sid, d in out["setups"].items():
-        if any(sid.startswith(f) for f in FAMILIEN) and not (sid.startswith("z369_") and sid.endswith("_retrace_2r")):
+        wt = [t for t in trades if von <= t.datum <= bis]
+        setups[p["id"]] = {"name": WOCHE_SETUPS[p["id"]], "kennzahlen": kennzahlen(wt),
+                           "trades": [{"date": t.datum, "richtung": t.richtung, "pips": t.pips, "grund": t.grund,
+                                       "entry": t.entry, "exit": t.exit} for t in wt]}
+    return {"von": von, "bis": bis, "setups": {k: setups[k] for k in WOCHE_SETUPS if k in setups}}
+
+
+def _vz(x: float) -> str:
+    return f"{x:+.0f}".replace("-", "−")
+
+
+def wochen_text(w: dict) -> str:
+    von, bis = w["von"], w["bis"]
+    z = [f"📊 Wochen-Rückblick GBP/JPY {von[8:10]}.{von[5:7]}.–{bis[8:10]}.{bis[5:7]}.",
+         "So wären die Signale der Woche ausgegangen (Regeln wie live, 3 Pips Kosten je Trade):"]
+    gesamt_n, gesamt_p = 0, 0.0
+    for d in w["setups"].values():
+        tr = d["trades"]
+        if not tr:
+            z.append(f"\n{d['name']}: keine Trades")
             continue
-        k = d["kennzahlen"]
-        zeichen, text = urteil(k)
-        if k.get("n"):
-            z.append(f"{zeichen} {d['name']}: {k['n']} Trades, {k['trefferquote']:.0f} % Treffer, "
-                     f"Ø {k['avg_pips']:+.1f} P, Summe {k['summe_pips']:+d} P → {text}".replace(".", ","))
-        else:
-            z.append(f"{zeichen} {d['name']}: keine Trades")
-    z.append("Details im Dashboard unter AMD-Muster und „Wie gut funktioniert das?“.")
+        tp = sum(1 for t in tr if t["grund"] == "tp")
+        sl = sum(1 for t in tr if t["grund"] == "sl")
+        summe = sum(t["pips"] for t in tr)
+        gesamt_n += len(tr)
+        gesamt_p += summe
+        z.append(f"\n{d['name']}: {len(tr)} {'Trade' if len(tr) == 1 else 'Trades'} · {tp}× Ziel · {sl}× Stop"
+                 f"{f' · {len(tr) - tp - sl}× Tagesende' if len(tr) - tp - sl else ''} · Summe {_vz(summe)} Pips")
+        z.append(" | ".join(f"{WOCHENTAG[datetime.fromisoformat(t['date']).weekday()]} {'▲' if t['richtung'] > 0 else '▼'} "
+                            f"{ERGEBNIS.get(t['grund'], t['grund'])} {_vz(t['pips'])}" for t in tr))
+    z.append(f"\nGesamt: {gesamt_n} Trades, {_vz(gesamt_p)} Pips" if gesamt_n else "\nDiese Woche gab es keine Trades.")
+    z.append("Jeder Tag einzeln mit Chart: Seite → Vortage. Keine Anlageberatung.")
     return "\n".join(z)
 
 
@@ -296,10 +323,12 @@ def server_lauf() -> int:
         out["setups"][p["id"]] = {"name": p["name"], "kennzahlen": kennzahlen(trades),
                                   "letzte": [{"date": t.datum, "richtung": t.richtung, "pips": t.pips, "grund": t.grund}
                                              for t in trades[-15:]]}
+    from .common import jetzt_berlin
+    out["woche"] = wochen_auswertung(erg, *letzte_woche(jetzt_berlin().date()))
     schreibe_json("backtest.json", out)
-    try:
-        from .common import whatsapp
-        whatsapp(urteil_text(out), log)
+    try:   # Sonntags-Nachricht: nur die letzte Woche. Die 2-Jahres-Werte bleiben im Dashboard
+        from .common import whatsapp   # und entscheiden weiter, welche Muster-WhatsApps (✅) rausgehen.
+        whatsapp(wochen_text(out["woche"]), log)
     except Exception as e:  # noqa: BLE001
         log.warning("Backtest-Nachricht: %s", e)
     log.info("Backtest %s bis %s: %s", out["von"][:10], out["bis"][:10],
