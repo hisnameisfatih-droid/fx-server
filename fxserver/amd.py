@@ -4,11 +4,12 @@ Jede Minute (refresh.py): 15-Min-Kerzen des laufenden FX-Tags aus live.json -> s
 für beide Varianten (Asien → London, London → New York). Nachricht bei
   - Verdacht (Fehlausbruch läuft, noch nicht zurück in der Spanne)
   - Signal (Kerze schließt zurück in der Spanne -> Entry/SL/TP in Gegenrichtung)
-  - Verdacht aufgehoben (echter Ausbruch / kein Rücklauf)
+  - Entwarnung (echter Ausbruch / kein Rücklauf / keine Bestätigung)
   - Ziel / Stop / Tagesende
 Abschluss mit vollständigen Tiingo-15-Min-Kerzen um 23:05 (evaluate.py). Die Regeln sind identisch mit
 dem Backtest (backtest.py, Variante amd_london / amd_ny). WhatsApp nur für Varianten mit ✅ im Backtest,
-außer IMMER_MELDEN (Standard: amd_london): Entry/SL/TP mit den letzten Ergebnissen und die TP/SL-Meldung.
+außer IMMER_MELDEN (Standard: alle live verfolgten): Vorwarnung mit geschätztem Entry/SL/TP, Signal mit
+den letzten Ergebnissen, Entwarnung und die TP/SL-Meldung.
 Keine Anlageberatung.
 """
 from __future__ import annotations
@@ -32,9 +33,12 @@ RICHTUNG = {1: "LONG", -1: "SHORT"}
 # live verfolgt: beide AMD-Varianten + je Zeitzone die Standard-Variante der 3-6-9 Time Map (Rücklauf, 2R)
 LIVE = AMD_VARIANTEN + [p for p in Z369_VARIANTEN if p["live"]]
 ALLE_MELDEN = __import__("os").getenv("MUSTER_ALLE_MELDEN", "0") == "1"
-# Varianten, deren Entry-Signale und Ergebnisse (TP/SL) immer per WhatsApp kommen – auch ohne ✅ im Backtest.
-# Fatihs Wunsch (29.10.2026): Asien → London. Anpassbar über MUSTER_IMMER=amd_london,amd_ny (leer = keine).
-IMMER_MELDEN = {v.strip() for v in __import__("os").getenv("MUSTER_IMMER", "amd_london").split(",") if v.strip()}
+# Varianten, die immer per WhatsApp melden – Vorwarnung, Entry, Ergebnis –, auch ohne ✅ im Backtest.
+# Fatihs Wunsch: erst Asien → London (29.10.2026), seit 01.11.2026 alle live verfolgten AMD- und 3-6-9-Muster.
+# Anpassbar über MUSTER_IMMER=amd_london,amd_ny ("keine" = nur Varianten mit ✅).
+_IMMER_ENV = __import__("os").getenv("MUSTER_IMMER", "alle").strip()
+IMMER_MELDEN = ({p["id"] for p in LIVE} if _IMMER_ENV == "alle" else set() if _IMMER_ENV == "keine"
+                else {v.strip() for v in _IMMER_ENV.split(",") if v.strip()})
 GRUND_TEXT = {"tp": "✅ TP", "sl": "❌ SL", "zeit": "⏹ Tagesende"}
 
 
@@ -142,23 +146,34 @@ def historie_text(con, vid: str, vor_datum: str | None = None) -> str:
 
 
 def text_verdacht(d: dict) -> str:
+    """Vorwarnung: Der Fehlausbruch/Sweep ist da, es fehlt nur noch der Auslöser. Mit geschätztem Entry/SL/TP."""
+    p = _variante(d["variante"])
+    oben = d["sweep_seite"] > 0
+    r = -d["sweep_seite"]
+    seite = "SHORT" if oben else "LONG"
+    extrem = d["sweep_extrem"]
+    hoch, tief = d["spanne"][0], d["spanne"][1]
+    sl = extrem + d["sweep_seite"] * p["sl_puffer_pips"] * PIP
     if _ist369(d):
-        unten = d["sweep_seite"] < 0
-        return (f"🕵️ 3-6-9 Sweep ({d['name']})\n"
-                f"Spanne {d['range_von']}–{d['range_bis']}: {de_zahl(d['spanne'][1])} – {de_zahl(d['spanne'][0])}\n"
-                f"{'Unter das Tief' if unten else 'Über das Hoch'} gelaufen bis {de_zahl(d['sweep_extrem'])} ({d['sweep_zeit']}).\n"
-                f"Signal erst, wenn bis {d['bis']} eine kräftige 5-Min-Kerze {'über' if unten else 'unter'} "
-                f"{de_zahl(d['mss'])} schließt (Strukturbruch). Noch nicht einsteigen.")
-    unten = d["sweep_seite"] < 0
-    rand = d["spanne"][1] if unten else d["spanne"][0]
-    gegen = d["spanne"][0] if unten else d["spanne"][1]
-    return (f"🕵️ AMD-Verdacht ({d['name']})\n"
-            f"Akkumulation {d['range_von']}–{d['range_bis']}: {de_zahl(d['spanne'][1])} – {de_zahl(d['spanne'][0])} "
-            f"({d['breite_pips']:.0f} P)\n"
-            f"Manipulation: {'unter das Tief' if unten else 'über das Hoch'} gelaufen bis {de_zahl(d['sweep_extrem'])} "
-            f"({d['sweep_zeit']})\n"
-            f"Schließt eine 15-Min-Kerze wieder {'über' if unten else 'unter'} {de_zahl(rand)} → "
-            f"{'LONG' if unten else 'SHORT'}-Signal Richtung {de_zahl(gegen)}. Noch nicht einsteigen.")
+        mss = d.get("mss")
+        if mss is None:
+            return (f"⚠️ Achtung, gleich mögliches Entry ({d['name']})\nSweep {'über das Hoch' if oben else 'unter das Tief'} "
+                    f"bis {de_zahl(extrem)} ({d['sweep_zeit']}). Signal nur nach kräftigem Strukturbruch bis {d['bis']}.")
+        entry = mss + d["sweep_seite"] * 0.5 * abs(extrem - mss)
+        tp = entry + r * p["tp_r"] * abs(entry - sl)
+        return (f"⚠️ Achtung, gleich mögliches Entry ({d['name']})\n"
+                f"Spanne {d['range_von']}–{d['range_bis']}: {de_zahl(tief)} – {de_zahl(hoch)}. "
+                f"Sweep {'über das Hoch' if oben else 'unter das Tief'} bis {de_zahl(extrem)} ({d['sweep_zeit']}).\n"
+                f"Auslöser: kräftige 5-Min-Kerze schließt bis {d['bis']} {'unter' if oben else 'über'} {de_zahl(mss)}.\n"
+                f"Dann {seite}-Limit ca. {de_zahl(entry)} | SL ca. {de_zahl(sl)} | TP ca. {de_zahl(tp)} ({p['tp_r']:.0f}R)\n"
+                f"Noch nicht einsteigen – die genauen Werte kommen mit dem Signal.")
+    rand, gegen = (hoch, tief) if oben else (tief, hoch)
+    return (f"⚠️ Achtung, gleich mögliches Entry ({d['name']})\n"
+            f"Akkumulation {d['range_von']}–{d['range_bis']}: {de_zahl(tief)} – {de_zahl(hoch)} ({d['breite_pips']:.0f} P). "
+            f"Fehlausbruch {'über das Hoch' if oben else 'unter das Tief'} bis {de_zahl(extrem)} ({d['sweep_zeit']}).\n"
+            f"Auslöser: eine 15-Min-Kerze schließt bis {d['manip_bis']} wieder {'unter' if oben else 'über'} {de_zahl(rand)}.\n"
+            f"Dann {seite} ca. {de_zahl(rand)} | SL ca. {de_zahl(sl)} | TP {de_zahl(gegen)}\n"
+            f"Noch nicht einsteigen – erst nach dem Kerzenschluss. Läuft der Kurs weiter, wandert der SL mit.")
 
 
 def text_signal(d: dict, treiber_stufe: int | None = None, historie: str | None = None) -> str:
@@ -253,16 +268,15 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
         if erg["phase"] == "manipulation":
             texte.append(text_verdacht(erg))
         elif erg["phase"] == "signal":
-            texte.append(text_signal(erg, treiber_stufe, None if _ist369(p) else historie_text(con, p["id"], heute)))
+            texte.append(text_signal(erg, treiber_stufe, historie_text(con, p["id"], heute)))
         elif erg["phase"] == "kein" and alt_phase == "manipulation":
-            texte.append(f"⏹ Verdacht aufgehoben ({erg['name']}): {erg['grund']}.")
+            texte.append(f"⏹ Entwarnung ({erg['name']}): kein Entry – {erg['grund']}.")
     con.commit()
     if texte and senden:
         for t in texte:
             vid = next((p["id"] for p in LIVE if f"({p['name']})" in t), None)
             ok, _ = bewaehrt(vid) if vid else (False, None)
-            # immer gemeldete Varianten: Entry-Signal und Ergebnis, nicht die Vorwarnungen (Verdacht)
-            immer = vid in IMMER_MELDEN and not t.startswith(("🕵️", "⏹ Verdacht"))
+            immer = vid in IMMER_MELDEN   # Vorwarnung, Entry, Entwarnung und Ergebnis
             if ok or ALLE_MELDEN or immer:
                 senden(t)
             else:
@@ -318,7 +332,7 @@ def export_daten(con, jetzt: datetime) -> dict:
             a, m, dz = p["range_von"], p["range_bis"], p["manip_bis"]
         ok, k = bewaehrt(p["id"])
         varianten.append({"id": p["id"], "name": p["name"], "familie": "369" if _ist369(p) else "amd",
-                          "bewaehrt": ok, "backtest": k, "range_von": a.strftime("%H:%M"),
+                          "bewaehrt": ok, "immer": p["id"] in IMMER_MELDEN, "backtest": k, "range_von": a.strftime("%H:%M"),
                           "range_bis": m.strftime("%H:%M"), "manip_bis": dz.strftime("%H:%M"),
                           "phase": r["phase"] if r else None, "state": r["state"] if r else None,
                           "daten": json.loads(r["data_json"]) if r else None,

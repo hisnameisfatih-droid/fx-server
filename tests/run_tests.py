@@ -522,10 +522,14 @@ m1 = amd_mod.pruefen(con, jetzt_amd, senden=amd_txt.append, kerzen_5=bear[:33])
 m2 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=15), senden=amd_txt.append, treiber_stufe=-2, kerzen_5=bear[:34])
 m3 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=16), senden=amd_txt.append, kerzen_5=bear[:34])
 m4 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=45), senden=amd_txt.append, kerzen_5=bear)
-pruefe(len(m1) == 1 and "AMD-Verdacht" in m1[0] and len(m2) == 1 and "AMD-Signal SHORT" in m2[0] and "Treiber stützen" in m2[0]
+pruefe(len(m1) == 1 and "Achtung, gleich mögliches Entry (Asien → London)" in m1[0] and len(m2) == 1 and "AMD-Signal SHORT" in m2[0] and "Treiber stützen" in m2[0]
        and m3 == [] and len(m4) == 1 and "Ziel erreicht" in m4[0], f"AMD live: Verdacht, Signal, Ziel ({[x.splitlines()[0] for x in amd_txt]})")
-pruefe(len(amd_txt) == 2 and "AMD-Signal SHORT" in amd_txt[0] and "Ziel erreicht" in amd_txt[1],
-       "Asien → London: WhatsApp für Entry und Ergebnis trotz ❌-Backtest, ohne Vorwarnung")
+pruefe(len(amd_txt) == 3 and amd_txt[0].startswith("⚠️ Achtung") and "AMD-Signal SHORT" in amd_txt[1] and "Ziel erreicht" in amd_txt[2],
+       "Asien → London: WhatsApp für Vorwarnung, Entry und Ergebnis trotz ❌-Backtest")
+pruefe("Dann SHORT ca. 210,250 | SL ca. 210,380 | TP 209,800" in m1[0] and "bis 12:30 wieder unter 210,250" in m1[0],
+       f"Vorwarnung AMD: Auslöser und geschätztes Entry/SL/TP ({m1[0].splitlines()[3] if len(m1[0].splitlines()) > 3 else m1[0]})")
+pruefe(amd_mod.IMMER_MELDEN == {p["id"] for p in amd_mod.LIVE}, "alle live verfolgten AMD- und 3-6-9-Muster melden per WhatsApp")
+print("\n    " + m1[0].replace("\n", "\n    "))
 pruefe("Letzte Signale live:" in m2[0] and "20.10. LONG ❌ SL −21 P" in m2[0] and "SL " in m2[0] and "TP " in m2[0],
        "Signal-WhatsApp: Entry/SL/TP und letzte Ergebnisse")
 pruefe("Bilanz live (letzte 2): 1× TP, 1× SL" in m4[0], f"Ergebnis-WhatsApp: laufende Bilanz ({m4[0].splitlines()[-1]})")
@@ -585,6 +589,10 @@ pruefe(e369["phase"] == "signal" and e369["richtung"] == -1 and e369["mss"] == 2
 tr369 = strategien.simuliere(strategien.z369_setup(e369, z369_b), akk + manip + vert, 0, TAG369)
 pruefe(tr369 and tr369.grund == "tp" and tr369.entry == 210.10, "3-6-9: Limit im Rücklauf gefüllt, Ziel 2R erreicht")
 pruefe(strategien.z369_erkennen(akk + manip[:2], 1.0, z369_b, TAG369)["phase"] == "manipulation", "3-6-9: nach Sweep erst Verdacht")
+_v369 = amd_mod.text_verdacht(strategien.z369_erkennen(akk + manip[:2], 1.0, z369_b, TAG369))
+pruefe(_v369.startswith("⚠️ Achtung, gleich mögliches Entry (3-6-9 Berlin-Zeit") and "Auslöser: kräftige 5-Min-Kerze schließt bis 09:45" in _v369
+       and "Limit ca." in _v369 and "(2R)" in _v369, "Vorwarnung 3-6-9: Strukturbruch-Kurs und geschätztes Limit/SL/TP")
+print("\n    " + _v369.replace("\n", "\n    ") + "\n")
 ny = strategien.z369_zeiten("2026-10-21", "America/New_York")
 pruefe(ny[0] == TM(14, 10) and strategien.z369_zeiten("2026-11-03", "America/New_York")[0] == TM(14, 10)
        and strategien.z369_zeiten("2026-10-28", "America/New_York")[0] == TM(13, 10), "3-6-9: New-York-Zeit inkl. Zeitumstellungs-Woche")

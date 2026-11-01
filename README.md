@@ -14,7 +14,7 @@ eine mechanische Treiber-Empfehlung – jeweils mit ehrlicher Trefferauswertung.
 | Mo–Fr 06:45 | Morgenreport per WhatsApp | `fxserver/report.py` |
 | Mo–Fr 09:00 | Tages-Setup (London-Ausbruch in Trendrichtung), danach jede Minute Live-Verfolgung mit WhatsApp bei Entry/Ziel/Stop | `fxserver/setup.py` |
 | Mo–Fr 23:05 | Abschluss: Setups und Muster mit Tiingo-Kerzen abrechnen, Kerzen der letzten 30 Tage sichern, `tage.json` für die Vortage-Ansicht | `fxserver/evaluate.py`, `fxserver/tage.py` |
-| jede Minute | AMD- und 3-6-9-Muster (Dashboard). WhatsApp nur für Varianten mit ✅ im Backtest; **Asien → London immer**: Entry/SL/TP mit den letzten Ergebnissen, dann TP/SL-Meldung mit Bilanz (`MUSTER_IMMER`, Standard `amd_london`) | `fxserver/amd.py` |
+| jede Minute | AMD- und 3-6-9-Muster: WhatsApp für alle live verfolgten Varianten – ⚠️ Vorwarnung mit Auslöser und geschätztem Entry/SL/TP, dann Signal mit den letzten Ergebnissen, Entwarnung oder TP/SL-Meldung mit Bilanz (`MUSTER_IMMER`: `alle` Standard, `keine` oder Liste von IDs) | `fxserver/amd.py` |
 | So 12:00 | Backtest der Setups mit Tiingo-Daten der letzten 2 Jahre | `fxserver/backtest.py --tiingo` |
 | Mo–Fr 23:05 | Trefferauswertung (holt verpasste Tage nach) | `fxserver/evaluate.py` |
 | jede Minute | Setup-Verfolgung, Kalender (stündlich), News (20 Min) + Einordnung, Renditen (3 Std), VIX/Nikkei/Brent (30 Min), CFTC (6 Std), Treiber-Score + Empfehlung, Termin-Erinnerung, Dashboard-Daten | `fxserver/refresh.py` |

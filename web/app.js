@@ -343,7 +343,7 @@ function amdChip() {
   const v = (S.dash?.amd?.varianten || []).find((x) => x.phase === "signal" && !["tp", "sl", "zeit"].includes(x.state)) ||
     (S.dash?.amd?.varianten || []).find((x) => x.phase === "manipulation");
   if (!v) return "";
-  if (v.phase === "manipulation") return `<span class="chip-s zeit">🕵️ AMD-Verdacht (${esc(v.name)})</span>`;
+  if (v.phase === "manipulation") return `<span class="chip-s zeit">⚠️ gleich mögliches Entry (${esc(v.familie === "369" ? v.name.split(" · ")[0] : v.name)})</span>`;
   const long = v.daten.richtung > 0;
   return `<span class="chip-s ${long ? "bull" : "bear"}"><b>${long ? "▲" : "▼"}</b>AMD ${long ? "Long" : "Short"}-Signal</span>`;
 }
@@ -427,7 +427,7 @@ function amdSchritte(v) {
   return [a, m, di];
 }
 function amdStatus(v) {
-  if (v.phase !== "signal") return v.phase === "manipulation" ? `<span class="status wartet">Verdacht – noch nicht einsteigen</span>` : "";
+  if (v.phase !== "signal") return v.phase === "manipulation" ? `<span class="status wartet">⚠️ Achtung – gleich mögliches Entry</span>` : "";
   const tr = v.trade || {}, e = AMD_ENDE[v.state];
   if (e) return `<span class="status ${e[0]}">${e[1]} · ${vz(tr.pips, 0, " Pips")}${tr.t_exit ? ` um ${esc(tr.t_exit)}` : ""}</span>`;
   if (v.state === "läuft") { const p = livePreis(); const pl = p && tr.entry ? (tr.richtung * (p - tr.entry)) / PIP : null; return `<span class="status laeuft">Läuft seit ${esc(tr.t_entry || "")} · ${vz(pl, 0, " Pips")}</span>`; }
@@ -442,10 +442,10 @@ function renderAmd() {
   const auf = [...el.querySelectorAll("details.amd-zeile")].reduce((m, d) => ({ ...m, [d.dataset.id]: d.open }), {});
   el.innerHTML = a.varianten.map((v) => `<details class="amd-zeile" data-id="${esc(v.id)}"${(auf[v.id] ?? ["manipulation", "signal"].includes(v.phase)) ? " open" : ""}>
       <summary class="amd-kopf"><b>${esc(v.familie === "369" ? v.name.split(" · ")[0] : v.name)}</b>${amdStatus(v) || `<span class="status neutral">${esc(PHASE[v.phase] || (v.phase ? v.phase : "wartet auf das Zeitfenster"))}</span>`}</summary>
-      <div class="amd-bt ${v.bewaehrt ? "ok" : ""}">${v.backtest?.n ? `${v.bewaehrt ? "✅ Backtest positiv – WhatsApp an" : (v.id === "amd_london" ? "📲 WhatsApp an (dein Wunsch) – Backtest nicht positiv" : "🔬 Nur Beobachtung – Backtest nicht positiv, keine WhatsApp")} · ${v.backtest.n} Trades, ${pz(v.backtest.trefferquote)} Treffer, Ø ${vz(v.backtest.avg_pips, 1, " P")} nach Kosten` : "Backtest folgt – bis dahin nur Beobachtung"}</div>
+      <div class="amd-bt ${v.bewaehrt ? "ok" : ""}">${v.backtest?.n ? `${v.bewaehrt ? "✅ Backtest positiv – WhatsApp an" : (v.immer ? "📲 WhatsApp an (Vorwarnung, Entry, Ergebnis) – Backtest nicht positiv" : "🔬 Nur Beobachtung – Backtest nicht positiv, keine WhatsApp")} · ${v.backtest.n} Trades, ${pz(v.backtest.trefferquote)} Treffer, Ø ${vz(v.backtest.avg_pips, 1, " P")} nach Kosten` : "Backtest folgt – bis dahin nur Beobachtung"}</div>
       <ol class="amd-schritte">${amdSchritte(v).map((s) => `<li class="${s.kl}"><span class="t">${esc(s.titel)}</span><span class="x">${esc(s.text)}</span></li>`).join("")}</ol>
     </details>`).join("") +
-    `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. WhatsApp für Varianten, die im Wochen-Backtest (2 Jahre, nach Kosten, mind. 50 Trades) positiv sind, und immer für Asien → London. Keine Anlageberatung.</p>`;
+    `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. WhatsApp für alle hier gezeigten Muster: Vorwarnung, sobald nur noch der Auslöser fehlt, dann Entry, Entwarnung oder Ergebnis. Keine Anlageberatung.</p>`;
 }
 
 /* ---------------- Studie: was GBP/JPY bewegt hat ---------------- */
