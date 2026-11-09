@@ -5,6 +5,7 @@ für beide Varianten (Asien → London, London → New York). Nachricht bei
   - Verdacht (Fehlausbruch läuft, noch nicht zurück in der Spanne)
   - Signal (Kerze schließt zurück in der Spanne -> Entry/SL/TP in Gegenrichtung)
   - Entwarnung (echter Ausbruch / kein Rücklauf / keine Bestätigung)
+  - bei 3-6-9: Limit gefüllt bzw. Limit verfallen (kein Trade)
   - Ziel / Stop / Tagesende
 Abschluss mit vollständigen Tiingo-15-Min-Kerzen um 23:05 (evaluate.py). Die Regeln sind identisch mit
 dem Backtest (backtest.py, Variante amd_london / amd_ny). WhatsApp nur für Varianten mit ✅ im Backtest,
@@ -18,8 +19,7 @@ import json
 from datetime import datetime, time, timedelta, timezone
 
 from . import forecast
-from .common import TZ_BERLIN, de_zahl, fx_tag, fx_tag_ende, fx_tag_start, get_logger, jetzt_berlin
-from .sources import prices as px_src
+from .common import TZ_BERLIN, de_zahl, fx_tag, fx_tag_ende, get_logger, jetzt_berlin
 from .strategien import (AMD_VARIANTEN, PIP, Z369_VARIANTEN, amd_erkennen, amd_setup, simuliere, tm, z369_erkennen,
                          z369_setup, z369_zeiten)
 
@@ -168,21 +168,32 @@ def text_verdacht(d: dict) -> str:
                 f"Dann {seite}-Limit ca. {de_zahl(entry)} | SL ca. {de_zahl(sl)} | TP ca. {de_zahl(tp)} ({p['tp_r']:.0f}R)\n"
                 f"Noch nicht einsteigen – die genauen Werte kommen mit dem Signal.")
     rand, gegen = (hoch, tief) if oben else (tief, hoch)
+    sweep = datetime.combine(datetime(2000, 1, 1).date(), _hm(d["sweep_zeit"]))
+    frist = min((sweep + timedelta(minutes=15 * p["max_kerzen"])).time(), _hm(d["manip_bis"]),
+                key=lambda t: (t.hour * 60 + t.minute - 23 * 60) % 1440)
     return (f"⚠️ Achtung, gleich mögliches Entry ({d['name']})\n"
             f"Akkumulation {d['range_von']}–{d['range_bis']}: {de_zahl(tief)} – {de_zahl(hoch)} ({d['breite_pips']:.0f} P). "
             f"Fehlausbruch {'über das Hoch' if oben else 'unter das Tief'} bis {de_zahl(extrem)} ({d['sweep_zeit']}).\n"
-            f"Auslöser: eine 15-Min-Kerze schließt bis {d['manip_bis']} wieder {'unter' if oben else 'über'} {de_zahl(rand)}.\n"
+            f"Auslöser: eine 15-Min-Kerze schließt bis {frist:%H:%M} wieder {'unter' if oben else 'über'} {de_zahl(rand)}.\n"
             f"Dann {seite} ca. {de_zahl(rand)} | SL ca. {de_zahl(sl)} | TP {de_zahl(gegen)}\n"
             f"Noch nicht einsteigen – erst nach dem Kerzenschluss. Läuft der Kurs weiter, wandert der SL mit.")
 
 
+def signal_schluss(d: dict) -> str:
+    """Uhrzeit, zu der das Signal feststand: Schluss der Signal-Kerze (3-6-9: 5 Min, AMD: 15 Min nach Start)."""
+    if d.get("signal_schluss"):
+        return d["signal_schluss"]
+    t = datetime.combine(datetime(2000, 1, 1).date(), _hm(d["signal_zeit"]))
+    return (t + timedelta(minutes=5 if _ist369(d) else 15)).strftime("%H:%M")
+
+
 def text_signal(d: dict, treiber_stufe: int | None = None, historie: str | None = None) -> str:
     r = d["richtung"]
-    z = [f"🎯 {'3-6-9' if _ist369(d) else 'AMD'}-Signal {RICHTUNG[r]} ({d['name']}) {d['signal_zeit']}",
+    z = [f"🎯 {'3-6-9' if _ist369(d) else 'AMD'}-Signal {RICHTUNG[r]} ({d['name']}) {signal_schluss(d)}",
          f"{'Limit-Entry' if d.get('typ') == 'limit' else 'Entry ~'} {de_zahl(d['entry'])} | SL {de_zahl(d['sl'])} (−{d['risiko_pips']} P) | "
          f"TP {de_zahl(d['tp'])} (+{d['ziel_pips']} P) | TP2 {de_zahl(d['tp2'])}",
          (f"Sweep {'unter' if d['sweep_seite'] < 0 else 'über'} die Spanne bis {de_zahl(d['sweep_extrem'])}, Strukturbruch "
-          f"{'über' if r > 0 else 'unter'} {de_zahl(d['mss'])} um {d['signal_zeit']}. Limit gültig bis {d['gueltig_bis']}."
+          f"{'über' if r > 0 else 'unter'} {de_zahl(d['mss'])} (Kerze bis {signal_schluss(d)}). Limit gültig bis {d['gueltig_bis']}."
           if _ist369(d) else
           f"Fehlausbruch {'unter' if d['sweep_seite'] < 0 else 'über'} die Spanne bis {de_zahl(d['sweep_extrem'])}, "
           f"jetzt zurück drin → Distribution Richtung {'Hoch' if r > 0 else 'Tief'} der Spanne.")]
@@ -230,13 +241,25 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
         alt = dict(row) if row else None
         if alt and alt["phase"] == "signal":
             d = json.loads(alt["data_json"])
-            if alt["state"] in ("tp", "sl", "zeit"):
+            if alt["state"] in ("tp", "sl", "zeit", "verfallen"):
                 continue
             tr = _trade(d, k5, laufend=True)   # 5-Min-Kerzen: Ziel/Stop schneller erkannt
-            neu_state = "wartet" if tr is None else ("läuft" if tr.grund == "offen" else tr.grund)
+            ende = _hm(d.get("gueltig_bis") or d["start"])
+            if tr is None:   # verfallen erst, wenn eine Kerze nach dem Entry-Fenster begonnen hat (wie simuliere)
+                neu_state = "verfallen" if any(tm(k[0]) > tm(ende) for k in k5) else "wartet"
+            else:
+                neu_state = "läuft" if tr.grund == "offen" else tr.grund
             if neu_state != alt["state"]:
                 con.execute("UPDATE amd SET state=?, trade_json=?, updated=? WHERE date=? AND variante=?",
                             (neu_state, json.dumps(_trade_dict(tr)), jetzt.isoformat(), heute, p["id"]))
+                limit = d.get("typ") == "limit"
+                if neu_state == "verfallen":
+                    texte.append(f"⏹ Kein Trade ({d['name']}): "
+                                 + (f"Limit {de_zahl(d['entry'])} bis {d['gueltig_bis']} nicht erreicht – Order löschen."
+                                    if limit else "Einstieg nicht zustande gekommen (keine Kurse zur Einstiegszeit)."))
+                elif limit and alt["state"] == "wartet":   # Limit gefüllt (auch wenn es direkt bis TP/SL lief)
+                    texte.append(f"🟢 Limit gefüllt ({d['name']}): {RICHTUNG[tr.richtung]} {de_zahl(tr.entry)} um "
+                                 f"{tr.t_entry:%H:%M} | SL {de_zahl(tr.sl)} | TP {de_zahl(tr.tp)}")
                 if neu_state in ("tp", "sl", "zeit"):
                     symbol = {"tp": "✅ Ziel erreicht", "sl": "❌ Stop erreicht", "zeit": "⏹ zum Tagesende geschlossen"}[neu_state]
                     txt = (f"{symbol} ({d['name']}): {RICHTUNG[tr.richtung]} {de_zahl(tr.entry)} → "
@@ -254,6 +277,8 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
         if not erg or not k5_fertig:
             continue
         erg["date"] = heute
+        if erg["phase"] == "signal":
+            erg["signal_schluss"] = signal_schluss(erg)
         alt_phase = alt["phase"] if alt else None
         if erg["phase"] == alt_phase:
             if alt and alt["data_json"] != json.dumps(erg):   # z. B. tieferes Extrem während der Manipulation
@@ -285,7 +310,8 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
 
 
 def abschliessen(con) -> None:
-    """Signale abgeschlossener FX-Tage mit vollständigen Tiingo-15-Min-Kerzen auswerten."""
+    """Signale abgeschlossener FX-Tage abrechnen: Einstieg wie live gesehen, Verlauf mit Tiingo-Kerzen + 3 Pips Kosten."""
+    from .setup import ergebnis_mit_kosten, tiingo_tag
     _db(con)
     jetzt = datetime.now(timezone.utc)
     for row in con.execute("SELECT * FROM amd WHERE phase='signal' AND result_json IS NULL ORDER BY date").fetchall():
@@ -293,18 +319,26 @@ def abschliessen(con) -> None:
         if fx_tag_ende(tag) > jetzt:
             continue
         d = json.loads(row["data_json"])
-        try:
-            start = fx_tag_start(tag)
-            roh = px_src.kerzen("gbpjpy", "5min" if _ist369(d) else "15min", start - timedelta(hours=1))
-            kerzen = [(k["t"].astimezone(TZ_BERLIN).replace(tzinfo=None), k["o"], k["h"], k["l"], k["c"])
-                      for k in roh if start <= k["t"] < fx_tag_ende(tag)]
-        except Exception as e:  # noqa: BLE001
-            log.warning("AMD-Abschluss %s: %s", row["date"], e)
-            continue
-        tr = _trade(d, kerzen, laufend=False, kosten=KOSTEN_PIPS)
-        erg = _trade_dict(tr) if tr else {"grund": "kein_entry"}
+        live_tr = json.loads(row["trade_json"]) if row["trade_json"] else None
+        if row["state"] in ("verfallen", "wartet") and not live_tr:
+            # Live nie gefüllt: so hast du es gesehen, so wird es gezählt – auch wenn Tiingo-Kerzen die Order
+            # knapp berühren (andere Datenquelle, Mittel- statt Kauf-/Verkaufskurs).
+            erg, state = {"grund": "kein_entry", "quelle": "live"}, "verfallen"
+        else:
+            try:
+                kerzen = tiingo_tag(tag, "5min" if _ist369(d) else "15min")
+            except Exception as e:  # noqa: BLE001
+                log.warning("AMD-Abschluss %s: %s", row["date"], e)
+                continue
+            tr = _trade(d, kerzen, laufend=False, kosten=KOSTEN_PIPS)
+            if tr:
+                erg, state = _trade_dict(tr), tr.grund
+            elif live_tr and live_tr.get("exit") is not None:
+                erg, state = ergebnis_mit_kosten(live_tr, KOSTEN_PIPS), live_tr["grund"]
+            else:
+                erg, state = {"grund": "kein_entry"}, "verfallen"
         con.execute("UPDATE amd SET result_json=?, state=? WHERE date=? AND variante=?",
-                    (json.dumps(erg), tr.grund if tr else "kein_entry", row["date"], row["variante"]))
+                    (json.dumps(erg), state, row["date"], row["variante"]))
     con.commit()
 
 

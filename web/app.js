@@ -428,11 +428,12 @@ function amdSchritte(v) {
 }
 function amdStatus(v) {
   if (v.phase !== "signal") return v.phase === "manipulation" ? `<span class="status wartet">⚠️ Achtung – gleich mögliches Entry</span>` : "";
+  if (v.state === "verfallen") return `<span class="status neutral">Kein Trade – ${v.daten?.typ === "limit" ? `Limit ${zahl(v.daten.entry)} bis ${esc(v.daten.gueltig_bis || "")} nicht erreicht` : "kein Einstieg"}</span>`;
   const tr = v.trade || {}, e = AMD_ENDE[v.state];
   if (e) return `<span class="status ${e[0]}">${e[1]} · ${vz(tr.pips, 0, " Pips")}${tr.t_exit ? ` um ${esc(tr.t_exit)}` : ""}</span>`;
   if (v.state === "läuft") { const p = livePreis(); const pl = p && tr.entry ? (tr.richtung * (p - tr.entry)) / PIP : null; return `<span class="status laeuft">Läuft seit ${esc(tr.t_entry || "")} · ${vz(pl, 0, " Pips")}</span>`; }
-  if (v.daten?.typ === "limit") return `<span class="status wartet">Signal ${esc(v.daten.signal_zeit || "")} – Kauf-/Verkaufs-Limit ${zahl(v.daten.entry)} bis ${esc(v.daten.gueltig_bis || "")}, noch nicht gefüllt</span>`.replace("Kauf-/Verkaufs-Limit", v.daten.richtung > 0 ? "Kauf-Limit" : "Verkaufs-Limit");
-  return `<span class="status wartet">Signal ${esc(v.daten?.signal_zeit || "")} – Einstieg zur nächsten Kerze</span>`;
+  if (v.daten?.typ === "limit") return `<span class="status wartet">Signal ${esc(v.daten.signal_schluss || v.daten.signal_zeit || "")} – Kauf-/Verkaufs-Limit ${zahl(v.daten.entry)} bis ${esc(v.daten.gueltig_bis || "")}, noch nicht gefüllt</span>`.replace("Kauf-/Verkaufs-Limit", v.daten.richtung > 0 ? "Kauf-Limit" : "Verkaufs-Limit");
+  return `<span class="status wartet">Signal ${esc(v.daten?.signal_schluss || v.daten?.signal_zeit || "")} – Einstieg jetzt zum Marktkurs</span>`;
 }
 function renderAmd() {
   const a = S.dash?.amd, el = $("amd");

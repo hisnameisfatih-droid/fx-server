@@ -179,7 +179,7 @@ def lade_tiingo(tage: int = 730, stueck: int = 45, freq: str = "15min") -> list[
                                                         "endDate": bis.strftime("%Y-%m-%d"), "resampleFreq": freq})
         for c in daten or []:
             from .common import parse_iso
-            ts = parse_iso(c["date"])
+            ts = px_src.startzeit(parse_iso(c["date"]), freq)
             roh[ts] = (float(c["open"]), float(c["high"]), float(c["low"]), float(c["close"]))
         t = bis
         _time.sleep(2)

@@ -62,6 +62,58 @@ def kerzen_live(jetzt: datetime) -> list[tuple]:
     return erg
 
 
+def kerzen_live_bereich(von: datetime, bis: datetime) -> list[tuple]:
+    """5-Min-Live-Kerzen (aus Ticks gebaut, Startzeit) im Zeitraum [von, bis) – live.json hält 25 Stunden."""
+    try:
+        live = json.loads((PUBLIC_DIR / "live.json").read_text())
+    except (OSError, ValueError):
+        return []
+    a, b = von.timestamp(), bis.timestamp()
+    return [(datetime.fromtimestamp(k[0], TZ_BERLIN).replace(tzinfo=None), k[1], k[2], k[3], k[4])
+            for k in live.get("pairs", {}).get("gbpjpy", {}).get("ohlc", []) if a <= k[0] < b]
+
+
+def verdichten(kerzen5: list[tuple], minuten: int) -> list[tuple]:
+    """5-Min-Kerzen -> Kerzen à `minuten` (Startzeit), ohne Abschluss-Filter."""
+    if minuten <= 5:
+        return list(kerzen5)
+    g: dict = {}
+    for t, o, h, l, c in kerzen5:
+        k = t.replace(minute=t.minute - t.minute % minuten, second=0, microsecond=0)
+        if k not in g:
+            g[k] = [o, h, l, c]
+        else:
+            g[k][1], g[k][2], g[k][3] = max(g[k][1], h), min(g[k][2], l), c
+    return [(t, *v) for t, v in sorted(g.items())]
+
+
+def tiingo_tag(tag, freq: str) -> list[tuple]:
+    """Tiingo-Kerzen eines abgeschlossenen FX-Tags [(t Berlin naiv = Start, o, h, l, c)].
+    Prüft dabei gegen die Live-Kerzen, ob Tiingo mit Start- oder Endzeit stempelt (und merkt es sich)."""
+    from .common import fx_tag_ende
+    start, ende = fx_tag_start(tag), fx_tag_ende(tag)
+    roh = px_src.kerzen("gbpjpy", freq, start - timedelta(hours=1), ausrichten=False)
+    try:
+        px_src.stempel_pruefen(roh, verdichten(kerzen_live_bereich(start, ende), px_src.FREQ_MIN[freq]), px_src.FREQ_MIN[freq])
+    except Exception as e:  # noqa: BLE001
+        log.warning("Zeitstempel-Prüfung: %s", e)
+    erg = []
+    for k in roh:
+        t = px_src.startzeit(k["t"], freq)
+        if start <= t < ende:
+            erg.append((t.astimezone(TZ_BERLIN).replace(tzinfo=None), k["o"], k["h"], k["l"], k["c"]))
+    return erg
+
+
+def ergebnis_mit_kosten(live_trade: dict, kosten: float) -> dict:
+    """Live-Ergebnis (ohne Kosten) als Endergebnis übernehmen, wenn Tiingo den Einstieg nicht sieht."""
+    erg = dict(live_trade)
+    if erg.get("pips") is not None:
+        erg["pips"] = round(erg["pips"] - kosten, 1)
+    erg["quelle"] = "live"
+    return erg
+
+
 def kontext(con, heute: str, kerzen: list[tuple]) -> Kontext | None:
     tage = tage_bis(con, heute)
     atr = forecast.atr14(tage)
@@ -170,7 +222,9 @@ def zustand(d: dict, kerzen: list[tuple], jetzt: datetime):
     if tr is None:
         ende = time(*map(int, d["ende"].split(":")))
         tag_vorbei = fx_tag(jetzt.replace(tzinfo=TZ_BERLIN)).isoformat() > d["date"]
-        return ("verfallen" if tag_vorbei or tm(jetzt) > tm(ende) else "wartet"), None
+        # verfallen erst, wenn auch die letzte Kerze des Entry-Fensters fertig ist (dieselbe Regel wie simuliere)
+        fenster_zu = any(tm(k[0]) > tm(ende) for k in kerzen)
+        return ("verfallen" if tag_vorbei or fenster_zu else "wartet"), None
     if tr.grund == "offen":
         return "ausgelöst", tr
     return tr.grund, tr
@@ -235,18 +289,24 @@ def abschliessen(con) -> None:
         if ende > jetzt:
             continue
         d = json.loads(row["data_json"])
-        try:
-            start = fx_tag_start(datetime.fromisoformat(row["date"]).date())
-            roh = px_src.kerzen("gbpjpy", "15min", start - timedelta(hours=1))
-            kerzen = [(k["t"].astimezone(TZ_BERLIN).replace(tzinfo=None), k["o"], k["h"], k["l"], k["c"])
-                      for k in roh if start <= k["t"] < ende]
-        except Exception as e:  # noqa: BLE001
-            log.warning("Abschluss %s: %s", row["date"], e)
-            continue
-        tr = simuliere(als_setup(d), kerzen, KOSTEN_PIPS, d["date"])
-        erg = _trade_dict(tr) if tr else {"grund": "kein_entry"}
-        con.execute("UPDATE setups SET result_json=?, state=COALESCE(?, state) WHERE date=?",
-                    (json.dumps(erg), tr.grund if tr else "verfallen", row["date"]))
+        live_tr = json.loads(row["trade_json"]) if row["trade_json"] else None
+        if row["state"] == "verfallen" and not live_tr:
+            # Live kein Einstieg im Entry-Fenster: so hast du es gesehen, so wird es gezählt
+            erg, state = {"grund": "kein_entry", "quelle": "live"}, "verfallen"
+        else:
+            try:
+                kerzen = tiingo_tag(datetime.fromisoformat(row["date"]).date(), "15min")
+            except Exception as e:  # noqa: BLE001
+                log.warning("Abschluss %s: %s", row["date"], e)
+                continue
+            tr = simuliere(als_setup(d), kerzen, KOSTEN_PIPS, d["date"])
+            if tr:
+                erg, state = _trade_dict(tr), tr.grund
+            elif live_tr and live_tr.get("exit") is not None:
+                erg, state = ergebnis_mit_kosten(live_tr, KOSTEN_PIPS), live_tr["grund"]
+            else:
+                erg, state = {"grund": "kein_entry"}, "verfallen"
+        con.execute("UPDATE setups SET result_json=?, state=? WHERE date=?", (json.dumps(erg), state, row["date"]))
         log.info("Setup %s abgeschlossen: %s", row["date"], erg)
     con.commit()
 

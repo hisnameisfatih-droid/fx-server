@@ -526,7 +526,7 @@ pruefe(len(m1) == 1 and "Achtung, gleich mögliches Entry (Asien → London)" in
        and m3 == [] and len(m4) == 1 and "Ziel erreicht" in m4[0], f"AMD live: Verdacht, Signal, Ziel ({[x.splitlines()[0] for x in amd_txt]})")
 pruefe(len(amd_txt) == 3 and amd_txt[0].startswith("⚠️ Achtung") and "AMD-Signal SHORT" in amd_txt[1] and "Ziel erreicht" in amd_txt[2],
        "Asien → London: WhatsApp für Vorwarnung, Entry und Ergebnis trotz ❌-Backtest")
-pruefe("Dann SHORT ca. 210,250 | SL ca. 210,380 | TP 209,800" in m1[0] and "bis 12:30 wieder unter 210,250" in m1[0],
+pruefe("Dann SHORT ca. 210,250 | SL ca. 210,380 | TP 209,800" in m1[0] and "bis 11:00 wieder unter 210,250" in m1[0],
        f"Vorwarnung AMD: Auslöser und geschätztes Entry/SL/TP ({m1[0].splitlines()[3] if len(m1[0].splitlines()) > 3 else m1[0]})")
 pruefe(amd_mod.IMMER_MELDEN == {p["id"] for p in amd_mod.LIVE}, "alle live verfolgten AMD- und 3-6-9-Muster melden per WhatsApp")
 print("\n    " + m1[0].replace("\n", "\n    "))
@@ -656,6 +656,96 @@ pruefe(bt_mod.wochen_lauf() == 0 and GESENDET[-1].startswith("📊 Wochen-Rückb
        and "woche" in json.loads((OUT / "public" / "backtest.json").read_text())
        and sum("/prices" in u for u in AUFRUFE) - _abrufe <= 2, "Wochen-Rückblick allein: max. 2 Tiingo-Abrufe, Nachricht gesendet")
 
+
+# --- Fehler "nicht ausgelöst, trotzdem gezählt" und Tiingo-Zeitstempel ---
+print("Abrechnung: Einstieg wie live, Tiingo zeitlich geprüft")
+from fxserver.sources import prices as _px  # noqa: E402
+from fxserver import setup as _su  # noqa: E402
+_p369 = next(x for x in strategien.Z369_VARIANTEN if x["id"] == "z369_berlin_retrace_2r")
+_d = lambda hh, mm: DT(2026, 11, 3, hh, mm)  # noqa: E731
+
+
+def _tag369(rueck_hoch):
+    ks, t, kurs = [], DT(2026, 11, 2, 23, 0), 210.10
+    while t < _d(8, 10):
+        ks.append((t, kurs, kurs + .03, kurs - .03, kurs)); t += timedelta(minutes=5)
+    ks += [(_d(8, m), 210.10, 210.20, 210.00, 210.12 if m % 10 else 210.08) for m in range(10, 40, 5)]
+    ks += [(_d(8, 40), 210.12, 210.18, 210.08, 210.15), (_d(8, 45), 210.15, 210.24, 210.12, 210.22),
+           (_d(8, 50), 210.22, 210.30, 210.15, 210.17), (_d(8, 55), 210.17, 210.19, 210.08, 210.10),
+           (_d(9, 0), 210.10, 210.09, 209.88, 209.90), (_d(9, 5), 209.90, rueck_hoch, 209.86, 209.95)]
+    t, kurs = _d(9, 10), 209.95
+    while t < _d(22, 0):
+        ks.append((t, kurs, kurs + 0.02, kurs - 0.06, kurs - 0.04)); kurs -= 0.04; t += timedelta(minutes=5)
+    return ks
+
+
+def _lauf369(live, tiingo, versatz=0):
+    c = sqlite3.connect(":memory:"); c.row_factory = sqlite3.Row
+    alt_atr, alt_live, alt_ende = amd_mod._atr, list(amd_mod.LIVE), amd_mod.fx_tag_ende
+    alt_k, alt_start, alt_ende2 = _px.kerzen, _su.fx_tag_start, common.fx_tag_ende
+    amd_mod._atr = lambda con, heute: 1.0
+    amd_mod.LIVE[:] = [_p369]
+    msgs = []
+    try:
+        for minute in range(8 * 60 + 15, 21 * 60 + 40, 5):
+            j = DT(2026, 11, 3, minute // 60, minute % 60, 30, tzinfo=common.TZ_BERLIN)
+            amd_mod.pruefen(c, j, senden=msgs.append, kerzen_5=[x for x in live if x[0] + timedelta(minutes=5) <= j.replace(tzinfo=None)])
+        live_state = c.execute("SELECT state FROM amd").fetchone()[0]
+        (OUT / "public" / "live.json").write_text(json.dumps({"pairs": {"gbpjpy": {"ohlc": [
+            [int(x[0].replace(tzinfo=common.TZ_BERLIN).timestamp()), *x[1:]] for x in live]}}}))
+
+        def fake(paar, freq, s, ausrichten=True):
+            roh = [{"t": (x[0] + timedelta(minutes=versatz)).replace(tzinfo=common.TZ_BERLIN).astimezone(timezone.utc),
+                    "o": x[1], "h": x[2], "l": x[3], "c": x[4]} for x in tiingo]
+            return [dict(k, t=_px.startzeit(k["t"], freq)) for k in roh] if ausrichten else roh
+        _px.kerzen = fake
+        ende = lambda tag: DT(2026, 11, 3, 22, 0, tzinfo=common.TZ_BERLIN)  # noqa: E731
+        amd_mod.fx_tag_ende = common.fx_tag_ende = ende
+        _su.fx_tag_start = lambda tag: DT(2026, 11, 2, 23, 0, tzinfo=common.TZ_BERLIN)
+        amd_mod.abschliessen(c)
+        st, res = c.execute("SELECT state, result_json FROM amd").fetchone()
+        return live_state, st, json.loads(res), msgs
+    finally:
+        amd_mod._atr, amd_mod.fx_tag_ende, _px.kerzen = alt_atr, alt_ende, alt_k
+        amd_mod.LIVE[:] = alt_live
+        _su.fx_tag_start, common.fx_tag_ende = alt_start, alt_ende2
+
+
+_px.STEMPEL_DATEI.unlink(missing_ok=True)
+_l, _s, _r, _m = _lauf369(_tag369(210.05), _tag369(210.05))
+pruefe(_l == "verfallen" and _r["grund"] == "kein_entry" and any(x.startswith("⏹ Kein Trade") and "bis 10:30 nicht erreicht" in x for x in _m),
+       "Limit nie erreicht: live verfallen, WhatsApp 'Kein Trade', Abrechnung kein Entry")
+_l, _s, _r, _m = _lauf369(_tag369(210.05), _tag369(210.105))
+pruefe(_r["grund"] == "kein_entry", "Limit live nicht erreicht, Tiingo-Kerze berührt es knapp: zählt NICHT als Trade")
+_l, _s, _r, _m = _lauf369(_tag369(210.13), _tag369(210.13))
+pruefe(_s == "tp" and _r["entry"] == 210.10 and any(x.startswith("🟢 Limit gefüllt") for x in _m)
+       and any("3-6-9-Signal SHORT" in x and x.splitlines()[0].endswith("09:05") for x in _m),
+       "Limit gefüllt: WhatsApp 'Limit gefüllt', Ergebnis TP, Signalzeit = Kerzenschluss 09:05")
+_l, _s, _r, _m = _lauf369(_tag369(210.13), _tag369(210.13), versatz=5)
+pruefe(_px.stempel_ist_ende() and _s == "tp" and _r["t_entry"] == "09:05",
+       "Tiingo mit Endzeit-Stempel wird gegen Live-Kerzen erkannt und ausgeglichen")
+_px.STEMPEL_DATEI.unlink(missing_ok=True)
+_lim = strategien.Setup("t", "t", "limit", [strategien.Order(1, 210.0, 209.8, 210.4)], TM(9, 0), TM(10, 0), TM(21, 0))
+pruefe(strategien.simuliere(_lim, [(_d(9, 0), 210.1, 210.1, 209.99, 210.05), (_d(21, 0), 211, 211, 211, 211)], 0, "x") is None
+       and strategien.simuliere(_lim, [(_d(9, 0), 210.1, 210.1, 209.98, 210.05), (_d(9, 30), 210.1, 210.45, 210.1, 210.4)], 0, "x").grund == "tp",
+       "Limit gilt erst nach Durchstich um 1,5 Pips als gefüllt (Mittelkurs vs. Kauf-/Verkaufskurs)")
+
+# Einmalige Korrektur alter Abrechnungen
+from fxserver import evaluate as _ev  # noqa: E402
+_c = sqlite3.connect(":memory:"); _c.row_factory = sqlite3.Row
+amd_mod._db(_c); _c.executescript(_su.SCHEMA)
+_heute = datetime.now(timezone.utc).date()
+_tg = (_heute - timedelta(days=2)).isoformat()
+_c.execute("INSERT INTO amd(date, variante, phase, data_json, state, trade_json, result_json) VALUES(?,?,?,?,?,?,?)",
+           (_tg, "z369_berlin_retrace_2r", "signal", "{}", "zeit", "null", json.dumps({"grund": "zeit", "pips": 25.0})))
+_c.execute("INSERT INTO amd(date, variante, phase, data_json, state, trade_json, result_json) VALUES(?,?,?,?,?,?,?)",
+           (_tg, "amd_london", "signal", "{}", "tp", json.dumps({"entry": 1, "pips": 30}), json.dumps({"grund": "tp", "pips": 27.0})))
+_alt_ex, _alt_vt = _ev.export.alles, _ev.vortage
+_ev.export.alles = lambda con: None; _ev.vortage = lambda con: None
+pruefe(_ev.neu_abrechnen(_c) == 1 and json.loads(_c.execute("SELECT result_json FROM amd WHERE variante='z369_berlin_retrace_2r'").fetchone()[0])["grund"] == "kein_entry"
+       and json.loads(_c.execute("SELECT result_json FROM amd WHERE variante='amd_london'").fetchone()[0])["grund"] == "tp",
+       "Korrektur: live nie ausgelöster Trade -> kein Entry, echter Trade bleibt")
+_ev.export.alles, _ev.vortage = _alt_ex, _alt_vt
 
 print("ALLE TESTS OK" if not FEHLER else f"{len(FEHLER)} FEHLER: {FEHLER}")
 sys.exit(1 if FEHLER else 0)

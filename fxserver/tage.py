@@ -47,7 +47,7 @@ def kerzen_sichern(con, jetzt: datetime | None = None) -> int:
     gruppen: dict[str, list] = {}
     for c in daten or []:
         try:
-            ts = parse_iso(c["date"])
+            ts = px_src.startzeit(parse_iso(c["date"]), "15min")
             k = [int(ts.timestamp()), round(float(c["open"]), 3), round(float(c["high"]), 3),
                  round(float(c["low"]), 3), round(float(c["close"]), 3)]
         except (KeyError, TypeError, ValueError):
@@ -96,7 +96,8 @@ def tag_daten(con, d: str, kerzen: list | None) -> dict:
         for r in con.execute("SELECT * FROM amd WHERE date=? AND phase='signal' ORDER BY variante", (d,)):
             a = json.loads(r["data_json"])
             setups.append({"art": "369" if r["variante"].startswith("z369") else "amd", "id": r["variante"],
-                           "name": a.get("name", r["variante"]), "status": "aktiv", "signal_zeit": a.get("signal_zeit"),
+                           "name": a.get("name", r["variante"]), "status": "aktiv",
+                           "signal_zeit": a.get("signal_schluss") or a.get("signal_zeit"),
                            "orders": [{"richtung": a["richtung"], "entry": a["entry"], "sl": a["sl"], "tp": a["tp"],
                                        "risiko_pips": a.get("risiko_pips"), "ziel_pips": a.get("ziel_pips")}],
                            "tp2": a.get("tp2"), "typ": a.get("typ", "markt"), "spanne": a.get("spanne"),

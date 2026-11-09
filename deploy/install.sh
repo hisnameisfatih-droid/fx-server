@@ -85,6 +85,13 @@ if [ ! -f "$DATA/.wochenrueckblick_v2" ]; then
     "$REPO/venv/bin/python" -m fxserver.backtest --woche || true
 fi
 
+# Einmalig: Trades, die live nie ausgelöst hatten, aber mit Pips abgerechnet wurden, korrigieren
+if [ ! -f "$DATA/.neu_abrechnen_v1" ]; then
+  touch "$DATA/.neu_abrechnen_v1"
+  systemd-run --no-block --unit="fx-neu-abrechnen-$(date +%s)" --working-directory="$REPO" \
+    "$REPO/venv/bin/python" -m fxserver.evaluate --neu-abrechnen || true
+fi
+
 # Trainingsseite (web/training/): Link einmalig per Nachricht schicken
 if [ -n "$HOST" ] && [ -f web/training/index.html ] && [ ! -f "$DATA/.training_link_v1" ]; then
   FX_MELDUNG="🏋️ Dein Trainings- und Ernährungsplan (Link geheim halten):

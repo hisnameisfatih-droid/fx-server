@@ -149,6 +149,33 @@ def telegram(text: str, log: logging.Logger | None = None) -> bool:
     return False
 
 
+WHATSAPP_ABSTAND_SEK = 5   # CallMeBot verwirft Nachrichten, die zu dicht hintereinander kommen
+CALLMEBOT_FEHLER = ("invalid", "not activated", "error:", "exceeded", "too many", "limit reached", "blocked", "not sent")
+
+
+def _whatsapp_drossel() -> None:
+    """Wartet, bis seit der letzten CallMeBot-Nachricht (aus irgendeinem Dienst) WHATSAPP_ABSTAND_SEK vergangen sind.
+    Gemeinsame Datei + Dateisperre, damit Server-Läufe und Alarm-Dienst sich nicht überholen."""
+    import fcntl
+    pfad = DATA_DIR / "whatsapp_letzte.txt"
+    try:
+        with open(pfad, "a+") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            f.seek(0)
+            try:
+                letzte = float(f.read().strip() or 0)
+            except ValueError:
+                letzte = 0.0
+            warten = letzte + WHATSAPP_ABSTAND_SEK - time.time()
+            if 0 < warten <= 60:
+                time.sleep(warten)
+            f.seek(0)
+            f.truncate()
+            f.write(str(time.time()))
+    except OSError:
+        pass
+
+
 def whatsapp(text: str, log: logging.Logger | None = None, max_teil: int = 1500) -> bool:
     """Schickt eine Nachricht: zuerst Telegram (falls eingerichtet), sonst/ersatzweise WhatsApp per CallMeBot.
     Längere WhatsApp-Texte werden an Absätzen geteilt."""
@@ -172,12 +199,13 @@ def whatsapp(text: str, log: logging.Logger | None = None, max_teil: int = 1500)
     for nr, teil in enumerate(teile):
         gesendet = False
         for versuch in range(3):
+            _whatsapp_drossel()
             try:
                 r = _session.get("https://api.callmebot.com/whatsapp.php",
                                  params={"phone": WHATSAPP_PHONE, "text": teil, "apikey": CALLMEBOT_APIKEY},
                                  timeout=30)
                 body = r.text.lower()
-                if r.status_code == 200 and not any(m in body for m in ("invalid", "not activated", "error:")):
+                if r.status_code == 200 and not any(m in body for m in CALLMEBOT_FEHLER):
                     gesendet = True
                     break
                 log.warning("CallMeBot %s: %s", r.status_code, r.text[:200])
@@ -187,8 +215,6 @@ def whatsapp(text: str, log: logging.Logger | None = None, max_teil: int = 1500)
         if not gesendet:
             log.error("WhatsApp-Teil %d fehlgeschlagen", nr + 1)
             ok = False
-        if nr + 1 < len(teile):
-            time.sleep(3)
     if ok:
         log.info("WhatsApp gesendet (%d Teil(e), %d Zeichen)", len(teile), len(text))
     return ok

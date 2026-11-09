@@ -95,5 +95,43 @@ def treiber_5_tage(con) -> int:
     return n
 
 
+def neu_abrechnen(con, tage: int = 30) -> int:
+    """Einmalige Korrektur (09.11.2026): Trades, die live nie ausgelöst hatten (kein Live-Einstieg gespeichert),
+    aber in der Abrechnung mit Pips gezählt wurden, auf 'kein Entry' setzen. Gibt die Zahl der Korrekturen zurück."""
+    import json
+    from datetime import timedelta
+    from . import amd as amd_mod
+    from . import setup as setup_mod
+    grenze = (datetime.now(timezone.utc).date() - timedelta(days=tage)).isoformat()
+    kein = json.dumps({"grund": "kein_entry", "quelle": "live", "korrigiert": "2026-11-09"})
+    n = 0
+    amd_mod._db(con)
+    for r in con.execute("SELECT date, variante, trade_json, result_json FROM amd WHERE phase='signal' "
+                         "AND result_json IS NOT NULL AND date>=?", (grenze,)).fetchall():
+        live = json.loads(r["trade_json"]) if r["trade_json"] else None
+        if not live and json.loads(r["result_json"]).get("pips") is not None:
+            con.execute("UPDATE amd SET result_json=?, state='verfallen' WHERE date=? AND variante=?",
+                        (kein, r["date"], r["variante"]))
+            log.info("Korrigiert %s %s: live kein Einstieg, war %s", r["date"], r["variante"], r["result_json"])
+            n += 1
+    con.executescript(setup_mod.SCHEMA)
+    for r in con.execute("SELECT date, trade_json, result_json FROM setups WHERE status='aktiv' "
+                         "AND result_json IS NOT NULL AND date>=?", (grenze,)).fetchall():
+        live = json.loads(r["trade_json"]) if r["trade_json"] else None
+        if not live and json.loads(r["result_json"]).get("pips") is not None:
+            con.execute("UPDATE setups SET result_json=?, state='verfallen' WHERE date=?", (kein, r["date"]))
+            log.info("Korrigiert Setup %s: live kein Einstieg, war %s", r["date"], r["result_json"])
+            n += 1
+    con.commit()
+    vortage(con)
+    export.alles(con)
+    log.info("Neu abgerechnet: %d Korrekturen", n)
+    return n
+
+
 if __name__ == "__main__":
+    import sys
+    if "--neu-abrechnen" in sys.argv:
+        neu_abrechnen(db())
+        raise SystemExit(0)
     raise SystemExit(main())

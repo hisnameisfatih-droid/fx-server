@@ -192,6 +192,27 @@ def telegram_senden(text: str) -> bool:
 # ------------------------------------------------------------
 # WhatsApp über CallMeBot (Ersatz, wenn Telegram fehlt; Gratis-Kontingent ist begrenzt)
 # ------------------------------------------------------------
+def callmebot_drossel(abstand: float = 5.0):
+    """Mindestabstand zwischen CallMeBot-Nachrichten – gemeinsam mit dem FX-Server (gleiche Datei + Sperre)."""
+    import fcntl
+    try:
+        with open(DATA_DIR / "whatsapp_letzte.txt", "a+") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            f.seek(0)
+            try:
+                letzte = float(f.read().strip() or 0)
+            except ValueError:
+                letzte = 0.0
+            warten = letzte + abstand - time.time()
+            if 0 < warten <= 60:
+                time.sleep(warten)
+            f.seek(0)
+            f.truncate()
+            f.write(str(time.time()))
+    except OSError:
+        pass
+
+
 def whatsapp_senden(text: str, versuche: int = 3, wichtig: bool = True) -> bool:
     """Telegram zuerst; WhatsApp nur als Ersatz – und dann nur für wichtige Meldungen (spart das Kontingent)."""
     if telegram_senden(text):
@@ -207,10 +228,15 @@ def whatsapp_senden(text: str, versuche: int = 3, wichtig: bool = True) -> bool:
     url = "https://api.callmebot.com/whatsapp.php"
     params = {"phone": WHATSAPP_PHONE, "text": text, "apikey": CALLMEBOT_APIKEY}
     for i in range(1, versuche + 1):
+        callmebot_drossel()
         try:
             r = requests.get(url, params=params, timeout=30)
             if r.status_code == 200:
                 body = r.text.lower()
+                if any(m in body for m in ("exceeded", "too many", "limit reached", "blocked", "not sent")):
+                    log.warning("CallMeBot hat die Nachricht nicht angenommen (Versuch %d): %s", i, r.text[:300])
+                    time.sleep(10 * i)
+                    continue
                 if any(m in body for m in ("invalid", "not activated", "error:")):
                     # Konfigurationsfehler – Wiederholen hilft nicht
                     log.error("CallMeBot meldet Fehler (Nummer/API-Key prüfen): %s", r.text[:300])
@@ -307,6 +333,16 @@ def tiingo_get(pfad: str, params: dict | None = None):
 _letzter_open_abruf: dict[int, float] = {}
 
 
+def tiingo_start(stempel: float, minuten: int) -> float:
+    """Tiingo-Zeitstempel -> Startzeit der Kerze. Ob Tiingo mit Start- oder Endzeit stempelt, prüft der
+    FX-Server täglich gegen die Live-Kerzen (fxserver/sources/prices.py) und legt es in DATA_DIR ab."""
+    try:
+        ende = json.loads((DATA_DIR / "tiingo_zeitstempel.json").read_text()).get("ende") is True
+    except (OSError, ValueError):
+        ende = False
+    return stempel - 60 * minuten if ende else stempel
+
+
 def tiingo_kerzen_open(start: int, minuten: int) -> float | None:
     """Echtes Open der laufenden Kerze holen (je Kerzenlänge max. 1 Abruf pro 2 Min, Gratis-Tarif: 50/Std)."""
     gran = f"{minuten}min" if minuten < 60 else "1hour"
@@ -318,7 +354,7 @@ def tiingo_kerzen_open(start: int, minuten: int) -> float | None:
         daten = tiingo_get(f"/tiingo/fx/{TIINGO_TICKER}/prices",
                            {"startDate": tag, "resampleFreq": gran})
         for c in reversed(daten or []):
-            if int(parse_iso(c["date"])) == start:
+            if int(tiingo_start(parse_iso(c["date"]), minuten)) == start:
                 return float(c["open"])
     except Exception as e:
         log.warning("Konnte %d-Min-Kerzen-Open nicht laden: %s", minuten, e)
@@ -481,7 +517,7 @@ class LiveKurse:
                 daten = tiingo_get(f"/tiingo/fx/{p}/prices", {"startDate": start, "resampleFreq": "5min"})
                 with self.lock:
                     for c in daten or []:
-                        b = int(parse_iso(c["date"]) // 300) * 300
+                        b = int(tiingo_start(parse_iso(c["date"]), 5) // 300) * 300
                         self.bars[p].setdefault(b, [float(c["open"]), float(c["high"]), float(c["low"]), float(c["close"])])
                 log.info("Live-Verlauf %s nachgeladen (%d Kerzen)", p, len(daten or []))
             except Exception as e:

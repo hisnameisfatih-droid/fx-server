@@ -367,11 +367,18 @@ STRATEGIEN = {"orb": orb, "reversion": reversion, "trend": trend, "amd": amd, "z
 # ------------------------------------------------------------
 # Simulation eines Setups auf den Kerzen eines Tages
 # ------------------------------------------------------------
+# Kurse sind Mittelkurse. Eine Limit-Order beim Broker wird erst gefüllt, wenn Kauf- bzw. Verkaufskurs sie
+# erreichen – der Mittelkurs muss sie also um etwa einen halben Spread durchstoßen (3 Pips Kosten = ganzer Spread).
+LIMIT_DURCHSTICH_PIPS = 1.5
+
+
 def simuliere(setup: Setup, kerzen, kosten_pips: float, datum: str, laufend: bool = False) -> Trade | None:
     """Konservativ: Liegen SL und TP in derselben Kerze, zählt der SL.
-    Stop-Orders werden bei Kurslücken zum schlechteren Eröffnungskurs ausgeführt."""
+    Stop-Orders werden bei Kurslücken zum schlechteren Eröffnungskurs ausgeführt.
+    Limit-Orders gelten erst als gefüllt, wenn der Mittelkurs sie um LIMIT_DURCHSTICH_PIPS durchstößt."""
     offen: Trade | None = None
     a, e, z = tm(setup.start), tm(setup.ende), tm(setup.schluss)
+    durch = LIMIT_DURCHSTICH_PIPS * PIP
     for t, o, h, l, c in kerzen:
         zt = tm(t)
         if offen is None:
@@ -389,9 +396,9 @@ def simuliere(setup: Setup, kerzen, kosten_pips: float, datum: str, laufend: boo
                     elif od.richtung < 0 and l <= od.entry:
                         getroffen, preis = True, min(od.entry, o)
                 else:  # limit
-                    if od.richtung > 0 and l <= od.entry:
+                    if od.richtung > 0 and l <= od.entry - durch:
                         getroffen, preis = True, min(od.entry, o)
-                    elif od.richtung < 0 and h >= od.entry:
+                    elif od.richtung < 0 and h >= od.entry + durch:
                         getroffen, preis = True, max(od.entry, o)
                 if getroffen:
                     offen = Trade(datum, setup.strategie, od.richtung, preis, od.sl, od.tp, t_entry=t)
