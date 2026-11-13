@@ -1,18 +1,20 @@
 """Backtest "London-Retest" für GBP/JPY (Fatihs Setup, 13.11.2026).
 
 Regeln (Kern-Variante A):
-  1. Range = 5-Min-Kerze 08:30–08:35 London-Zeit (= 09:30–09:35 Berlin, das ganze Jahr gleich).
+  1. Range = 5-Min-Kerze 07:30–07:35 UTC – eine halbe Stunde nach London-Open 07:00 UTC wie im TradingView-
+     Sessions-Kasten, also 08:30 Berlin im Winter und 09:30 Berlin im Sommer.
   2. Ab 08:35: Ausbruch = erste 5-Min-Kerze, die über dem Range-Hoch bzw. unter dem Range-Tief SCHLIESST.
   3. Danach kommt der Kurs zurück in die Range (berührt sie wieder).
   4. Geht er danach wieder über die Ausbruchsseite hinaus -> Einstieg (Stop-Order an der Range-Kante).
   5. TP immer 20 Pips, SL = gegenüberliegende Range-Seite.
   Läuft der Kurs vor dem Einstieg bis zur Gegenseite durch, ist das Setup ungültig.
-  Einstieg nur bis ENTRY_BIS (London), offene Trades werden um SCHLUSS (London) geschlossen.
+  Einstieg nur bis entry_bis (UTC), offene Trades werden um SCHLUSS (UTC) geschlossen. Alle Zeiten UTC.
 
 Rechnet mit 1-Min-Kerzen (Mittelkurs aus Bid/Ask von Dukascopy), damit die Reihenfolge innerhalb einer
 5-Min-Kerze stimmt. Liegen SL und TP in derselben Minute, zählt der SL. Kosten: wahlweise 0 oder 3 Pips je Trade.
 
 Aufruf: python3 -I london_retest.py <bid.csv> <ask.csv> <ausgabe-ordner> [tage=100]
+        python3 -I london_retest.py <gbpjpy_m1_mid.csv.gz> - <ausgabe-ordner> [tage=100]   (gespeicherte Mittelkurse)
 """
 from __future__ import annotations
 
@@ -26,25 +28,32 @@ from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-LON, BER = ZoneInfo("Europe/London"), ZoneInfo("Europe/Berlin")
+UTC, BER = timezone.utc, ZoneInfo("Europe/Berlin")
 PIP = 0.01
 TP_PIPS = 20.0
-RANGE_VON = time(8, 30)          # London
-SCHLUSS = time(20, 0)            # London = 21:00 Berlin
+RANGE_VON = time(7, 30)          # UTC: 08:30 Berlin (Winter) / 09:30 Berlin (Sommer)
+RANGE_BIS = time(7, 35)
+SCHLUSS = time(20, 0)            # UTC: 21:00 Berlin (Winter) / 22:00 Berlin (Sommer)
 KOSTEN = (0.0, 3.0)
 
 VARIANTEN = {
     "A": {"name": "Kern: Ausbruch per 5-Min-Schluss, Rücklauf = Berührung, Einstieg beim erneuten Überschreiten",
-          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(12, 0)},
+          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11, 0)},
     "B": {"name": "Rücklauf muss in der Range SCHLIESSEN (5 Min), dann Einstieg beim Überschreiten",
-          "ausbruch": "schluss", "ruecklauf": "schluss", "einstieg": "stop", "entry_bis": time(12, 0)},
+          "ausbruch": "schluss", "ruecklauf": "schluss", "einstieg": "stop", "entry_bis": time(11, 0)},
     "C": {"name": "Einstieg erst, wenn eine 5-Min-Kerze wieder jenseits der Kante schließt (Bestätigung)",
-          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "schluss", "entry_bis": time(12, 0)},
+          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "schluss", "entry_bis": time(11, 0)},
     "D": {"name": "Ausbruch schon per Docht (mind. 1 Pip über/unter der Range)",
-          "ausbruch": "docht", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(12, 0)},
-    "E": {"name": "Wie Kern, aber Einstieg bis 16:00 London (17:00 Berlin) erlaubt",
-          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(16, 0)},
+          "ausbruch": "docht", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11, 0)},
+    "E": {"name": "Wie Kern, aber Einstieg bis 15:00 UTC (16:00 Berlin im Winter) erlaubt",
+          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(15, 0)},
 }
+
+
+def lade_mid(pfad: str):
+    with gzip.open(pfad, "rt") as f:
+        return [(int(r["ts_utc"]), float(r["open"]), float(r["high"]), float(r["low"]), float(r["close"]),
+                 float(r["spread_pips"])) for r in csv.DictReader(f)]
 
 
 def lade(bid_pfad: str, ask_pfad: str):
@@ -67,7 +76,7 @@ def lade(bid_pfad: str, ask_pfad: str):
 def nach_tag(kerzen):
     tage = defaultdict(list)
     for k in kerzen:
-        t = datetime.fromtimestamp(k[0], timezone.utc).astimezone(LON)
+        t = datetime.fromtimestamp(k[0], UTC)
         if t.weekday() < 5:
             tage[t.date()].append((t, *k[1:]))
     return tage
@@ -87,7 +96,7 @@ def fuenf_min(ks):
 
 def tag_simulieren(ks, v):
     """Gibt (info, trade|None) zurück. ks: 1-Min-Kerzen eines London-Tages."""
-    rk = [k for k in ks if RANGE_VON <= k[0].time() < time(8, 35)]
+    rk = [k for k in ks if RANGE_VON <= k[0].time() < RANGE_BIS]
     if len(rk) < 4:
         return {"status": "keine Daten 08:30"}, None
     H, L = max(k[2] for k in rk), min(k[3] for k in rk)
@@ -97,7 +106,7 @@ def tag_simulieren(ks, v):
     if breite < 1:
         return {**info, "status": "Range < 1 Pip"}, None
     bis = v["entry_bis"]
-    nach = [k for k in ks if time(8, 35) <= k[0].time() < SCHLUSS]
+    nach = [k for k in ks if RANGE_BIS <= k[0].time() < SCHLUSS]
     f5 = fuenf_min(nach)
     # 1) Ausbruch
     richtung, ab_index = 0, None
@@ -197,7 +206,7 @@ def tag_simulieren(ks, v):
     pips = richtung * (exit_preis - entry) / PIP
     return {**info, "status": "Trade"}, {
         "richtung": richtung, "entry": round(entry, 3), "sl": round(sl, 3), "tp": round(tp, 3),
-        "entry_zeit": t0.strftime("%H:%M"), "entry_zeit_berlin": t0.astimezone(BER).strftime("%H:%M"),
+        "entry_zeit": t0.strftime("%H:%M"), "range_berlin": t0.replace(hour=7, minute=30).astimezone(BER).strftime("%H:%M"), "entry_zeit_berlin": t0.astimezone(BER).strftime("%H:%M"),
         "exit_zeit": exit_k[0].strftime("%H:%M"), "dauer_min": int((exit_k[0] - t0).total_seconds() // 60),
         "grund": grund, "pips_brutto": round(pips, 1), "risiko_pips": round(risiko, 1)}
 
@@ -242,15 +251,16 @@ def main():
     bid, ask, aus = sys.argv[1], sys.argv[2], Path(sys.argv[3])
     n_tage = int(sys.argv[4]) if len(sys.argv) > 4 else 100
     aus.mkdir(parents=True, exist_ok=True)
-    kerzen = lade(bid, ask)
-    with gzip.open(aus / "gbpjpy_m1_mid.csv.gz", "wt") as f:   # für weitere Auswertungen ohne neuen Download
+    kerzen = lade_mid(bid) if ask == "-" else lade(bid, ask)
+    if ask != "-":
+      with gzip.open(aus / "gbpjpy_m1_mid.csv.gz", "wt") as f:   # für weitere Auswertungen ohne neuen Download
         w = csv.writer(f)
         w.writerow(["ts_utc", "open", "high", "low", "close", "spread_pips"])
         for k in kerzen:
             w.writerow([k[0], *[round(x, 4) for x in k[1:5]], round(k[5], 2)])
     tage = nach_tag(kerzen)
-    gueltig = [d for d in sorted(tage) if any(RANGE_VON <= k[0].time() < time(8, 35) for k in tage[d])]
-    gueltig = [d for d in gueltig if datetime.now(LON).date() > d or datetime.now(LON).time() >= SCHLUSS][-n_tage:]
+    gueltig = [d for d in sorted(tage) if any(RANGE_VON <= k[0].time() < RANGE_BIS for k in tage[d])]
+    gueltig = [d for d in gueltig if datetime.now(UTC).date() > d or datetime.now(UTC).time() >= SCHLUSS][-n_tage:]
     erg = {"zeitraum": [gueltig[0].isoformat(), gueltig[-1].isoformat()], "tage": len(gueltig),
            "tp_pips": TP_PIPS, "varianten": {}}
     for vid, v in VARIANTEN.items():
@@ -271,17 +281,18 @@ def main():
             "range_breite": gruppen(trades, breite_klasse),
             "wochentag": gruppen(trades, lambda t: t["wochentag"]),
             "monat": gruppen(trades, lambda t: t["datum"][:7]),
-            "einstieg_stunde": gruppen(trades, lambda t: t["entry_zeit_berlin"][:2] + " Uhr Berlin"),
+            "einstieg_stunde": gruppen(trades, lambda t: t["entry_zeit"][:2] + " Uhr UTC"),
             "tage": tagliste}
         with open(aus / f"trades_{vid}.csv", "w", newline="") as f:
-            felder = ["datum", "wochentag", "range_hoch", "range_tief", "range_pips", "ausbruch_zeit", "richtung",
+            felder = ["datum", "wochentag", "range_berlin", "range_hoch", "range_tief", "range_pips", "ausbruch_zeit", "richtung",
                       "ruecklauf_zeit", "entry_zeit", "entry_zeit_berlin", "entry", "sl", "tp", "risiko_pips", "grund",
                       "exit_zeit", "dauer_min", "pips_brutto", "status"]
             w = csv.DictWriter(f, fieldnames=felder, extrasaction="ignore")
             w.writeheader()
             w.writerows(tagliste)
     (aus / "ergebnis.json").write_text(json.dumps(erg, ensure_ascii=False, indent=1))
-    z = [f"# London-Retest GBP/JPY · {erg['zeitraum'][0]} bis {erg['zeitraum'][1]} · {erg['tage']} Handelstage", ""]
+    z = [f"# London-Retest GBP/JPY · {erg['zeitraum'][0]} bis {erg['zeitraum'][1]} · {erg['tage']} Handelstage",
+         "Range-Kerze 07:30–07:35 UTC (08:30 Berlin im Winter, 09:30 im Sommer), alle Zeiten der Tabelle UTC", ""]
     for vid, x in erg["varianten"].items():
         k0, k3 = x["kennzahlen"]["kosten_0"], x["kennzahlen"]["kosten_3"]
         z.append(f"## {vid}: {x['name']}")
