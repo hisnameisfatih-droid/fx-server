@@ -28,30 +28,35 @@ from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-UTC, BER = timezone.utc, ZoneInfo("Europe/Berlin")
+import os
+# ZEITBASIS=london: Range 30 Min nach der echten London-Eröffnung (08:30 London-Ortszeit = 09:30 Berlin ganzjährig);
+# alle Zeiten verschieben sich im Winter mit. Standard utc: fest 07:30 UTC wie der TradingView-Sessions-Kasten.
+LONDON_ZEIT = os.getenv("ZEITBASIS", "utc") == "london"
+UTC, BER = (ZoneInfo("Europe/London") if LONDON_ZEIT else timezone.utc), ZoneInfo("Europe/Berlin")
 PIP = 0.01
 TP_PIPS = 20.0
-RANGE_VON = time(7, 30)          # UTC: 08:30 Berlin (Winter) / 09:30 Berlin (Sommer)
-RANGE_BIS = time(7, 35)
+_V = 1 if LONDON_ZEIT else 0    # Stunden-Versatz der Zeitangaben bei London-Ortszeit
+RANGE_VON = time(7 + _V, 30)     # UTC: 08:30 Berlin (Winter) / 09:30 Berlin (Sommer)
+RANGE_BIS = time(7 + _V, 35)
 SCHLUSS = time(20, 0)            # UTC: 21:00 Berlin (Winter) / 22:00 Berlin (Sommer)
 KOSTEN = (0.0, 3.0)
 
 VARIANTEN = {
     "A": {"name": "Kern: Ausbruch per 5-Min-Schluss, Rücklauf = Berührung, Einstieg beim erneuten Überschreiten",
-          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11, 0)},
+          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11 + _V, 0)},
     "B": {"name": "Rücklauf muss in der Range SCHLIESSEN (5 Min), dann Einstieg beim Überschreiten",
-          "ausbruch": "schluss", "ruecklauf": "schluss", "einstieg": "stop", "entry_bis": time(11, 0)},
+          "ausbruch": "schluss", "ruecklauf": "schluss", "einstieg": "stop", "entry_bis": time(11 + _V, 0)},
     "C": {"name": "Einstieg erst, wenn eine 5-Min-Kerze wieder jenseits der Kante schließt (Bestätigung)",
-          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "schluss", "entry_bis": time(11, 0)},
+          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "schluss", "entry_bis": time(11 + _V, 0)},
     "D": {"name": "Ausbruch schon per Docht (mind. 1 Pip über/unter der Range)",
-          "ausbruch": "docht", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11, 0)},
+          "ausbruch": "docht", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11 + _V, 0)},
     "E": {"name": "Wie Kern, aber Einstieg bis 15:00 UTC (16:00 Berlin im Winter) erlaubt",
-          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(15, 0)},
+          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(15 + _V, 0)},
     "F": {"name": "Kern mit festem SL 30 / TP 30 Pips (Fatihs Vorgabe 13.11.)",
-          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11, 0),
+          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11 + _V, 0),
           "sl_pips": 30.0, "tp_pips": 30.0},
     "G": {"name": "Ausbruch per Docht, festes SL 30 / TP 30 Pips",
-          "ausbruch": "docht", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11, 0),
+          "ausbruch": "docht", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11 + _V, 0),
           "sl_pips": 30.0, "tp_pips": 30.0},
 }
 
@@ -213,7 +218,7 @@ def tag_simulieren(ks, v):
     pips = richtung * (exit_preis - entry) / PIP
     return {**info, "status": "Trade"}, {
         "richtung": richtung, "entry": round(entry, 3), "sl": round(sl, 3), "tp": round(tp, 3),
-        "entry_zeit": t0.strftime("%H:%M"), "range_berlin": t0.replace(hour=7, minute=30).astimezone(BER).strftime("%H:%M"), "entry_zeit_berlin": t0.astimezone(BER).strftime("%H:%M"),
+        "entry_zeit": t0.strftime("%H:%M"), "range_berlin": t0.replace(hour=RANGE_VON.hour, minute=30).astimezone(BER).strftime("%H:%M"), "entry_zeit_berlin": t0.astimezone(BER).strftime("%H:%M"),
         "exit_zeit": exit_k[0].strftime("%H:%M"), "dauer_min": int((exit_k[0] - t0).total_seconds() // 60),
         "grund": grund, "pips_brutto": round(pips, 1), "risiko_pips": round(risiko, 1)}
 
@@ -299,7 +304,8 @@ def main():
             w.writerows(tagliste)
     (aus / "ergebnis.json").write_text(json.dumps(erg, ensure_ascii=False, indent=1))
     z = [f"# London-Retest GBP/JPY · {erg['zeitraum'][0]} bis {erg['zeitraum'][1]} · {erg['tage']} Handelstage",
-         "Range-Kerze 07:30–07:35 UTC (08:30 Berlin im Winter, 09:30 im Sommer), alle Zeiten der Tabelle UTC", ""]
+         ("Range-Kerze 08:30–08:35 London-Ortszeit (09:30 Berlin ganzjährig), Zeiten der Tabelle London-Ortszeit" if LONDON_ZEIT else
+          "Range-Kerze 07:30–07:35 UTC (08:30 Berlin im Winter, 09:30 im Sommer), alle Zeiten der Tabelle UTC"), ""]
     for vid, x in erg["varianten"].items():
         k0, k3 = x["kennzahlen"]["kosten_0"], x["kennzahlen"]["kosten_3"]
         z.append(f"## {vid}: {x['name']}")
