@@ -13,7 +13,7 @@ permissions:
 jobs:
   backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,7 +25,7 @@ jobs:
       - name: Kurse laden (Bid und Ask, 1 Minute)
         run: |
           for p in bid ask; do
-            npx -y dukascopy-node@1.51.1 -i gbpjpy -from 2026-05-15 -to now -t m1 -p "$p" -f csv \
+            npx -y dukascopy-node@1.51.1 -i gbpjpy -from 2024-06-01 -to now -t m1 -p "$p" -f csv \
               -dir daten -fn "gbpjpy_m1_$p" -r 5 -rp 2000 -bs 5 -bp 1500 \
               --chrome-path "$(command -v google-chrome || true)" -s
           done
@@ -33,11 +33,11 @@ jobs:
           head -3 daten/*bid*.csv
       - name: Backtest
         run: |
-          python3 -I backtest/london_retest.py "$(ls daten/*bid*.csv | head -1)" "$(ls daten/*ask*.csv | head -1)" ergebnisse 100
+          python3 -I backtest/london_retest.py "$(ls daten/*bid*.csv | head -1)" "$(ls daten/*ask*.csv | head -1)" ergebnisse_2j 600
       - name: Ergebnisse sichern
         run: |
           git config user.name "fx-backtest"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ergebnisse
-          git commit -m "Backtest-Ergebnisse London-Retest ($(date -u +%F))" || echo "keine Änderungen"
+          git add ergebnisse_2j
+          git commit -m "Backtest-Ergebnisse London-Retest 2 Jahre ($(date -u +%F))" || echo "keine Änderungen"
           git push

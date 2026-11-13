@@ -47,6 +47,12 @@ VARIANTEN = {
           "ausbruch": "docht", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11, 0)},
     "E": {"name": "Wie Kern, aber Einstieg bis 15:00 UTC (16:00 Berlin im Winter) erlaubt",
           "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(15, 0)},
+    "F": {"name": "Kern mit festem SL 30 / TP 30 Pips (Fatihs Vorgabe 13.11.)",
+          "ausbruch": "schluss", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11, 0),
+          "sl_pips": 30.0, "tp_pips": 30.0},
+    "G": {"name": "Ausbruch per Docht, festes SL 30 / TP 30 Pips",
+          "ausbruch": "docht", "ruecklauf": "beruehrung", "einstieg": "stop", "entry_bis": time(11, 0),
+          "sl_pips": 30.0, "tp_pips": 30.0},
 }
 
 
@@ -184,7 +190,8 @@ def tag_simulieren(ks, v):
                 break
     if e_index is None:
         return {**info, "status": "kein erneuter Ausbruch bis Einstiegsschluss"}, None
-    sl, tp = gegen, entry + richtung * TP_PIPS * PIP
+    sl = entry - richtung * v["sl_pips"] * PIP if v.get("sl_pips") else gegen
+    tp = entry + richtung * v.get("tp_pips", TP_PIPS) * PIP
     risiko = abs(entry - sl) / PIP
     if risiko <= 0:
         return {**info, "status": "Einstieg schon jenseits des Stops"}, None
