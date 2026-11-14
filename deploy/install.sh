@@ -70,6 +70,8 @@ systemctl daemon-reload
 systemctl enable fx-alert.service >/dev/null 2>&1
 for t in fx-report fx-setup fx-evaluate fx-refresh fx-update fx-backtest; do systemctl enable --now "$t.timer" >/dev/null 2>&1; done
 systemctl restart fx-alert.service
+systemctl enable fx-muster.service >/dev/null 2>&1
+systemctl restart fx-muster.service
 chmod 600 "$DATA/fx.db" 2>/dev/null || true
 
 # Neue Auswertung (zuletzt: Wochen-Rückblick): Backtest einmalig sofort im Hintergrund statt erst Sonntag 12:00

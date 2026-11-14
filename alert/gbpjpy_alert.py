@@ -28,7 +28,7 @@ TIINGO_TICKER = "gbpjpy"
 FINNHUB_SYMBOL = "OANDA:GBP_JPY"
 # Live-Kurse fürs Dashboard (Alarme nur für TIINGO_TICKER)
 LIVE_PAARE = {"gbpjpy": "OANDA:GBP_JPY", "usdjpy": "OANDA:USD_JPY", "gbpusd": "OANDA:GBP_USD"}
-LIVE_SCHREIBEN_SEK = 30
+LIVE_SCHREIBEN_SEK = 5   # der Muster-Wächter (fx-muster) liest live.json alle 5 s -> Meldungen praktisch sofort
 TIINGO_THRESHOLD = 5        # 5 = alle Kursupdates
 
 STATUS_AB_UHR = 8           # stündliche "Läuft"-Meldung ab dieser Uhrzeit (deutsche Zeit) ...

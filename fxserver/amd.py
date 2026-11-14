@@ -252,6 +252,22 @@ def _trade_dict(tr) -> dict | None:
 
 def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int | None = None,
             kerzen_5: list[tuple] | None = None) -> list[str]:
+    """Ein Durchlauf unter Dateisperre: Der Muster-Wächter (alle 5 s) und der Minuten-Lauf (refresh) können sich
+    so nicht überholen – jede Meldung geht genau einmal raus."""
+    import fcntl
+    from .common import DATA_DIR
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        sperre = open(DATA_DIR / "muster.lock", "w")
+    except OSError:
+        return _pruefen(con, jetzt, senden, treiber_stufe, kerzen_5)
+    with sperre:
+        fcntl.flock(sperre, fcntl.LOCK_EX)
+        return _pruefen(con, jetzt, senden, treiber_stufe, kerzen_5)
+
+
+def _pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int | None = None,
+             kerzen_5: list[tuple] | None = None) -> list[str]:
     """Ein Durchlauf: erkennt Phasen, verfolgt Trades, schickt Meldungen bei Wechseln. Gibt die Texte zurück."""
     from .setup import kerzen_live
     _db(con)
@@ -427,3 +443,32 @@ def export_daten(con, jetzt: datetime) -> dict:
         liste.append({"date": r["date"], "name": d["name"], "richtung": d["richtung"], "entry": d["entry"],
                       "sl": d["sl"], "tp": d["tp"], "result": res})
     return {"varianten": varianten, "liste": liste, "bilanz": bilanz(con)}
+
+
+def wache(pause: float = 5.0) -> None:
+    """Dauerläufer (fx-muster.service): prüft alle Muster, sobald live.json neu geschrieben wurde (alle ~5 s).
+    Damit kommen Vorwarnung, Entry und Ziel/Stop wenige Sekunden nach dem Kurs – nicht erst mit dem Minuten-Lauf."""
+    import time as _t
+    from .common import PUBLIC_DIR, db, kv_get, whatsapp
+    letzte = 0.0
+    log.info("Muster-Wächter gestartet (alle %.0f s)", pause)
+    while True:
+        try:
+            if jetzt_berlin().weekday() < 5 or fx_tag(jetzt_berlin()).weekday() < 5:
+                m = (PUBLIC_DIR / "live.json").stat().st_mtime
+                if m != letzte:
+                    letzte = m
+                    con = db()
+                    try:
+                        pruefen(con, senden=lambda text: whatsapp(text, log), treiber_stufe=kv_get(con, "treiber:stufe"))
+                    finally:
+                        con.close()
+        except FileNotFoundError:
+            pass
+        except Exception as e:  # noqa: BLE001
+            log.warning("Muster-Wächter: %s", e)
+        _t.sleep(pause)
+
+
+if __name__ == "__main__":
+    wache()

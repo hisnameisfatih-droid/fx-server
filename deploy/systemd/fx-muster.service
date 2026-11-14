@@ -1,0 +1,17 @@
+[Unit]
+Description=FX-Server: Muster-Wächter (AMD, 3-6-9, London-Retest) – prüft alle 5 s, Meldungen sofort
+After=network-online.target fx-alert.service
+Wants=network-online.target
+StartLimitIntervalSec=0
+ConditionPathExists=/etc/fx-server/env
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/fx-server
+ExecStart=/opt/fx-server/venv/bin/python -u -m fxserver.amd
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
