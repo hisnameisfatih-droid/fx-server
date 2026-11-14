@@ -411,7 +411,7 @@ function lrSchritte(v) {
   const sp = d?.spanne ? `${zahl(d.spanne[1])} – ${zahl(d.spanne[0])} (${zahl(d.breite_pips, 0)} P)` : "bildet sich";
   const a = { kl: d?.spanne ? "fertig" : (ph === "akkumulation" ? "aktiv" : "offen"), titel: "Range", text: `${v.range_von}–${v.range_bis}: ${sp}` };
   let b = { kl: d?.spanne ? "aktiv" : "offen", titel: "Ausbruch", text: `5-Min-Schluss über ${d?.spanne ? zahl(d.spanne[0]) : "Hoch"} oder unter ${d?.spanne ? zahl(d.spanne[1]) : "Tief"} bis ${v.manip_bis}` };
-  let c = { kl: "offen", titel: "Rücklauf → Entry", text: "Kurs kommt zurück in die Range → Stop-Order an der Ausbruchskante, SL/TP 30 Pips" };
+  let c = { kl: "offen", titel: "Rücklauf → Entry", text: "Kurs kommt zurück in die Range → Stop-Order an der Ausbruchskante, SL 30 / TP 45 Pips" };
   if (d?.richtung) {
     b = { kl: "fertig", titel: "Ausbruch", text: `nach ${d.richtung > 0 ? "oben" : "unten"} (${d.ausbruch_zeit})` };
     c.kl = ph === "ausbruch" ? "aktiv" : c.kl;
@@ -465,7 +465,7 @@ function renderAmd() {
       <div class="amd-bt ${v.bewaehrt ? "ok" : ""}">${v.backtest?.n ? `${v.bewaehrt ? "✅ Backtest positiv – WhatsApp an" : (v.immer ? "📲 WhatsApp an (Vorwarnung, Entry, Ergebnis) – Backtest nicht positiv" : "🔬 Nur Beobachtung – Backtest nicht positiv, keine WhatsApp")} · ${v.backtest.n} Trades, ${pz(v.backtest.trefferquote)} Treffer, Ø ${vz(v.backtest.avg_pips, 1, " P")} nach Kosten` : "Backtest folgt – bis dahin nur Beobachtung"}</div>
       <ol class="amd-schritte">${amdSchritte(v).map((s) => `<li class="${s.kl}"><span class="t">${esc(s.titel)}</span><span class="x">${esc(s.text)}</span></li>`).join("")}</ol>
     </details>`).join("") +
-    `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. London-Retest: Range = 5-Min-Kerze 09:30 Berlin (30 Min nach London-Open), Ausbruch per Schlusskurs, Rücklauf in die Range → Stop-Order an der Kante, SL/TP je 30 Pips, gelöscht bei Erreichen der Gegenseite oder um 13:00. WhatsApp für alle hier gezeigten Muster: Vorwarnung, sobald nur noch der Auslöser fehlt, dann Entry, Entwarnung oder Ergebnis. Keine Anlageberatung.</p>`;
+    `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. London-Retest: Range = 5-Min-Kerze 09:30 Berlin (30 Min nach London-Open), Ausbruch per Schlusskurs, Rücklauf in die Range → Stop-Order an der Kante, SL 30 / TP 45 Pips, gelöscht bei Erreichen der Gegenseite oder um 13:00. Ausbruch nach unten erst nach 09:45 = schwaches Setup, wird ausgelassen. WhatsApp für alle hier gezeigten Muster: Vorwarnung, sobald nur noch der Auslöser fehlt, dann Entry, Entwarnung oder Ergebnis. Keine Anlageberatung.</p>`;
 }
 
 /* ---------------- Studie: was GBP/JPY bewegt hat ---------------- */

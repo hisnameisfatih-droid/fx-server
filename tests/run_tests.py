@@ -511,7 +511,9 @@ bull = lond + [k15("14:00", 209.0, 209.02, 208.84, 208.86), k15("14:15", 208.86,
 e_bull = strategien.amd_erkennen(bull, 1.0, ny)
 pruefe(e_bull["phase"] == "signal" and e_bull["richtung"] == 1 and e_bull["sl"] == 208.79 and e_bull["tp"] == 209.55,
        f"AMD bullisch (London → New York): LONG {e_bull.get('entry')} SL {e_bull.get('sl')} TP {e_bull.get('tp')}")
-# Live: Verdacht -> Signal -> Ziel, jeweils eine Meldung
+# Live: Verdacht -> Signal -> Ziel, jeweils eine Meldung (nur die AMD-Varianten; London-Retest hat eigene Tests)
+_live_alle = list(amd_mod.LIVE)
+amd_mod.LIVE[:] = [x for x in amd_mod.LIVE if not x["id"].startswith("lr_")]
 amd_txt = []
 amd_mod._db(con)
 con.execute("INSERT OR REPLACE INTO amd(date, variante, phase, data_json, state, result_json) VALUES(?,?,?,?,?,?)",
@@ -524,6 +526,7 @@ m3 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=16), senden=amd_txt.appe
 m4 = amd_mod.pruefen(con, jetzt_amd + timedelta(minutes=45), senden=amd_txt.append, kerzen_5=bear)
 pruefe(len(m1) == 1 and "Achtung, gleich mögliches Entry (Asien → London)" in m1[0] and len(m2) == 1 and "AMD-Signal SHORT" in m2[0] and "Treiber stützen" in m2[0]
        and m3 == [] and len(m4) == 1 and "Ziel erreicht" in m4[0], f"AMD live: Verdacht, Signal, Ziel ({[x.splitlines()[0] for x in amd_txt]})")
+amd_mod.LIVE[:] = _live_alle
 pruefe(len(amd_txt) == 3 and amd_txt[0].startswith("⚠️ Achtung") and "AMD-Signal SHORT" in amd_txt[1] and "Ziel erreicht" in amd_txt[2],
        "Asien → London: WhatsApp für Vorwarnung, Entry und Ergebnis trotz ❌-Backtest")
 pruefe("Dann SHORT ca. 210,250 | SL ca. 210,380 | TP 209,800" in m1[0] and "bis 11:00 wieder unter 210,250" in m1[0],
@@ -789,15 +792,15 @@ def _lr_lauf(ks):
         amd_mod.LIVE[:] = alt_live
 
 
-# 1) Ausbruch nach oben (09:35 schließt 210,14), Rücklauf 09:45 berührt 210,08, 09:50 über 210,10 -> Entry, dann TP +30
+# 1) Ausbruch nach oben (09:35 schließt 210,14), Rücklauf 09:45 berührt 210,08, 09:50 über 210,10 -> Entry, dann TP +45
 (_ph, _st, _dd), _m = _lr_lauf(_lr_tag([(210.05, 210.16, 210.04, 210.14), (210.14, 210.18, 210.12, 210.15),
                                         (210.15, 210.15, 210.08, 210.09), (210.09, 210.20, 210.09, 210.19),
-                                        (210.19, 210.45, 210.18, 210.44)]))
-pruefe(_ph == "signal" and _st == "tp" and _dd["entry"] == 210.10 and _dd["sl"] == 209.80 and _dd["tp"] == 210.40
+                                        (210.19, 210.60, 210.18, 210.58)]))
+pruefe(_ph == "signal" and _st == "tp" and _dd["entry"] == 210.10 and _dd["sl"] == 209.80 and _dd["tp"] == 210.55
        and _dd["storno"] == 210.00 and _dd["ruecklauf_zeit"] == "09:45",
-       f"London-Retest: Buy-Stop an der Range-Kante, SL/TP 30, Ziel erreicht ({_ph}/{_st})")
+       f"London-Retest: Buy-Stop an der Range-Kante, SL 30 / TP 45, Ziel erreicht ({_ph}/{_st})")
 pruefe([x.split(" (")[0] for x in _m] == ["⚠️ Achtung, gleich mögliches Entry", "🟢 Entry ausgelöst", "✅ Ziel erreicht"]
-       and "BUY-STOP 210,100 | SL 209,800 (−30 P) | TP 210,400 (+30 P)" in _m[0] and "Order löschen" in _m[0],
+       and "BUY-STOP 210,100 | SL 209,800 (−30 P) | TP 210,550 (+45 P)" in _m[0] and "Order löschen" in _m[0],
        f"London-Retest: WhatsApp Vorwarnung beim Rücklauf, Entry, Ziel ({[x.splitlines()[0] for x in _m]})")
 print("\n    " + _m[0].replace("\n", "\n    ") + "\n")
 # 2) Nach dem Rücklauf fällt der Kurs bis zur Gegenseite 210,00, ohne vorher neu auszubrechen -> kein Trade
@@ -808,6 +811,16 @@ pruefe(_st == "verfallen" and any(x.startswith("⏹ Kein Trade (London-Retest)")
 # 3) Ausbruch ohne Rücklauf -> keine Vorwarnung, kein Trade
 (_ph, _st, _dd), _m = _lr_lauf(_lr_tag([(210.05, 210.16, 210.04, 210.14)] + [(210.14 + i * .02, 210.18 + i * .02, 210.12 + i * .02, 210.16 + i * .02) for i in range(50)]))
 pruefe(_ph == "kein" and not _m, f"London-Retest: kein Rücklauf -> keine Nachricht ({_ph}, {len(_m)} Nachrichten)")
+# 4) Ausbruch nach unten erst mit der Kerze ab 09:45 -> schwaches Setup, auslassen, keine Order
+(_ph, _st, _dd), _m = _lr_lauf(_lr_tag([(210.05, 210.08, 210.02, 210.04), (210.04, 210.07, 210.01, 210.03),
+                                        (210.03, 210.04, 209.94, 209.95), (209.95, 210.02, 209.94, 210.01)]))
+pruefe(_ph == "kein" and _dd.get("schwach") and len(_m) == 1 and _m[0].startswith("⚠️ Schwaches Setup (London-Retest)")
+       and "09:45" in _m[0], f"London-Retest: später Ausbruch nach unten -> schwach, nur Hinweis ({[x[:40] for x in _m]})")
+# 5) Ausbruch nach unten mit der Kerze ab 09:40 -> noch früh genug, normaler Ablauf
+(_ph, _st, _dd), _m = _lr_lauf(_lr_tag([(210.05, 210.08, 210.02, 210.04), (210.04, 210.05, 209.95, 209.96),
+                                        (209.96, 210.01, 209.95, 210.00), (210.00, 210.00, 209.90, 209.91)]))
+pruefe(_ph == "signal" and not _dd.get("schwach") and _m and _m[0].startswith("⚠️ Achtung, gleich mögliches Entry")
+       and "SELL-STOP 210,000" in _m[0], f"London-Retest: Ausbruch nach unten bis 09:45 -> normales Setup ({_ph})")
 
 print("ALLE TESTS OK" if not FEHLER else f"{len(FEHLER)} FEHLER: {FEHLER}")
 sys.exit(1 if FEHLER else 0)

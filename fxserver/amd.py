@@ -340,6 +340,9 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
                          else text_signal(erg, treiber_stufe, historie_text(con, p["id"], heute)))
         elif erg["phase"] == "kein" and alt_phase == "manipulation":
             texte.append(f"⏹ Entwarnung ({erg['name']}): kein Entry – {erg['grund']}.")
+        elif erg["phase"] == "kein" and erg.get("schwach"):
+            texte.append(f"⚠️ Schwaches Setup ({erg['name']}): Ausbruch nach unten erst um {erg['ausbruch_zeit']} – "
+                         f"laut Regel auslassen, keine Order. (Im Backtest nur ~44 % Treffer.)")
     con.commit()
     if texte and senden:
         for t in texte:

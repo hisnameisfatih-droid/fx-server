@@ -364,8 +364,10 @@ Z369_VARIANTEN = [
 
 # ------------------------------------------------------------
 # London-Retest (Fatih, 14.11.2026): Range = 5-Min-Kerze 30 Min nach London-Open, Ausbruch per Schlusskurs,
-# Rücklauf in die Range -> Stop-Order an der Ausbruchskante, SL/TP fest 30 Pips, Storno an der Gegenseite.
-# Backtest 2 Jahre (1-Min-Kurse, 3 Pips Kosten): 464 Trades, 58,6 % Treffer, +1056 Pips (backtest/london_retest.py).
+# Rücklauf in die Range -> Stop-Order an der Ausbruchskante, SL 30 / TP 45 Pips, Storno an der Gegenseite.
+# Schwache Fälle (Ausbruch nach unten erst nach 09:45 Berlin) werden ausgelassen.
+# Backtest Juni 2024–Nov. 2026 (1-Min-Kurse, 3 Pips Kosten): 425 Trades, 55,1 % Treffer, +2826 Pips (≈ +94 R),
+# PF 1,46, größter Rückgang 7,6 R; beide Jahre positiv (backtest/london_retest.py, Branch backtest/london-retest).
 # ------------------------------------------------------------
 def lr_zeiten(datum: str, p: dict) -> tuple[time, time, time]:
     """Range-Start, Range-Ende und Einstiegsschluss in Berliner Zeit (aus Ortszeit p["tz"])."""
@@ -410,6 +412,12 @@ def lr_erkennen(kerzen, atr: float, p: dict, datum: str, letzte_offen: bool = Fa
                 else {**basis, "phase": "akkumulation"})
     kante, gegen = (hoch, tief) if richtung > 0 else (tief, hoch)
     d = {**basis, "richtung": richtung, "ausbruch_zeit": hm(aus_t)}
+    # Schwaches Setup: Ausbruch nach unten, der erst nach den ersten zwei Kerzen nach der Range kommt
+    # (Backtest 2 Jahre: ~44 % Treffer) -> laut Regel auslassen, keine Order.
+    frueh_bis = (datetime.combine(datetime(2000, 1, 1).date(), B) + timedelta(minutes=p.get("frueh_min", 10))).time()
+    if p.get("schwach_auslassen") and richtung < 0 and tm(aus_t) >= tm(frueh_bis):
+        return {**d, "phase": "kein", "schwach": True,
+                "grund": f"schwaches Setup – Ausbruch nach unten erst {hm(aus_t)} (nach {hm(frueh_bis)}), laut Regel auslassen"}
     for t, o, h, l, c in (k for k in kerzen if k[0] > aus_t):
         if tm(t) >= tm(Z):
             return {**d, "phase": "kein", "grund": "kein Rücklauf in die Range bis " + hm(Z)}
@@ -440,7 +448,8 @@ def lr(ctx: Kontext, p: dict) -> Setup | None:
 
 LR_VARIANTEN = [
     {"strategie": "lr", "id": "lr_london", "name": "London-Retest", "tz": "Europe/London", "range_von": "08:30",
-     "entry_bis": "12:00", "sl_pips": 30.0, "tp_pips": 30.0, "min_breite_pips": 1.0, "schluss": time(21, 0), "live": True},
+     "entry_bis": "12:00", "sl_pips": 30.0, "tp_pips": 45.0, "min_breite_pips": 1.0, "schluss": time(21, 0), "live": True,
+     "schwach_auslassen": True, "frueh_min": 10},
 ]
 
 STRATEGIEN = {"orb": orb, "reversion": reversion, "trend": trend, "amd": amd, "z369": z369, "lr": lr}

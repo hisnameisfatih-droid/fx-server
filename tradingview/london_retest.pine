@@ -2,14 +2,16 @@
 // London-Retest (Fatih, 14.11.2026) – gleiche Regeln wie auf dem FX-Server:
 // Range = 5-Min-Kerze 30 Min nach London-Open (08:30–08:35 London = 09:30–09:35 Berlin, ganzjährig).
 // Ausbruch = 5-Min-Schlusskurs über/unter der Range. Kommt der Kurs danach zurück in die Range:
-// Alarm "gleich mögliches Entry" und Stop-Order an der Ausbruchskante, SL/TP je 30 Pips.
+// Alarm "gleich mögliches Entry" und Stop-Order an der Ausbruchskante, SL 30 / TP 45 Pips.
+// Schwaches Setup (Ausbruch nach unten erst nach den ersten zwei Kerzen nach der Range, also nach 09:45 Berlin): auslassen.
 // Order löschen, wenn vorher die Gegenseite der Range erreicht wird oder um 12:00 London (13:00 Berlin).
 // Für 1- und 5-Minuten-Charts. Alarm anlegen mit Bedingung "London-Retest" -> "Any alert() function call".
 indicator("London-Retest (Range 30 Min nach London-Open)", shorttitle = "London-Retest", overlay = true,
      max_boxes_count = 100, max_lines_count = 300, max_labels_count = 200)
 
 slPips  = input.float(30, "SL (Pips)", minval = 1)
-tpPips  = input.float(30, "TP (Pips)", minval = 1)
+tpPips  = input.float(45, "TP (Pips)", minval = 1)
+schwachAus = input.bool(true, "Schwache Setups auslassen (Ausbruch nach unten nach 09:45 Berlin)")
 pipGr   = input.float(0.01, "Pip-Größe (JPY-Paare: 0.01)")
 startH  = input.int(8, "Range-Start Stunde (London-Ortszeit)", minval = 0, maxval = 23)
 startM  = input.int(30, "Range-Start Minute", minval = 0, maxval = 55, step = 5)
@@ -73,11 +75,19 @@ if zustand == 1 and time >= rEnde and time < bisZeit and fuenfMinSchluss
         label.new(bar_index, high, "Ausbruch ▲", color = color.new(color.green, 30), textcolor = color.white,
              style = label.style_label_down, size = size.tiny)
     else if close < rL
-        zustand := 2
         dir := -1
         ausIdx := bar_index
-        label.new(bar_index, low, "Ausbruch ▼", color = color.new(color.red, 30), textcolor = color.white,
-             style = label.style_label_up, size = size.tiny)
+        // Ausbruchskerze (5 Min) beginnt erst nach den ersten zwei Kerzen nach der Range -> schwach
+        if schwachAus and time_close - 5 * 60 * 1000 >= rEnde + 10 * 60 * 1000
+            zustand := 5
+            label.new(bar_index, low, "Ausbruch ▼ spät – schwach, auslassen", color = color.new(color.gray, 20),
+                 textcolor = color.white, style = label.style_label_up, size = size.tiny)
+            alert("⚠️ London-Retest " + syminfo.ticker + ": schwaches Setup (Ausbruch nach unten erst nach 09:45 Berlin) – auslassen",
+                 alert.freq_once_per_bar)
+        else
+            zustand := 2
+            label.new(bar_index, low, "Ausbruch ▼", color = color.new(color.red, 30), textcolor = color.white,
+                 style = label.style_label_up, size = size.tiny)
 
 // 3) Rücklauf in die Range -> Stop-Order an der Ausbruchskante
 if zustand == 2 and bar_index > ausIdx
