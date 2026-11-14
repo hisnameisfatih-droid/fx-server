@@ -6,6 +6,7 @@ für beide Varianten (Asien → London, London → New York). Nachricht bei
   - Signal (Kerze schließt zurück in der Spanne -> Entry/SL/TP in Gegenrichtung)
   - Entwarnung (echter Ausbruch / kein Rücklauf / keine Bestätigung)
   - bei 3-6-9: Limit gefüllt bzw. Limit verfallen (kein Trade)
+  - London-Retest: Vorwarnung beim Rücklauf in die Range (mit Stop-Order), Entry ausgelöst, Kein Trade
   - Ziel / Stop / Tagesende
 Abschluss mit vollständigen Tiingo-15-Min-Kerzen um 23:05 (evaluate.py). Die Regeln sind identisch mit
 dem Backtest (backtest.py, Variante amd_london / amd_ny). WhatsApp nur für Varianten mit ✅ im Backtest,
@@ -20,8 +21,8 @@ from datetime import datetime, time, timedelta, timezone
 
 from . import forecast
 from .common import TZ_BERLIN, de_zahl, fx_tag, fx_tag_ende, get_logger, jetzt_berlin
-from .strategien import (AMD_VARIANTEN, PIP, Z369_VARIANTEN, amd_erkennen, amd_setup, simuliere, tm, z369_erkennen,
-                         z369_setup, z369_zeiten)
+from .strategien import (AMD_VARIANTEN, LR_VARIANTEN, PIP, Z369_VARIANTEN, amd_erkennen, amd_setup, lr_erkennen,
+                         lr_setup, lr_zeiten, simuliere, tm, z369_erkennen, z369_setup, z369_zeiten)
 
 log = get_logger("amd")
 KOSTEN_PIPS = 3.0
@@ -30,8 +31,9 @@ SCHEMA = """CREATE TABLE IF NOT EXISTS amd (
   PRIMARY KEY (date, variante)
 );"""
 RICHTUNG = {1: "LONG", -1: "SHORT"}
-# live verfolgt: beide AMD-Varianten + je Zeitzone die Standard-Variante der 3-6-9 Time Map (Rücklauf, 2R)
-LIVE = AMD_VARIANTEN + [p for p in Z369_VARIANTEN if p["live"]]
+# live verfolgt: beide AMD-Varianten, je Zeitzone die Standard-Variante der 3-6-9 Time Map (Rücklauf, 2R)
+# und der London-Retest (Range 30 Min nach London-Open, seit 14.11.2026)
+LIVE = AMD_VARIANTEN + [p for p in Z369_VARIANTEN if p["live"]] + [p for p in LR_VARIANTEN if p["live"]]
 ALLE_MELDEN = __import__("os").getenv("MUSTER_ALLE_MELDEN", "0") == "1"
 # Varianten, die immer per WhatsApp melden – Vorwarnung, Entry, Ergebnis –, auch ohne ✅ im Backtest.
 # Fatihs Wunsch: erst Asien → London (29.10.2026), seit 01.11.2026 alle live verfolgten AMD- und 3-6-9-Muster.
@@ -55,6 +57,31 @@ def bewaehrt(vid: str) -> tuple[bool, dict | None]:
 
 def _ist369(p_or_d) -> bool:
     return str(p_or_d.get("variante") or p_or_d.get("id", "")).startswith("z369")
+
+
+def _ist_lr(p_or_d) -> bool:
+    return str(p_or_d.get("variante") or p_or_d.get("id", "")).startswith("lr_")
+
+
+def _familie(p_or_d) -> str:
+    return "369" if _ist369(p_or_d) else "lr" if _ist_lr(p_or_d) else "amd"
+
+
+def text_lr(d: dict, historie: str | None = None) -> str:
+    """London-Retest: Kurs ist nach dem Ausbruch zurück in der Range -> Stop-Order an der Ausbruchskante."""
+    r = d["richtung"]
+    hoch, tief = d["spanne"]
+    z = [f"⚠️ Achtung, gleich mögliches Entry ({d['name']}) {d['ruecklauf_zeit']}",
+         f"Range {d['range_von']}–{d['range_bis']}: {de_zahl(tief)} – {de_zahl(hoch)} ({d['breite_pips']:.0f} P). "
+         f"Ausbruch nach {'oben' if r > 0 else 'unten'} ({d['ausbruch_zeit']}), jetzt zurück in der Range.",
+         f"Order: {'BUY' if r > 0 else 'SELL'}-STOP {de_zahl(d['entry'])} | SL {de_zahl(d['sl'])} (−{d['risiko_pips']} P) | "
+         f"TP {de_zahl(d['tp'])} (+{d['ziel_pips']} P)",
+         f"Gültig bis {d['gueltig_bis']}. Läuft der Kurs vorher bis {de_zahl(d['storno'])} (Gegenseite der Range), "
+         f"Order löschen – dann kein Trade."]
+    if historie:
+        z.append(historie)
+    z.append("Keine Anlageberatung.")
+    return "\n".join(z)
 
 
 def _hm(s: str) -> time:
@@ -86,7 +113,7 @@ def _atr(con, heute: str) -> float | None:
 
 
 def _variante(vid: str) -> dict:
-    return next(p for p in AMD_VARIANTEN + Z369_VARIANTEN if p["id"] == vid)
+    return next(p for p in AMD_VARIANTEN + Z369_VARIANTEN + LR_VARIANTEN if p["id"] == vid)
 
 
 def verlauf(con, vid: str, vor_datum: str | None = None, n: int = 5) -> list[dict]:
@@ -183,6 +210,8 @@ def signal_schluss(d: dict) -> str:
     """Uhrzeit, zu der das Signal feststand: Schluss der Signal-Kerze (3-6-9: 5 Min, AMD: 15 Min nach Start)."""
     if d.get("signal_schluss"):
         return d["signal_schluss"]
+    if _ist_lr(d):
+        return d["signal_zeit"]
     t = datetime.combine(datetime(2000, 1, 1).date(), _hm(d["signal_zeit"]))
     return (t + timedelta(minutes=5 if _ist369(d) else 15)).strftime("%H:%M")
 
@@ -208,7 +237,7 @@ def text_signal(d: dict, treiber_stufe: int | None = None, historie: str | None 
 
 def _trade(d: dict, kerzen: list[tuple], laufend: bool, kosten: float = 0.0):
     p = _variante(d["variante"])
-    setup = z369_setup(d, p) if _ist369(d) else amd_setup(d, p, _hm(d["start"]))
+    setup = (z369_setup(d, p) if _ist369(d) else lr_setup(d, p) if _ist_lr(d) else amd_setup(d, p, _hm(d["start"])))
     return simuliere(setup, kerzen, kosten, d.get("date", ""), laufend=laufend)
 
 
@@ -245,21 +274,30 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
                 continue
             tr = _trade(d, k5, laufend=True)   # 5-Min-Kerzen: Ziel/Stop schneller erkannt
             ende = _hm(d.get("gueltig_bis") or d["start"])
+            storno = d.get("storno")
+            storniert = tr is None and storno is not None and any(
+                tm(k[0]) >= tm(_hm(d["start"])) and ((d["richtung"] > 0 and k[3] <= storno) or (d["richtung"] < 0 and k[2] >= storno))
+                for k in k5)
             if tr is None:   # verfallen erst, wenn eine Kerze nach dem Entry-Fenster begonnen hat (wie simuliere)
-                neu_state = "verfallen" if any(tm(k[0]) > tm(ende) for k in k5) else "wartet"
+                neu_state = "verfallen" if storniert or any(tm(k[0]) > tm(ende) for k in k5) else "wartet"
             else:
                 neu_state = "läuft" if tr.grund == "offen" else tr.grund
             if neu_state != alt["state"]:
                 con.execute("UPDATE amd SET state=?, trade_json=?, updated=? WHERE date=? AND variante=?",
                             (neu_state, json.dumps(_trade_dict(tr)), jetzt.isoformat(), heute, p["id"]))
-                limit = d.get("typ") == "limit"
+                limit, stop = d.get("typ") == "limit", d.get("typ") == "stop"
                 if neu_state == "verfallen":
-                    texte.append(f"⏹ Kein Trade ({d['name']}): "
-                                 + (f"Limit {de_zahl(d['entry'])} bis {d['gueltig_bis']} nicht erreicht – Order löschen."
-                                    if limit else "Einstieg nicht zustande gekommen (keine Kurse zur Einstiegszeit)."))
-                elif limit and alt["state"] == "wartet":   # Limit gefüllt (auch wenn es direkt bis TP/SL lief)
-                    texte.append(f"🟢 Limit gefüllt ({d['name']}): {RICHTUNG[tr.richtung]} {de_zahl(tr.entry)} um "
-                                 f"{tr.t_entry:%H:%M} | SL {de_zahl(tr.sl)} | TP {de_zahl(tr.tp)}")
+                    if storniert:
+                        grund = f"Kurs ist vor dem Einstieg bis {de_zahl(storno)} (Gegenseite) gelaufen – Order löschen."
+                    elif limit or stop:
+                        grund = (f"{'Limit' if limit else 'Stop-Order'} {de_zahl(d['entry'])} bis {d['gueltig_bis']} "
+                                 f"nicht erreicht – Order löschen.")
+                    else:
+                        grund = "Einstieg nicht zustande gekommen (keine Kurse zur Einstiegszeit)."
+                    texte.append(f"⏹ Kein Trade ({d['name']}): {grund}")
+                elif (limit or stop) and alt["state"] == "wartet":   # Order gefüllt (auch wenn es direkt bis TP/SL lief)
+                    texte.append(f"🟢 {'Limit gefüllt' if limit else 'Entry ausgelöst'} ({d['name']}): {RICHTUNG[tr.richtung]} "
+                                 f"{de_zahl(tr.entry)} um {tr.t_entry:%H:%M} | SL {de_zahl(tr.sl)} | TP {de_zahl(tr.tp)}")
                 if neu_state in ("tp", "sl", "zeit"):
                     symbol = {"tp": "✅ Ziel erreicht", "sl": "❌ Stop erreicht", "zeit": "⏹ zum Tagesende geschlossen"}[neu_state]
                     txt = (f"{symbol} ({d['name']}): {RICHTUNG[tr.richtung]} {de_zahl(tr.entry)} → "
@@ -273,7 +311,12 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
                                 f"{len(bisher) - tp_n - sl_n}× Tagesende, Summe {_vz(summe)} Pips")
                     texte.append(txt)
             continue
-        erg = z369_erkennen(k5_fertig, atr, p, heute) if _ist369(p) else amd_erkennen(kerzen, atr, p)
+        if _ist369(p):
+            erg = z369_erkennen(k5_fertig, atr, p, heute)
+        elif _ist_lr(p):   # laufende Kerze mit: Rücklauf in die Range sofort melden
+            erg = lr_erkennen(k5, atr, p, heute, letzte_offen=len(k5) > len(k5_fertig))
+        else:
+            erg = amd_erkennen(kerzen, atr, p)
         if not erg or not k5_fertig:
             continue
         erg["date"] = heute
@@ -293,7 +336,8 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
         if erg["phase"] == "manipulation":
             texte.append(text_verdacht(erg))
         elif erg["phase"] == "signal":
-            texte.append(text_signal(erg, treiber_stufe, historie_text(con, p["id"], heute)))
+            texte.append(text_lr(erg, historie_text(con, p["id"], heute)) if _ist_lr(p)
+                         else text_signal(erg, treiber_stufe, historie_text(con, p["id"], heute)))
         elif erg["phase"] == "kein" and alt_phase == "manipulation":
             texte.append(f"⏹ Entwarnung ({erg['name']}): kein Entry – {erg['grund']}.")
     con.commit()
@@ -326,7 +370,7 @@ def abschliessen(con) -> None:
             erg, state = {"grund": "kein_entry", "quelle": "live"}, "verfallen"
         else:
             try:
-                kerzen = tiingo_tag(tag, "5min" if _ist369(d) else "15min")
+                kerzen = tiingo_tag(tag, "15min" if _familie(d) == "amd" else "5min")
             except Exception as e:  # noqa: BLE001
                 log.warning("AMD-Abschluss %s: %s", row["date"], e)
                 continue
@@ -362,10 +406,12 @@ def export_daten(con, jetzt: datetime) -> dict:
         r = heute_rows.get(p["id"])
         if _ist369(p):
             a, m, dz, *_ = z369_zeiten(heute, p["tz"])
+        elif _ist_lr(p):
+            a, m, dz = lr_zeiten(heute, p)
         else:
             a, m, dz = p["range_von"], p["range_bis"], p["manip_bis"]
         ok, k = bewaehrt(p["id"])
-        varianten.append({"id": p["id"], "name": p["name"], "familie": "369" if _ist369(p) else "amd",
+        varianten.append({"id": p["id"], "name": p["name"], "familie": _familie(p),
                           "bewaehrt": ok, "immer": p["id"] in IMMER_MELDEN, "backtest": k, "range_von": a.strftime("%H:%M"),
                           "range_bis": m.strftime("%H:%M"), "manip_bis": dz.strftime("%H:%M"),
                           "phase": r["phase"] if r else None, "state": r["state"] if r else None,

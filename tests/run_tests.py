@@ -747,5 +747,67 @@ pruefe(_ev.neu_abrechnen(_c) == 1 and json.loads(_c.execute("SELECT result_json 
        "Korrektur: live nie ausgelöster Trade -> kein Entry, echter Trade bleibt")
 _ev.export.alles, _ev.vortage = _alt_ex, _alt_vt
 
+# --- London-Retest (Range 30 Min nach London-Open) ---
+print("London-Retest")
+_plr = next(x for x in strategien.LR_VARIANTEN if x["id"] == "lr_london")
+pruefe(tuple(t.strftime("%H:%M") for t in strategien.lr_zeiten("2026-11-16", _plr)) == ("09:30", "09:35", "13:00")
+       and strategien.lr_zeiten("2026-07-15", _plr)[0].strftime("%H:%M") == "09:30",
+       "London-Retest: Range 09:30–09:35 Berlin im Winter und im Sommer, Einstieg bis 13:00")
+
+
+def _lr_tag(nach):
+    """5-Min-Kerzen 16.11.2026 (Mo-Tag, ab So 23:00): ruhig bei 210,00, Range 09:30 = 210,00–210,10, dann `nach`."""
+    ks, t = [], DT(2026, 11, 15, 23, 0)
+    while t < DT(2026, 11, 16, 9, 30):
+        ks.append((t, 210.02, 210.06, 209.98, 210.02)); t += timedelta(minutes=5)
+    ks.append((DT(2026, 11, 16, 9, 30), 210.02, 210.10, 210.00, 210.05))
+    t = DT(2026, 11, 16, 9, 35)
+    for o, h, l, c in nach:
+        ks.append((t, o, h, l, c)); t += timedelta(minutes=5)
+    kurs = ks[-1][4]
+    while t < DT(2026, 11, 16, 21, 30):
+        ks.append((t, kurs, kurs + .02, kurs - .02, kurs)); t += timedelta(minutes=5)
+    return ks
+
+
+def _lr_lauf(ks):
+    c = sqlite3.connect(":memory:"); c.row_factory = sqlite3.Row
+    alt_atr, alt_live = amd_mod._atr, list(amd_mod.LIVE)
+    amd_mod._atr = lambda con, heute: 1.0
+    amd_mod.LIVE[:] = [_plr]
+    msgs = []
+    try:
+        for minute in range(9 * 60 + 31, 21 * 60 + 10, 1):
+            j = DT(2026, 11, 16, minute // 60, minute % 60, 30, tzinfo=common.TZ_BERLIN)
+            jn = j.replace(tzinfo=None)
+            # laufende Kerze: nur bis zur aktuellen Minute bekannt (vereinfacht: ganze Kerze sichtbar)
+            amd_mod.pruefen(c, j, senden=msgs.append, kerzen_5=[x for x in ks if x[0] <= jn])
+        r = c.execute("SELECT phase, state, data_json FROM amd").fetchone()
+        return (r["phase"], r["state"], json.loads(r["data_json"])) if r else (None, None, {}), msgs
+    finally:
+        amd_mod._atr = alt_atr
+        amd_mod.LIVE[:] = alt_live
+
+
+# 1) Ausbruch nach oben (09:35 schließt 210,14), Rücklauf 09:45 berührt 210,08, 09:50 über 210,10 -> Entry, dann TP +30
+(_ph, _st, _dd), _m = _lr_lauf(_lr_tag([(210.05, 210.16, 210.04, 210.14), (210.14, 210.18, 210.12, 210.15),
+                                        (210.15, 210.15, 210.08, 210.09), (210.09, 210.20, 210.09, 210.19),
+                                        (210.19, 210.45, 210.18, 210.44)]))
+pruefe(_ph == "signal" and _st == "tp" and _dd["entry"] == 210.10 and _dd["sl"] == 209.80 and _dd["tp"] == 210.40
+       and _dd["storno"] == 210.00 and _dd["ruecklauf_zeit"] == "09:45",
+       f"London-Retest: Buy-Stop an der Range-Kante, SL/TP 30, Ziel erreicht ({_ph}/{_st})")
+pruefe([x.split(" (")[0] for x in _m] == ["⚠️ Achtung, gleich mögliches Entry", "🟢 Entry ausgelöst", "✅ Ziel erreicht"]
+       and "BUY-STOP 210,100 | SL 209,800 (−30 P) | TP 210,400 (+30 P)" in _m[0] and "Order löschen" in _m[0],
+       f"London-Retest: WhatsApp Vorwarnung beim Rücklauf, Entry, Ziel ({[x.splitlines()[0] for x in _m]})")
+print("\n    " + _m[0].replace("\n", "\n    ") + "\n")
+# 2) Nach dem Rücklauf fällt der Kurs bis zur Gegenseite 210,00, ohne vorher neu auszubrechen -> kein Trade
+(_ph, _st, _dd), _m = _lr_lauf(_lr_tag([(210.05, 210.16, 210.04, 210.14), (210.14, 210.15, 210.08, 210.09),
+                                        (210.09, 210.09, 209.98, 209.99)]))
+pruefe(_st == "verfallen" and any(x.startswith("⏹ Kein Trade (London-Retest)") and "Gegenseite" in x for x in _m),
+       f"London-Retest: Gegenseite vor dem Einstieg erreicht -> Order löschen ({_st})")
+# 3) Ausbruch ohne Rücklauf -> keine Vorwarnung, kein Trade
+(_ph, _st, _dd), _m = _lr_lauf(_lr_tag([(210.05, 210.16, 210.04, 210.14)] + [(210.14 + i * .02, 210.18 + i * .02, 210.12 + i * .02, 210.16 + i * .02) for i in range(50)]))
+pruefe(_ph == "kein" and not _m, f"London-Retest: kein Rücklauf -> keine Nachricht ({_ph}, {len(_m)} Nachrichten)")
+
 print("ALLE TESTS OK" if not FEHLER else f"{len(FEHLER)} FEHLER: {FEHLER}")
 sys.exit(1 if FEHLER else 0)

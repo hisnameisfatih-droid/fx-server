@@ -14,6 +14,7 @@ eine mechanische Treiber-Empfehlung – jeweils mit ehrlicher Trefferauswertung.
 | Mo–Fr 06:45 | Morgenreport per WhatsApp | `fxserver/report.py` |
 | Mo–Fr 09:00 | Tages-Setup (London-Ausbruch in Trendrichtung), danach jede Minute Live-Verfolgung mit WhatsApp bei Entry/Ziel/Stop | `fxserver/setup.py` |
 | Mo–Fr 23:05 | Abschluss: Setups und Muster mit Tiingo-Kerzen abrechnen, Kerzen der letzten 30 Tage sichern, `tage.json` für die Vortage-Ansicht | `fxserver/evaluate.py`, `fxserver/tage.py` |
+| jede Minute | London-Retest: Range = 5-Min-Kerze 09:30 Berlin (30 Min nach London-Open), Ausbruch per Schlusskurs; beim Rücklauf in die Range WhatsApp „⚠️ gleich mögliches Entry“ mit Stop-Order an der Kante, SL/TP je 30 Pips, dann Entry ausgelöst / Kein Trade / Ziel oder Stop. TradingView-Indikator mit denselben Regeln: `tradingview/london_retest.pine` | `fxserver/strategien.py`, `fxserver/amd.py` |
 | jede Minute | AMD- und 3-6-9-Muster: WhatsApp für alle live verfolgten Varianten – ⚠️ Vorwarnung mit Auslöser und geschätztem Entry/SL/TP, dann Signal mit den letzten Ergebnissen, Entwarnung oder TP/SL-Meldung mit Bilanz (`MUSTER_IMMER`: `alle` Standard, `keine` oder Liste von IDs) | `fxserver/amd.py` |
 | So 12:00 | Backtest der Setups mit Tiingo-Daten der letzten 2 Jahre | `fxserver/backtest.py --tiingo` |
 | Mo–Fr 23:05 | Trefferauswertung (holt verpasste Tage nach) | `fxserver/evaluate.py` |

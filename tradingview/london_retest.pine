@@ -1,0 +1,135 @@
+//@version=5
+// London-Retest (Fatih, 14.11.2026) – gleiche Regeln wie auf dem FX-Server:
+// Range = 5-Min-Kerze 30 Min nach London-Open (08:30–08:35 London = 09:30–09:35 Berlin, ganzjährig).
+// Ausbruch = 5-Min-Schlusskurs über/unter der Range. Kommt der Kurs danach zurück in die Range:
+// Alarm "gleich mögliches Entry" und Stop-Order an der Ausbruchskante, SL/TP je 30 Pips.
+// Order löschen, wenn vorher die Gegenseite der Range erreicht wird oder um 12:00 London (13:00 Berlin).
+// Für 1- und 5-Minuten-Charts. Alarm anlegen mit Bedingung "London-Retest" -> "Any alert() function call".
+indicator("London-Retest (Range 30 Min nach London-Open)", shorttitle = "London-Retest", overlay = true,
+     max_boxes_count = 100, max_lines_count = 300, max_labels_count = 200)
+
+slPips  = input.float(30, "SL (Pips)", minval = 1)
+tpPips  = input.float(30, "TP (Pips)", minval = 1)
+pipGr   = input.float(0.01, "Pip-Größe (JPY-Paare: 0.01)")
+startH  = input.int(8, "Range-Start Stunde (London-Ortszeit)", minval = 0, maxval = 23)
+startM  = input.int(30, "Range-Start Minute", minval = 0, maxval = 55, step = 5)
+bisH    = input.int(12, "Einstieg bis Stunde (London-Ortszeit)", minval = 1, maxval = 23)
+endeH   = input.int(20, "Offene Trades schließen um (London-Ortszeit)", minval = 1, maxval = 23)
+
+TZ = "Europe/London"
+jahr = year(time, TZ)
+mon = month(time, TZ)
+tag = dayofmonth(time, TZ)
+rStart = timestamp(TZ, jahr, mon, tag, startH, startM)
+rEnde = rStart + 5 * 60 * 1000
+bisZeit = timestamp(TZ, jahr, mon, tag, bisH, 0)
+endeZeit = timestamp(TZ, jahr, mon, tag, endeH, 0)
+neuerTag = ta.change(tag) != 0
+
+// Zustand: 0 Range sammeln, 1 Range fertig, 2 Ausbruch, 3 Order aktiv, 4 im Trade, 5 erledigt
+var int zustand = 0
+var float rH = na
+var float rL = na
+var int dir = 0
+var int ausIdx = na
+var int retIdx = na
+var float entry = na
+var float sl = na
+var float tp = na
+var box rBox = na
+var line lEntry = na
+var line lSl = na
+var line lTp = na
+
+pt(x) => str.tostring(x, format.mintick)
+
+if neuerTag
+    zustand := 0
+    rH := na
+    rL := na
+    dir := 0
+    entry := na
+
+// 1) Range: alle Kerzen zwischen 08:30 und 08:35 London
+if time >= rStart and time < rEnde
+    rH := na(rH) ? high : math.max(rH, high)
+    rL := na(rL) ? low : math.min(rL, low)
+
+if zustand == 0 and time >= rEnde and not na(rH)
+    zustand := 1
+    rBox := box.new(rStart, rH, bisZeit, rL, xloc = xloc.bar_time, border_color = color.new(color.blue, 0),
+         bgcolor = color.new(color.blue, 85), text = "Range " + pt(rL) + " – " + pt(rH),
+         text_color = color.blue, text_size = size.small, text_valign = text.align_top)
+
+// Schlusskurs einer 5-Min-Kerze (auf 1-Min-Charts: die letzte Minute jedes 5-Min-Blocks)
+fuenfMinSchluss = barstate.isconfirmed and time_close % (5 * 60 * 1000) == 0
+
+// 2) Ausbruch per 5-Min-Schlusskurs
+if zustand == 1 and time >= rEnde and time < bisZeit and fuenfMinSchluss
+    if close > rH
+        zustand := 2
+        dir := 1
+        ausIdx := bar_index
+        label.new(bar_index, high, "Ausbruch ▲", color = color.new(color.green, 30), textcolor = color.white,
+             style = label.style_label_down, size = size.tiny)
+    else if close < rL
+        zustand := 2
+        dir := -1
+        ausIdx := bar_index
+        label.new(bar_index, low, "Ausbruch ▼", color = color.new(color.red, 30), textcolor = color.white,
+             style = label.style_label_up, size = size.tiny)
+
+// 3) Rücklauf in die Range -> Stop-Order an der Ausbruchskante
+if zustand == 2 and bar_index > ausIdx
+    if time >= bisZeit
+        zustand := 5
+    else if (dir == 1 and low <= rL) or (dir == -1 and high >= rH)
+        zustand := 5
+        label.new(bar_index, dir == 1 ? low : high, "durchgelaufen – kein Trade", color = color.gray,
+             textcolor = color.white, style = dir == 1 ? label.style_label_up : label.style_label_down, size = size.tiny)
+    else if (dir == 1 and low <= rH) or (dir == -1 and high >= rL)
+        zustand := 3
+        retIdx := bar_index
+        entry := dir == 1 ? rH : rL
+        sl := entry - dir * slPips * pipGr
+        tp := entry + dir * tpPips * pipGr
+        lEntry := line.new(time, entry, bisZeit, entry, xloc = xloc.bar_time, color = color.orange, style = line.style_dashed, width = 2)
+        lSl := line.new(time, sl, endeZeit, sl, xloc = xloc.bar_time, color = color.red, width = 1)
+        lTp := line.new(time, tp, endeZeit, tp, xloc = xloc.bar_time, color = color.green, width = 1)
+        label.new(bar_index, entry, (dir == 1 ? "BUY" : "SELL") + "-STOP " + pt(entry) + "\nSL " + pt(sl) + " | TP " + pt(tp),
+             color = color.orange, textcolor = color.black, style = label.style_label_left, size = size.small)
+        alert("⚠️ London-Retest " + syminfo.ticker + ": gleich mögliches Entry – " + (dir == 1 ? "BUY" : "SELL") +
+             "-STOP " + pt(entry) + " | SL " + pt(sl) + " | TP " + pt(tp) + " | löschen bei " + pt(dir == 1 ? rL : rH),
+             alert.freq_once_per_bar)
+
+// 4) Einstieg (ab der Kerze nach dem Rücklauf), Storno an der Gegenseite, Frist
+if zustand == 3 and bar_index > retIdx
+    if (dir == 1 and low <= rL) or (dir == -1 and high >= rH)
+        zustand := 5
+        alert("⏹ London-Retest " + syminfo.ticker + ": Gegenseite erreicht – Order löschen, kein Trade", alert.freq_once_per_bar)
+    else if time >= bisZeit
+        zustand := 5
+        alert("⏹ London-Retest " + syminfo.ticker + ": bis " + str.tostring(bisH) + ":00 London nicht ausgelöst – Order löschen", alert.freq_once_per_bar)
+    else if (dir == 1 and high > entry) or (dir == -1 and low < entry)
+        zustand := 4
+        label.new(bar_index, entry, "Entry", color = color.orange, textcolor = color.black,
+             style = dir == 1 ? label.style_label_up : label.style_label_down, size = size.tiny)
+        alert("🟢 London-Retest " + syminfo.ticker + ": Entry ausgelöst " + (dir == 1 ? "LONG " : "SHORT ") + pt(entry), alert.freq_once_per_bar)
+
+// 5) Trade: SL vor TP (konservativ), spätestens am Abend schließen
+if zustand == 4 and bar_index > retIdx
+    slTreffer = (dir == 1 and low <= sl) or (dir == -1 and high >= sl)
+    tpTreffer = (dir == 1 and high >= tp) or (dir == -1 and low <= tp)
+    if slTreffer
+        zustand := 5
+        label.new(bar_index, sl, "SL", color = color.red, textcolor = color.white, size = size.tiny)
+        alert("❌ London-Retest " + syminfo.ticker + ": Stop " + pt(sl), alert.freq_once_per_bar)
+    else if tpTreffer
+        zustand := 5
+        label.new(bar_index, tp, "TP", color = color.green, textcolor = color.white, size = size.tiny)
+        alert("✅ London-Retest " + syminfo.ticker + ": Ziel " + pt(tp), alert.freq_once_per_bar)
+    else if time >= endeZeit
+        zustand := 5
+        alert("⏹ London-Retest " + syminfo.ticker + ": Tagesende, Position schließen", alert.freq_once_per_bar)
+
+plot(na, "London-Retest", display = display.none)

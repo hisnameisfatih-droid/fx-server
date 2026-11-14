@@ -45,6 +45,7 @@ class Order:
     entry: float
     sl: float
     tp: float
+    storno: float | None = None   # Order verfällt, wenn dieser Kurs vor dem Einstieg erreicht wird
 
 
 @dataclass
@@ -361,7 +362,88 @@ Z369_VARIANTEN = [
     for f in ("berlin", "london", "newyork") for e in ("retrace", "markt") for r in (2.0, 3.0)
 ]
 
-STRATEGIEN = {"orb": orb, "reversion": reversion, "trend": trend, "amd": amd, "z369": z369}
+# ------------------------------------------------------------
+# London-Retest (Fatih, 14.11.2026): Range = 5-Min-Kerze 30 Min nach London-Open, Ausbruch per Schlusskurs,
+# Rücklauf in die Range -> Stop-Order an der Ausbruchskante, SL/TP fest 30 Pips, Storno an der Gegenseite.
+# Backtest 2 Jahre (1-Min-Kurse, 3 Pips Kosten): 464 Trades, 58,6 % Treffer, +1056 Pips (backtest/london_retest.py).
+# ------------------------------------------------------------
+def lr_zeiten(datum: str, p: dict) -> tuple[time, time, time]:
+    """Range-Start, Range-Ende und Einstiegsschluss in Berliner Zeit (aus Ortszeit p["tz"])."""
+    from datetime import date as _date
+    from zoneinfo import ZoneInfo
+    d = _date.fromisoformat(datum)
+    z, berlin = ZoneInfo(p["tz"]), ZoneInfo("Europe/Berlin")
+    hh, mm = map(int, p["range_von"].split(":"))
+    a = datetime(d.year, d.month, d.day, hh, mm, tzinfo=z)
+    eh, em = map(int, p["entry_bis"].split(":"))
+    return (a.astimezone(berlin).time(), (a + timedelta(minutes=5)).astimezone(berlin).time(),
+            datetime(d.year, d.month, d.day, eh, em, tzinfo=z).astimezone(berlin).time())
+
+
+def lr_erkennen(kerzen, atr: float, p: dict, datum: str, letzte_offen: bool = False) -> dict | None:
+    """5-Min-Kerzen des Tages. Phasen: warten -> akkumulation (Range) -> ausbruch -> signal (Rücklauf: Stop-Order) | kein.
+    Ausbruch nur mit abgeschlossenen Kerzen (Schlusskurs); der Rücklauf zählt schon bei Berührung in der laufenden Kerze
+    (letzte_offen=True), damit die Vorwarnung sofort kommt. Eingestiegen wird ab der nächsten Kerze."""
+    A, B, Z = lr_zeiten(datum, p)
+    hm = lambda t: t.strftime("%H:%M")  # noqa: E731
+    basis = {"variante": p["id"], "name": p["name"], "range_von": hm(A), "range_bis": hm(B), "manip_bis": hm(Z),
+             "bis": hm(Z)}
+    if not kerzen or tm(kerzen[-1][0]) < tm(A):
+        return {**basis, "phase": "warten"}
+    fertig = kerzen[:-1] if letzte_offen else kerzen
+    rng = [k for k in fertig if tm(A) <= tm(k[0]) < tm(B)]
+    if not rng:
+        return {**basis, "phase": "akkumulation"} if tm(kerzen[-1][0]) < tm(Z) else None
+    hoch, tief = max(k[2] for k in rng), min(k[3] for k in rng)
+    basis.update(spanne=[round(hoch, 3), round(tief, 3)], breite_pips=round((hoch - tief) / PIP, 1))
+    if (hoch - tief) / PIP < p["min_breite_pips"]:
+        return {**basis, "phase": "kein", "grund": "Range zu eng"}
+    richtung = aus_t = None
+    for t, o, h, l, c in (k for k in fertig if tm(k[0]) >= tm(B)):
+        if tm(t) >= tm(Z):
+            break
+        if c > hoch or c < tief:
+            richtung, aus_t = (1 if c > hoch else -1), t
+            break
+    if richtung is None:
+        return ({**basis, "phase": "kein", "grund": "kein Ausbruch bis " + hm(Z)} if tm(kerzen[-1][0]) >= tm(Z)
+                else {**basis, "phase": "akkumulation"})
+    kante, gegen = (hoch, tief) if richtung > 0 else (tief, hoch)
+    d = {**basis, "richtung": richtung, "ausbruch_zeit": hm(aus_t)}
+    for t, o, h, l, c in (k for k in kerzen if k[0] > aus_t):
+        if tm(t) >= tm(Z):
+            return {**d, "phase": "kein", "grund": "kein Rücklauf in die Range bis " + hm(Z)}
+        if (richtung > 0 and l <= gegen) or (richtung < 0 and h >= gegen):
+            return {**d, "phase": "kein", "grund": "vor dem Einstieg bis zur Gegenseite durchgelaufen"}
+        if (richtung > 0 and l <= kante) or (richtung < 0 and h >= kante):
+            sl, tp = kante - richtung * p["sl_pips"] * PIP, kante + richtung * p["tp_pips"] * PIP
+            start = (t + timedelta(minutes=5)).strftime("%H:%M")
+            return {**d, "phase": "signal", "ruecklauf_zeit": hm(t), "signal_zeit": hm(t), "signal_schluss": hm(t),
+                    "entry": round(kante, 3), "sl": round(sl, 3), "tp": round(tp, 3), "storno": round(gegen, 3),
+                    "tp2": None, "risiko_pips": int(p["sl_pips"]), "ziel_pips": int(p["tp_pips"]), "typ": "stop",
+                    "start": start, "gueltig_bis": hm(Z)}
+    return {**d, "phase": "ausbruch"}
+
+
+def lr_setup(erg: dict, p: dict) -> Setup:
+    h = lambda s: time(int(s[:2]), int(s[3:]))  # noqa: E731
+    return Setup(p["id"], p["name"], "stop", [Order(erg["richtung"], erg["entry"], erg["sl"], erg["tp"], erg["storno"])],
+                 h(erg["start"]), h(erg["gueltig_bis"]), p["schluss"])
+
+
+def lr(ctx: Kontext, p: dict) -> Setup | None:
+    erg = lr_erkennen(ctx.kerzen, ctx.atr, p, ctx.datum)
+    if not erg or erg["phase"] != "signal":
+        return None
+    return lr_setup(erg, p)
+
+
+LR_VARIANTEN = [
+    {"strategie": "lr", "id": "lr_london", "name": "London-Retest", "tz": "Europe/London", "range_von": "08:30",
+     "entry_bis": "12:00", "sl_pips": 30.0, "tp_pips": 30.0, "min_breite_pips": 1.0, "schluss": time(21, 0), "live": True},
+]
+
+STRATEGIEN = {"orb": orb, "reversion": reversion, "trend": trend, "amd": amd, "z369": z369, "lr": lr}
 
 
 # ------------------------------------------------------------
@@ -386,6 +468,9 @@ def simuliere(setup: Setup, kerzen, kosten_pips: float, datum: str, laufend: boo
                 continue
             if zt > e:
                 break
+            if any(od.storno is not None and ((od.richtung > 0 and l <= od.storno) or (od.richtung < 0 and h >= od.storno))
+                   for od in setup.orders):
+                break   # vor dem Einstieg bis zur Storno-Marke gelaufen -> Order gelöscht (konservativ vor dem Fill)
             for od in setup.orders:
                 getroffen, preis = False, od.entry
                 if setup.typ == "markt":

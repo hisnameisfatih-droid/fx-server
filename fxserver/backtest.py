@@ -244,7 +244,7 @@ def urteil(k: dict) -> tuple[str, str]:
 # ------------------------------------------------------------
 WOCHE_SETUPS = {"london_trend": "09:00-Setup", "amd_london": "AMD Asien → London", "amd_ny": "AMD London → New York",
                 "z369_berlin_retrace_2r": "3-6-9 Berlin-Zeit", "z369_london_retrace_2r": "3-6-9 London-Zeit",
-                "z369_newyork_retrace_2r": "3-6-9 New-York-Zeit"}
+                "z369_newyork_retrace_2r": "3-6-9 New-York-Zeit", "lr_london": "London-Retest"}
 WOCHENTAG = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 ERGEBNIS = {"tp": "✅", "sl": "❌", "zeit": "⏹"}
 
@@ -318,7 +318,8 @@ def server_lauf() -> int:
     from .harmonisch import VARIANTEN as GARTLEY, simuliere_gartley
     for g in GARTLEY:
         erg.append((g, simuliere_gartley(kerzen, g, KOSTEN_PIPS)))
-    erg += lauf(kerzen5, Z369_VARIANTEN)[0]
+    from .strategien import LR_VARIANTEN
+    erg += lauf(kerzen5, Z369_VARIANTEN + LR_VARIANTEN)[0]
     for p, trades in erg:
         out["setups"][p["id"]] = {"name": p["name"], "kennzahlen": kennzahlen(trades),
                                   "letzte": [{"date": t.datum, "richtung": t.richtung, "pips": t.pips, "grund": t.grund}
@@ -354,7 +355,9 @@ def wochen_lauf() -> int:
                 _t.sleep(20 * 60)
     if not kerzen5:
         return 1
-    erg = lauf(zu_15min(kerzen5), [HAUPT_SETUP] + AMD_VARIANTEN)[0] + lauf(kerzen5, [p for p in Z369_VARIANTEN if p["live"]])[0]
+    from .strategien import LR_VARIANTEN
+    erg = (lauf(zu_15min(kerzen5), [HAUPT_SETUP] + AMD_VARIANTEN)[0]
+           + lauf(kerzen5, [p for p in Z369_VARIANTEN + LR_VARIANTEN if p["live"]])[0])
     woche = wochen_auswertung(erg, *letzte_woche(jetzt_berlin().date()))
     try:
         out = json.loads((PUBLIC_DIR / "backtest.json").read_text())

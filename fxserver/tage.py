@@ -95,7 +95,8 @@ def tag_daten(con, d: str, kerzen: list | None) -> dict:
     if _tabelle(con, "amd"):
         for r in con.execute("SELECT * FROM amd WHERE date=? AND phase='signal' ORDER BY variante", (d,)):
             a = json.loads(r["data_json"])
-            setups.append({"art": "369" if r["variante"].startswith("z369") else "amd", "id": r["variante"],
+            setups.append({"art": "369" if r["variante"].startswith("z369") else "lr" if r["variante"].startswith("lr_") else "amd",
+                           "id": r["variante"],
                            "name": a.get("name", r["variante"]), "status": "aktiv",
                            "signal_zeit": a.get("signal_schluss") or a.get("signal_zeit"),
                            "orders": [{"richtung": a["richtung"], "entry": a["entry"], "sl": a["sl"], "tp": a["tp"],

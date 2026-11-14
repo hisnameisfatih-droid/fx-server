@@ -133,7 +133,7 @@ function verdichte(bars, x0, schritt) {
   }
   return [...m.values()].sort((a, b) => a[0] - b[0]);
 }
-const KURZ_ART = { setup: "", amd: "AMD ", "369": "3-6-9 " };
+const KURZ_ART = { setup: "", amd: "AMD ", "369": "3-6-9 ", lr: "LR " };
 /* Entry/SL/TP-Linien eines Setups (Farben mit Bedeutung: Amber Entry, Rot Stop, Grün Ziel) */
 const setupSchienen = (o, vor = "") => [
   { y: o.entry, f: "var(--entry)", t: `${vor}Entry`, strich: "6 4" },
@@ -296,7 +296,7 @@ function renderChart() {
     kaesten.push({ t0: fxZeit(v.range_von), t1: fxZeit(v.range_bis), y0: v.daten.spanne[0], y1: v.daten.spanne[1], fill: "rgba(180,140,255,0.08)", stroke: "rgba(180,140,255,0.6)", dash: "3 3" });
     if (v.daten.sweep_zeit) ringe.push({ t: fxZeit(v.daten.sweep_zeit), y: v.daten.sweep_extrem });
     if (v.phase === "signal") {
-      const vor = v.familie === "369" ? "3-6-9 " : "AMD ";
+      const vor = KURZ_ART[v.familie] || "AMD ";
       if (!["tp", "sl", "zeit"].includes(v.state)) schienen.push(...setupSchienen(v.daten, vor));
       marken.push(...tradeMarken(v.trade, fxZeit));
     }
@@ -406,7 +406,24 @@ function renderTreiber() {
 
 /* ---------------- AMD-Muster (Akkumulation – Manipulation – Distribution) ---------------- */
 const AMD_ENDE = { tp: ["tp", "Ziel erreicht"], sl: ["sl", "Stop erreicht"], zeit: ["neutral", "zum Tagesende geschlossen"] };
+function lrSchritte(v) {
+  const d = v.daten, ph = v.phase;
+  const sp = d?.spanne ? `${zahl(d.spanne[1])} – ${zahl(d.spanne[0])} (${zahl(d.breite_pips, 0)} P)` : "bildet sich";
+  const a = { kl: d?.spanne ? "fertig" : (ph === "akkumulation" ? "aktiv" : "offen"), titel: "Range", text: `${v.range_von}–${v.range_bis}: ${sp}` };
+  let b = { kl: d?.spanne ? "aktiv" : "offen", titel: "Ausbruch", text: `5-Min-Schluss über ${d?.spanne ? zahl(d.spanne[0]) : "Hoch"} oder unter ${d?.spanne ? zahl(d.spanne[1]) : "Tief"} bis ${v.manip_bis}` };
+  let c = { kl: "offen", titel: "Rücklauf → Entry", text: "Kurs kommt zurück in die Range → Stop-Order an der Ausbruchskante, SL/TP 30 Pips" };
+  if (d?.richtung) {
+    b = { kl: "fertig", titel: "Ausbruch", text: `nach ${d.richtung > 0 ? "oben" : "unten"} (${d.ausbruch_zeit})` };
+    c.kl = ph === "ausbruch" ? "aktiv" : c.kl;
+    if (ph === "ausbruch") c.text = `Warte auf Rücklauf bis ${zahl(d.richtung > 0 ? d.spanne[0] : d.spanne[1])} – dann kommt die WhatsApp`;
+  }
+  if (ph === "signal") c = { kl: d.richtung > 0 ? "long" : "short", titel: `Entry: ${d.richtung > 0 ? "LONG" : "SHORT"}`,
+    text: `${d.richtung > 0 ? "Buy" : "Sell"}-Stop ${zahl(d.entry)} (bis ${d.gueltig_bis}) · SL ${zahl(d.sl)} (−${d.risiko_pips} P) · TP ${zahl(d.tp)} (+${d.ziel_pips} P) · löschen bei ${zahl(d.storno)}` };
+  if (ph === "kein") c = { kl: "aus", titel: "Kein Trade heute", text: d?.grund || "" };
+  return [a, b, c];
+}
 function amdSchritte(v) {
+  if (v.familie === "lr") return lrSchritte(v);
   const d = v.daten, ph = v.phase;
   const sp = d?.spanne ? `${zahl(d.spanne[1])} – ${zahl(d.spanne[0])} (${zahl(d.breite_pips, 0)} P)` : "bildet sich";
   const a = { kl: d ? "fertig" : "aktiv", titel: "Akkumulation", text: `${v.range_von}–${v.range_bis}: ${sp}` };
@@ -428,10 +445,11 @@ function amdSchritte(v) {
 }
 function amdStatus(v) {
   if (v.phase !== "signal") return v.phase === "manipulation" ? `<span class="status wartet">⚠️ Achtung – gleich mögliches Entry</span>` : "";
-  if (v.state === "verfallen") return `<span class="status neutral">Kein Trade – ${v.daten?.typ === "limit" ? `Limit ${zahl(v.daten.entry)} bis ${esc(v.daten.gueltig_bis || "")} nicht erreicht` : "kein Einstieg"}</span>`;
+  if (v.state === "verfallen") return `<span class="status neutral">Kein Trade – ${v.daten?.typ === "limit" ? `Limit ${zahl(v.daten.entry)} bis ${esc(v.daten.gueltig_bis || "")} nicht erreicht` : v.daten?.typ === "stop" ? "Order gelöscht (nicht ausgelöst oder Gegenseite erreicht)" : "kein Einstieg"}</span>`;
   const tr = v.trade || {}, e = AMD_ENDE[v.state];
   if (e) return `<span class="status ${e[0]}">${e[1]} · ${vz(tr.pips, 0, " Pips")}${tr.t_exit ? ` um ${esc(tr.t_exit)}` : ""}</span>`;
   if (v.state === "läuft") { const p = livePreis(); const pl = p && tr.entry ? (tr.richtung * (p - tr.entry)) / PIP : null; return `<span class="status laeuft">Läuft seit ${esc(tr.t_entry || "")} · ${vz(pl, 0, " Pips")}</span>`; }
+  if (v.daten?.typ === "stop") return `<span class="status wartet">⚠️ Gleich mögliches Entry – ${v.daten.richtung > 0 ? "Buy" : "Sell"}-Stop ${zahl(v.daten.entry)} bis ${esc(v.daten.gueltig_bis || "")}</span>`;
   if (v.daten?.typ === "limit") return `<span class="status wartet">Signal ${esc(v.daten.signal_schluss || v.daten.signal_zeit || "")} – Kauf-/Verkaufs-Limit ${zahl(v.daten.entry)} bis ${esc(v.daten.gueltig_bis || "")}, noch nicht gefüllt</span>`.replace("Kauf-/Verkaufs-Limit", v.daten.richtung > 0 ? "Kauf-Limit" : "Verkaufs-Limit");
   return `<span class="status wartet">Signal ${esc(v.daten?.signal_schluss || v.daten?.signal_zeit || "")} – Einstieg jetzt zum Marktkurs</span>`;
 }
@@ -440,14 +458,14 @@ function renderAmd() {
   if (!a) { el.innerHTML = `<p class="leer">AMD-Erkennung startet mit dem nächsten Update.</p>`; return; }
   const b = a.bilanz || {}, bt = S.bt?.setups || {};
   $("amd-bilanz").textContent = b.trades ? `live: ${b.trades} Trades, ${vz(b.summe_pips, 0, " Pips")}` : "neu – wird gemessen";
-  const PHASE = { akkumulation: "Spanne bildet sich", warten: "wartet auf das Zeitfenster", kein: "heute kein Muster" };
+  const PHASE = { akkumulation: "Spanne bildet sich", warten: "wartet auf das Zeitfenster", kein: "heute kein Muster", ausbruch: "Ausbruch – warte auf Rücklauf" };
   const auf = [...el.querySelectorAll("details.amd-zeile")].reduce((m, d) => ({ ...m, [d.dataset.id]: d.open }), {});
   el.innerHTML = a.varianten.map((v) => `<details class="amd-zeile" data-id="${esc(v.id)}"${(auf[v.id] ?? ["manipulation", "signal"].includes(v.phase)) ? " open" : ""}>
       <summary class="amd-kopf"><b>${esc(v.familie === "369" ? v.name.split(" · ")[0] : v.name)}</b>${amdStatus(v) || `<span class="status neutral">${esc(PHASE[v.phase] || (v.phase ? v.phase : "wartet auf das Zeitfenster"))}</span>`}</summary>
       <div class="amd-bt ${v.bewaehrt ? "ok" : ""}">${v.backtest?.n ? `${v.bewaehrt ? "✅ Backtest positiv – WhatsApp an" : (v.immer ? "📲 WhatsApp an (Vorwarnung, Entry, Ergebnis) – Backtest nicht positiv" : "🔬 Nur Beobachtung – Backtest nicht positiv, keine WhatsApp")} · ${v.backtest.n} Trades, ${pz(v.backtest.trefferquote)} Treffer, Ø ${vz(v.backtest.avg_pips, 1, " P")} nach Kosten` : "Backtest folgt – bis dahin nur Beobachtung"}</div>
       <ol class="amd-schritte">${amdSchritte(v).map((s) => `<li class="${s.kl}"><span class="t">${esc(s.titel)}</span><span class="x">${esc(s.text)}</span></li>`).join("")}</ol>
     </details>`).join("") +
-    `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. WhatsApp für alle hier gezeigten Muster: Vorwarnung, sobald nur noch der Auslöser fehlt, dann Entry, Entwarnung oder Ergebnis. Keine Anlageberatung.</p>`;
+    `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. London-Retest: Range = 5-Min-Kerze 09:30 Berlin (30 Min nach London-Open), Ausbruch per Schlusskurs, Rücklauf in die Range → Stop-Order an der Kante, SL/TP je 30 Pips, gelöscht bei Erreichen der Gegenseite oder um 13:00. WhatsApp für alle hier gezeigten Muster: Vorwarnung, sobald nur noch der Auslöser fehlt, dann Entry, Entwarnung oder Ergebnis. Keine Anlageberatung.</p>`;
 }
 
 /* ---------------- Studie: was GBP/JPY bewegt hat ---------------- */
