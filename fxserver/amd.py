@@ -78,10 +78,29 @@ def text_lr(d: dict, historie: str | None = None) -> str:
          f"TP {de_zahl(d['tp'])} (+{d['ziel_pips']} P)",
          f"Gültig bis {d['gueltig_bis']}. Läuft der Kurs vorher bis {de_zahl(d['storno'])} (Gegenseite der Range), "
          f"Order löschen – dann kein Trade."]
+    if d.get("vortag") == "gegen":
+        z.append("Hinweis: Trade läuft GEGEN die Vortagesrichtung – im Backtest die bessere Hälfte (57 % Treffer).")
+    elif d.get("vortag") == "mit":
+        z.append("Hinweis: Trade läuft MIT der Vortagesrichtung – im Backtest die schwächere Hälfte (53 % Treffer).")
+    if r > 0 and d.get("frueh"):
+        z.append(f"Früher Ausbruch nach oben: Im Backtest lief hier auch ein weites Ziel gut – optional TP "
+                 f"{de_zahl(round(d['entry'] + 90 * PIP, 3))} (+90 P) statt +{d['ziel_pips']} P.")
     if historie:
         z.append(historie)
     z.append("Keine Anlageberatung.")
     return "\n".join(z)
+
+
+def vortag_richtung(con, heute: str) -> int:
+    """+1/-1: Richtung des letzten ausgewerteten FX-Tags (Eröffnung -> Schluss), 0 wenn unbekannt oder älter als 4 Tage."""
+    try:
+        r = con.execute("SELECT date, open, close FROM evaluations WHERE date < ? AND open IS NOT NULL AND close IS NOT NULL "
+                        "ORDER BY date DESC LIMIT 1", (heute,)).fetchone()
+    except Exception:  # noqa: BLE001
+        return 0
+    if not r or (datetime.fromisoformat(heute) - datetime.fromisoformat(r[0])).days > 4 or r[2] == r[1]:
+        return 0
+    return 1 if r[2] > r[1] else -1
 
 
 def _hm(s: str) -> time:
@@ -338,6 +357,13 @@ def _pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int
         erg["date"] = heute
         if erg["phase"] == "signal":
             erg["signal_schluss"] = signal_schluss(erg)
+            if _ist_lr(p):   # Hinweise für die Nachricht (ändern die Order nicht)
+                vr = vortag_richtung(con, heute)
+                if vr:
+                    erg["vortag"] = "gegen" if vr * erg["richtung"] < 0 else "mit"
+                rb = _hm(erg["range_bis"])   # früh = Ausbruchskerze beginnt in den ersten 10 Min nach der Range
+                erg["frueh"] = _hm(erg["ausbruch_zeit"]) < (datetime.combine(jetzt.date(), rb)
+                                                             + timedelta(minutes=p.get("frueh_min", 10))).time()
         alt_phase = alt["phase"] if alt else None
         if erg["phase"] == alt_phase:
             if alt and alt["data_json"] != json.dumps(erg):   # z. B. tieferes Extrem während der Manipulation
