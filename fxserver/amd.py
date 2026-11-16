@@ -282,7 +282,17 @@ def pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int 
         return _pruefen(con, jetzt, senden, treiber_stufe, kerzen_5)
     with sperre:
         fcntl.flock(sperre, fcntl.LOCK_EX)
-        return _pruefen(con, jetzt, senden, treiber_stufe, kerzen_5)
+        try:
+            return _pruefen(con, jetzt, senden, treiber_stufe, kerzen_5)
+        except Exception as e:   # Fehler fürs Dashboard festhalten (sonst steht er nur im Server-Log)
+            import traceback
+            try:
+                (DATA_DIR / "muster_fehler.json").write_text(json.dumps(
+                    {"zeit": jetzt_berlin().strftime("%d.%m. %H:%M:%S"), "tag": fx_tag(jetzt_berlin()).isoformat(),
+                     "fehler": f"{type(e).__name__}: {e}", "ort": traceback.format_exc().strip().splitlines()[-3:-1]}))
+            except OSError:
+                pass
+            raise
 
 
 def _pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int | None = None,
@@ -468,7 +478,23 @@ def export_daten(con, jetzt: datetime) -> dict:
         res = json.loads(r["result_json"]) if r["result_json"] else None
         liste.append({"date": r["date"], "name": d["name"], "richtung": d["richtung"], "entry": d["entry"],
                       "sl": d["sl"], "tp": d["tp"], "result": res})
-    return {"varianten": varianten, "liste": liste, "bilanz": bilanz(con)}
+    # Diagnose fürs Dashboard: die 5-Min-Kerzen, mit denen der Server rechnet (London-Retest), und der letzte Fehler
+    diagnose = {}
+    try:
+        from .common import DATA_DIR
+        from .setup import kerzen_live
+        lrp = next((p for p in LIVE if _ist_lr(p)), None)
+        if lrp:
+            A, _, Z = lr_zeiten(heute, lrp)
+            jn = jetzt.astimezone(TZ_BERLIN).replace(tzinfo=None)
+            ks = [k for k in kerzen_live(jetzt) if tm(A) <= tm(k[0]) <= tm(Z) and k[0] + timedelta(minutes=5) <= jn]
+            diagnose["kerzen"] = [[k[0].strftime("%H:%M"), round(k[2], 3), round(k[3], 3), round(k[4], 3)] for k in ks[-48:]]
+        f = json.loads((DATA_DIR / "muster_fehler.json").read_text())
+        if f.get("tag") == heute:
+            diagnose["fehler"] = f
+    except (OSError, ValueError):
+        pass
+    return {"varianten": varianten, "liste": liste, "bilanz": bilanz(con), "diagnose": diagnose}
 
 
 def wache(pause: float = 5.0) -> None:

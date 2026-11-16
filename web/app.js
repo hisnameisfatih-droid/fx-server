@@ -453,6 +453,12 @@ function amdStatus(v) {
   if (v.daten?.typ === "limit") return `<span class="status wartet">Signal ${esc(v.daten.signal_schluss || v.daten.signal_zeit || "")} – Kauf-/Verkaufs-Limit ${zahl(v.daten.entry)} bis ${esc(v.daten.gueltig_bis || "")}, noch nicht gefüllt</span>`.replace("Kauf-/Verkaufs-Limit", v.daten.richtung > 0 ? "Kauf-Limit" : "Verkaufs-Limit");
   return `<span class="status wartet">Signal ${esc(v.daten?.signal_schluss || v.daten?.signal_zeit || "")} – Einstieg jetzt zum Marktkurs</span>`;
 }
+function lrDiagnose(g) {
+  if (!g) return "";
+  const k = (g.kerzen || []).slice(-12).map((x) => `${x[0]} ${zahl(x[3])}`).join(" · ");
+  return (g.fehler ? `<p class="hinweis" style="color:#ff6b6b">⚠️ Fehler im Muster-Wächter ${esc(g.fehler.zeit)}: ${esc(g.fehler.fehler)} ${esc((g.fehler.ort || []).join(" "))}</p>` : "") +
+    (k ? `<p class="hinweis">Server-Kerzen (5 Min, Schlusskurs): ${esc(k)}</p>` : "");
+}
 function renderAmd() {
   const a = S.dash?.amd, el = $("amd");
   if (!a) { el.innerHTML = `<p class="leer">AMD-Erkennung startet mit dem nächsten Update.</p>`; return; }
@@ -463,7 +469,7 @@ function renderAmd() {
   el.innerHTML = a.varianten.map((v) => `<details class="amd-zeile" data-id="${esc(v.id)}"${(auf[v.id] ?? ["manipulation", "signal"].includes(v.phase)) ? " open" : ""}>
       <summary class="amd-kopf"><b>${esc(v.familie === "369" ? v.name.split(" · ")[0] : v.name)}</b>${amdStatus(v) || `<span class="status neutral">${esc(PHASE[v.phase] || (v.phase ? v.phase : "wartet auf das Zeitfenster"))}</span>`}</summary>
       <div class="amd-bt ${v.bewaehrt ? "ok" : ""}">${v.backtest?.n ? `${v.bewaehrt ? "✅ Backtest positiv – WhatsApp an" : (v.immer ? "📲 WhatsApp an (Vorwarnung, Entry, Ergebnis) – Backtest nicht positiv" : "🔬 Nur Beobachtung – Backtest nicht positiv, keine WhatsApp")} · ${v.backtest.n} Trades, ${pz(v.backtest.trefferquote)} Treffer, Ø ${vz(v.backtest.avg_pips, 1, " P")} nach Kosten` : "Backtest folgt – bis dahin nur Beobachtung"}</div>
-      <ol class="amd-schritte">${amdSchritte(v).map((s) => `<li class="${s.kl}"><span class="t">${esc(s.titel)}</span><span class="x">${esc(s.text)}</span></li>`).join("")}</ol>
+      <ol class="amd-schritte">${amdSchritte(v).map((s) => `<li class="${s.kl}"><span class="t">${esc(s.titel)}</span><span class="x">${esc(s.text)}</span></li>`).join("")}</ol>${v.familie === "lr" ? lrDiagnose(a.diagnose) : ""}
     </details>`).join("") +
     `<p class="hinweis">AMD: Fehlausbruch aus einer ruhigen Spanne und Rücklauf hinein → Gegenrichtung, Stop hinter dem Fehlausbruch, Ziel Gegenseite. 3-6-9: Spanne 08:10–08:40, Sweep bis 09:15, kräftiger Strukturbruch bis 09:45 → Limit auf halbem Weg zurück, Stop hinter dem Sweep, Ziel 2R. London-Retest: Range = 5-Min-Kerze 09:30 Berlin (30 Min nach London-Open), Ausbruch per Schlusskurs, Rücklauf in die Range → Stop-Order an der Kante, SL 30 / TP 45 Pips, gelöscht bei Erreichen der Gegenseite oder um 13:00. Ausbruch nach unten erst nach 09:45 = schwaches Setup, wird ausgelassen. WhatsApp für alle hier gezeigten Muster: Vorwarnung, sobald nur noch der Auslöser fehlt, dann Entry, Entwarnung oder Ergebnis. Keine Anlageberatung.</p>`;
 }
