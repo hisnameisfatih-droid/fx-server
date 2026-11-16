@@ -388,8 +388,14 @@ def _pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int
         if erg["phase"] == "manipulation":
             texte.append(text_verdacht(erg))
         elif erg["phase"] == "signal":
-            texte.append(text_lr(erg, historie_text(con, p["id"], heute)) if _ist_lr(p)
-                         else text_signal(erg, treiber_stufe, historie_text(con, p["id"], heute)))
+            alter = ((jetzt_naiv - datetime.combine(jetzt_naiv.date(), _hm(erg["ruecklauf_zeit"]))).total_seconds() / 60
+                     if _ist_lr(p) else 0)
+            if alter > 10:   # z. B. nach einem Neustart: verspätete Vorwarnung wäre irreführend
+                texte.append(f"ℹ️ Nachtrag ({erg['name']}): Der Rücklauf war schon um {erg['ruecklauf_zeit']} – erst jetzt erkannt. "
+                             f"Das ist KEIN neues Signal, bitte nicht mehr handeln.")
+            else:
+                texte.append(text_lr(erg, historie_text(con, p["id"], heute)) if _ist_lr(p)
+                             else text_signal(erg, treiber_stufe, historie_text(con, p["id"], heute)))
         elif erg["phase"] == "kein" and alt_phase == "manipulation":
             texte.append(f"⏹ Entwarnung ({erg['name']}): kein Entry – {erg['grund']}.")
         elif erg["phase"] == "kein" and erg.get("schwach"):

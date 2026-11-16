@@ -792,6 +792,14 @@ def _lr_lauf(ks):
         amd_mod.LIVE[:] = alt_live
 
 
+# 0) Montag: Kerzen von Sonntag 22:00–23:00 (Wochenbeginn) dürfen die Ausbruchssuche nicht abbrechen (Fehler 16.11.2026)
+_so = [(DT(2026, 11, 15, 22, 0) + timedelta(minutes=5 * i), 210.02, 210.06, 209.98, 210.02) for i in range(12)]
+(_ph, _st, _dd), _m = _lr_lauf(_so + _lr_tag([(210.05, 210.16, 210.04, 210.14), (210.14, 210.18, 210.12, 210.15),
+                                              (210.15, 210.15, 210.08, 210.09), (210.09, 210.20, 210.09, 210.19),
+                                              (210.19, 210.60, 210.18, 210.58)]))
+pruefe(_ph == "signal" and _st == "tp" and strategien.tm(DT(2026, 11, 15, 22, 30)) == -30 and strategien.tm(DT(2026, 11, 16, 22, 30)) == 1410,
+       f"London-Retest am Montag: Sonntagskerzen 22:00–23:00 stören nicht ({_ph}/{_st})")
+
 # 1) Ausbruch nach oben (09:35 schließt 210,14), Rücklauf 09:45 berührt 210,08, 09:50 über 210,10 -> Entry, dann TP +45
 (_ph, _st, _dd), _m = _lr_lauf(_lr_tag([(210.05, 210.16, 210.04, 210.14), (210.14, 210.18, 210.12, 210.15),
                                         (210.15, 210.15, 210.08, 210.09), (210.09, 210.20, 210.09, 210.19),

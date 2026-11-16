@@ -31,9 +31,12 @@ def _neuer_fx_tag(dt: datetime) -> bool:
 def tm(t) -> int:
     """Minuten seit 23:00 Berlin (normaler FX-Tagesbeginn = 17:00 New York). Nimmt time oder datetime.
     Kerzen von 22:00–23:00 Berlin, die wegen versetzter Zeitumstellung schon zum neuen FX-Tag gehören,
-    erhalten negative Werte (−60..−1) und liegen damit vor allen Tagesfenstern statt am Tagesende."""
+    erhalten negative Werte (−60..−1) und liegen damit vor allen Tagesfenstern statt am Tagesende.
+    Dasselbe gilt für Sonntag 22:00–23:00 (erste Kurse der Woche): Sie zählen zum Montag. Ohne das brach die
+    Ausbruchssuche montags an diesen Kerzen ab (16.11.2026: London-Retest meldete nicht)."""
     if isinstance(t, datetime):
-        if t.hour == 22 and _neuer_fx_tag(t):
+        # Sonntag 22:xx: Handelsbeginn der Woche (Sydney) – gehört zum Montag, nicht ans Tagesende
+        if t.hour == 22 and (t.weekday() == 6 or _neuer_fx_tag(t)):
             return t.minute - 60
         t = t.time()
     return ((t.hour * 60 + t.minute) - 23 * 60) % 1440
@@ -401,9 +404,7 @@ def lr_erkennen(kerzen, atr: float, p: dict, datum: str, letzte_offen: bool = Fa
     if (hoch - tief) / PIP < p["min_breite_pips"]:
         return {**basis, "phase": "kein", "grund": "Range zu eng"}
     richtung = aus_t = None
-    for t, o, h, l, c in (k for k in fertig if tm(k[0]) >= tm(B)):
-        if tm(t) >= tm(Z):
-            break
+    for t, o, h, l, c in (k for k in fertig if tm(B) <= tm(k[0]) < tm(Z)):   # nur das Fenster, unabhängig von der Reihenfolge
         if c > hoch or c < tief:
             richtung, aus_t = (1 if c > hoch else -1), t
             break
