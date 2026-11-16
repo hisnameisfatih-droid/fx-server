@@ -431,7 +431,7 @@ function amdSchritte(v) {
   let m = { kl: "offen", titel: "Manipulation", text: z9 ? `Sweep über Hoch/unter Tief bis ${v.manip_bis}?` : `Fehlausbruch bis ${v.manip_bis}?` };
   let di = { kl: "offen", titel: "Distribution", text: z9 ? "Einstieg erst nach kräftigem Strukturbruch, dann im Rücklauf" : "Einstieg erst nach Rücklauf in die Spanne" };
   if (d?.sweep_seite) m = { kl: ph === "manipulation" ? "aktiv" : "fertig", titel: "Manipulation",
-    text: `${d.sweep_seite < 0 ? "unter das Tief" : "über das Hoch"} bis ${zahl(d.sweep_extrem)}${d.sweep_zeit ? ` (${d.sweep_zeit})` : ""}` };
+    text: `Schon passiert: Kurs lief ${d.sweep_seite < 0 ? "unter das Tief" : "über das Hoch"} der Spanne – ${d.sweep_seite < 0 ? "tiefster" : "höchster"} Punkt ${zahl(d.sweep_extrem)}${d.sweep_zeit ? ` um ${d.sweep_zeit}` : ""}` };
   if (ph === "manipulation") di.text = v.familie === "369"
     ? `Signal, wenn bis ${d.bis} eine kräftige 5-Min-Kerze ${d.sweep_seite < 0 ? "über" : "unter"} ${zahl(d.mss)} schließt (Strukturbruch)`
     : `Signal, wenn eine 15-Min-Kerze ${d.sweep_seite < 0 ? "über " + zahl(d.spanne[1]) : "unter " + zahl(d.spanne[0])} schließt`;
