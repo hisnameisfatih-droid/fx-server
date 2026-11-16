@@ -31,7 +31,7 @@ LIVE_PAARE = {"gbpjpy": "OANDA:GBP_JPY", "usdjpy": "OANDA:USD_JPY", "gbpusd": "O
 LIVE_SCHREIBEN_SEK = 5   # der Muster-Wächter (fx-muster) liest live.json alle 5 s -> Meldungen praktisch sofort
 TIINGO_THRESHOLD = 5        # 5 = alle Kursupdates
 
-STATUS_AB_UHR = 8           # stündliche "Läuft"-Meldung ab dieser Uhrzeit (deutsche Zeit) ...
+STATUS_AB_UHR = -1          # abgeschaltet (Fatih, 16.11.2026). Stündliche "Läuft"-Meldung ab dieser Uhrzeit, z. B. 8 ...
 STATUS_BIS_UHR = 22         # ... bis einschließlich dieser Uhrzeit (STATUS_AB_UHR = -1 schaltet sie ab)
 STATUS_AM_WOCHENENDE = False  # True = auch melden, wenn der Markt am Wochenende zu ist
 
