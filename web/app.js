@@ -438,7 +438,7 @@ function amdSchritte(v) {
   if (ph === "signal") {
     const long = d.richtung > 0;
     di = { kl: long ? "long" : "short", titel: `Distribution: ${long ? "LONG" : "SHORT"}`,
-      text: `${d.typ === "limit" ? `Limit ${zahl(d.entry)} (bis ${d.gueltig_bis})` : `Entry ${zahl(d.entry)}`} · SL ${zahl(d.sl)} (−${d.risiko_pips} P) · TP ${zahl(d.tp)} (+${d.ziel_pips} P) · TP2 ${zahl(d.tp2)}` };
+      text: `${d.typ === "limit" ? `Limit ${zahl(d.entry)} (bis ${d.gueltig_bis})` : `Entry ${zahl(d.entry)}`} · SL ${zahl(d.sl)} (−${d.risiko_pips} P) · TP ${zahl(d.tp)} (+${d.ziel_pips} P) · ${Math.abs(d.tp2 - d.entry) < Math.abs(d.tp - d.entry) ? "Zwischenziel" : "TP2"} ${zahl(d.tp2)}${z9 ? " (Gegenseite der Spanne)" : ""}` };
   }
   if (ph === "kein") { const z = d?.sweep_seite ? m : a; if (!d?.sweep_seite) m.text = "–"; di = { kl: "aus", titel: "Kein AMD heute", text: d?.grund || "" }; void z; }
   return [a, m, di];

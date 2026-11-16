@@ -67,6 +67,12 @@ def _familie(p_or_d) -> str:
     return "369" if _ist369(p_or_d) else "lr" if _ist_lr(p_or_d) else "amd"
 
 
+def tp2_text(d: dict) -> str:
+    """Zweites Ziel (3-6-9: Gegenseite der Spanne). Liegt es näher als das Hauptziel, ist es ein Zwischenziel."""
+    naeher = abs(d["tp2"] - d["entry"]) < abs(d["tp"] - d["entry"])
+    return f"{'Zwischenziel' if naeher else 'TP2'} {de_zahl(d['tp2'])}" + (" (Gegenseite der Spanne)" if _ist369(d) else "")
+
+
 def text_lr(d: dict, historie: str | None = None) -> str:
     """London-Retest: Kurs ist nach dem Ausbruch zurück in der Range -> Stop-Order an der Ausbruchskante."""
     r = d["richtung"]
@@ -239,7 +245,7 @@ def text_signal(d: dict, treiber_stufe: int | None = None, historie: str | None 
     r = d["richtung"]
     z = [f"🎯 {'3-6-9' if _ist369(d) else 'AMD'}-Signal {RICHTUNG[r]} ({d['name']}) {signal_schluss(d)}",
          f"{'Limit-Entry' if d.get('typ') == 'limit' else 'Entry ~'} {de_zahl(d['entry'])} | SL {de_zahl(d['sl'])} (−{d['risiko_pips']} P) | "
-         f"TP {de_zahl(d['tp'])} (+{d['ziel_pips']} P) | TP2 {de_zahl(d['tp2'])}",
+         f"TP {de_zahl(d['tp'])} (+{d['ziel_pips']} P) | {tp2_text(d)}",
          (f"Sweep {'unter' if d['sweep_seite'] < 0 else 'über'} die Spanne bis {de_zahl(d['sweep_extrem'])}, Strukturbruch "
           f"{'über' if r > 0 else 'unter'} {de_zahl(d['mss'])} (Kerze bis {signal_schluss(d)}). Limit gültig bis {d['gueltig_bis']}."
           if _ist369(d) else
@@ -315,10 +321,12 @@ def _pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int
         alt = dict(row) if row else None
         if alt and alt["phase"] == "signal":
             d = json.loads(alt["data_json"])
-            if alt["state"] in ("tp", "sl", "zeit", "verfallen"):
+            ende = _hm(d.get("gueltig_bis") or d["start"])
+            # "verfallen" ist erst nach dem Einstiegsfenster endgültig: so korrigiert sich ein zu früh gesetzter
+            # Verfall von selbst (16.11.2026: montags galten Sonntagskerzen als "nach dem Fenster").
+            if alt["state"] in ("tp", "sl", "zeit") or (alt["state"] == "verfallen" and tm(jetzt_naiv) > tm(ende)):
                 continue
             tr = _trade(d, k5, laufend=True)   # 5-Min-Kerzen: Ziel/Stop schneller erkannt
-            ende = _hm(d.get("gueltig_bis") or d["start"])
             storno = d.get("storno")
             storniert = tr is None and storno is not None and any(
                 tm(k[0]) >= tm(_hm(d["start"])) and ((d["richtung"] > 0 and k[3] <= storno) or (d["richtung"] < 0 and k[2] >= storno))
@@ -340,7 +348,10 @@ def _pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int
                     else:
                         grund = "Einstieg nicht zustande gekommen (keine Kurse zur Einstiegszeit)."
                     texte.append(f"⏹ Kein Trade ({d['name']}): {grund}")
-                elif (limit or stop) and alt["state"] == "wartet":   # Order gefüllt (auch wenn es direkt bis TP/SL lief)
+                elif neu_state == "wartet" and alt["state"] == "verfallen":
+                    texte.append(f"↩️ Korrektur ({d['name']}): Die Order ist doch noch gültig – "
+                                 f"{'Limit' if limit else 'Stop-Order' if stop else 'Entry'} {de_zahl(d['entry'])} bis {d.get('gueltig_bis') or d['start']}.")
+                elif (limit or stop) and alt["state"] in ("wartet", "verfallen"):   # Order gefüllt (auch wenn es direkt bis TP/SL lief)
                     texte.append(f"🟢 {'Limit gefüllt' if limit else 'Entry ausgelöst'} ({d['name']}): {RICHTUNG[tr.richtung]} "
                                  f"{de_zahl(tr.entry)} um {tr.t_entry:%H:%M} | SL {de_zahl(tr.sl)} | TP {de_zahl(tr.tp)}")
                 if neu_state in ("tp", "sl", "zeit"):
