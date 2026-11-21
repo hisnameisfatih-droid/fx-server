@@ -335,6 +335,7 @@ ZUSATZ_SPALTEN = {
     "reports": {"news_score": "INTEGER", "news_reason": "TEXT", "exp_high": "REAL", "exp_low": "REAL", "atr_pips": "REAL",
                 "treiber_score": "INTEGER", "treiber_ampel": "TEXT"},
     "evaluations": {"news_hit": "INTEGER", "treiber_hit": "INTEGER", "treiber_hit5": "INTEGER"},
+    "news": {"alerted": "INTEGER DEFAULT 0", "seen": "TEXT"},
 }
 
 

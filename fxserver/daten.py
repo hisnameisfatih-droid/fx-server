@@ -31,8 +31,8 @@ def termine_aktualisieren(con: sqlite3.Connection) -> bool:
     return True
 
 
-def news_aktualisieren(con: sqlite3.Connection) -> list[str]:
-    meldungen, fehler = news_src.lade_alle()
+def news_aktualisieren(con: sqlite3.Connection, mit_google: bool = True) -> list[str]:
+    meldungen, fehler = news_src.lade_alle(mit_google)
     neu = 0
     for m in meldungen:
         cur = con.execute("""INSERT OR IGNORE INTO news(id, ts, source, title, url, summary)

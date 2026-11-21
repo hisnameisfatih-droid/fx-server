@@ -830,5 +830,43 @@ pruefe(_ph == "kein" and _dd.get("schwach") and len(_m) == 1 and _m[0].startswit
 pruefe(_ph == "signal" and not _dd.get("schwach") and _m and _m[0].startswith("⚠️ Achtung, gleich mögliches Entry")
        and "SELL-STOP 210,000" in _m[0], f"London-Retest: Ausbruch nach unten bis 09:45 -> normales Setup ({_ph})")
 
+# ---------- News-Alarm ----------
+from fxserver import news_alarm as na  # noqa: E402
+from datetime import timezone as _tz  # noqa: E402
+_c = common.db()
+_c.execute("DELETE FROM news"); _c.execute("DELETE FROM kv WHERE key LIKE 'news_alarm:%'"); _c.commit()
+_jetzt = datetime.now(_tz.utc)
+def _n(i, titel, rel, waehr, minuten=5, wirkung="JPY+", klass=1):
+    _c.execute("INSERT INTO news(id, ts, source, title, url, summary, classified, relevance, currencies, effect, note) "
+               "VALUES(?,?,?,?,?,?,?,?,?,?,?)", (i, (_jetzt - timedelta(minutes=minuten)).isoformat(), "investingLive", titel, "",
+               "", klass, rel, json.dumps(waehr), wirkung, "BoJ signalisiert weitere Zinserhöhungen."))
+_n("a", "BoJ's Ueda: Should continue raising rates as financial conditions remain accommodative", 9, ["JPY"])
+_n("b", "BOJ Governor Ueda: should continue raising rates, conditions accommodative", 9, ["JPY"], 3)   # dieselbe Geschichte
+_n("c", "GBP/JPY Price Forecast: bears eye 209.00", 4, ["GBP", "JPY"])                                  # Analyse, unwichtig
+_n("d", "Fed's Waller: open to a December cut", 9, ["USD"], wirkung="USD-")                             # kein GBP/JPY-Thema
+_n("e", "Japan finance minister Katayama warns of excessive yen moves", 9, ["JPY"], 120)               # zu alt
+_c.commit()
+_ges = []
+pruefe(na.pruefen(_c, 209.87, senden=lambda t: _ges.append(t) or True) == 1 and len(_ges) == 1
+       and "Ueda" in _ges[0] and "GBP/JPY eher ↓" in _ges[0] and "209,870" in _ges[0] and "9/10" in _ges[0],
+       f"News-Alarm: wichtige Ueda-Meldung genau einmal, ohne Analyse/USD/Altes ({len(_ges)} Nachrichten)")
+_st = {r["id"]: r["alerted"] for r in _c.execute("SELECT id, alerted FROM news")}
+pruefe(_st == {"a": 1, "b": 2, "c": -1, "d": -1, "e": 0}, f"News-Alarm: Status je Meldung ({_st})")
+pruefe(na.pruefen(_c, None, senden=lambda t: _ges.append(t) or True) == 0 and len(_ges) == 1,
+       "News-Alarm: zweiter Lauf schickt nichts erneut")
+_n("f", "UK Chancellor Reeves announces emergency fiscal statement", 10, ["GBP"], 1, "GBP-")
+_n("g", "BoE's Bailey: inflation persistence remains a concern", 8, ["GBP"], 1, "GBP+")
+_c.commit()
+pruefe(na.pruefen(_c, None, senden=lambda t: _ges.append(t) or True) == 2 and len(_ges) == 2
+       and "Wichtige Nachrichten" in _ges[1] and _ges[1].index("Reeves") < _ges[1].index("Bailey"),
+       "News-Alarm: zwei neue Geschichten gebündelt in einer Nachricht, wichtigste zuerst")
+_alt = na.MAX_TAG; na.MAX_TAG = 2
+_n("h", "Japan intervenes in currency market, yen surges", 10, ["JPY"], 1)
+_c.commit()
+pruefe(na.pruefen(_c, None, senden=lambda t: _ges.append(t) or True) == 0 and len(_ges) == 2,
+       "News-Alarm: Tageslimit greift"); na.MAX_TAG = _alt
+pruefe(news_src.relevant("Japan's Katayama warns on yen", "", "Japan") and not news_src.relevant("Company profits in October", "", "X"),
+       "News-Quellen: neue Schlagwörter greifen, keine Fehltreffer durch Teilwörter")
+
 print("ALLE TESTS OK" if not FEHLER else f"{len(FEHLER)} FEHLER: {FEHLER}")
 sys.exit(1 if FEHLER else 0)

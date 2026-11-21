@@ -23,6 +23,7 @@ from .news_klassifikation import klassifizieren
 log = get_logger("refresh")
 FLAGGE = {"GBP": "🇬🇧", "JPY": "🇯🇵", "USD": "🇺🇸"}
 ERINNERUNG = os.getenv("TERMIN_ERINNERUNG", "1") != "0"
+NEWS_TAKT = int(os.getenv("NEWS_TAKT_SEK", "120"))
 
 
 def erinnerungen(con) -> None:
@@ -46,12 +47,6 @@ def main() -> int:
     con = db()
     if faellig(con, "kalender", 3600 - 60):
         termine_aktualisieren(con)
-    if faellig(con, "news", 20 * 60 - 30):
-        news_aktualisieren(con)
-        try:
-            klassifizieren(con)
-        except Exception as e:  # noqa: BLE001
-            log.warning("News-Einordnung: %s", e)
     if faellig(con, "renditen", 3 * 3600 - 60):
         leer = con.execute("SELECT COUNT(*) FROM yields").fetchone()[0] < 20
         renditen_aktualisieren(con, mit_historie=leer)
@@ -68,6 +63,20 @@ def main() -> int:
         amd_mod.pruefen(con, senden=lambda text: whatsapp(text, log), treiber_stufe=kv_get(con, "treiber:stufe"))
     except Exception as e:  # noqa: BLE001
         log.warning("AMD: %s", e)
+    # Nachrichten alle 2 Minuten (nach den Mustern, damit die nie warten): laden, einordnen, Wichtiges sofort melden
+    if faellig(con, "news", NEWS_TAKT - 10):
+        try:
+            news_aktualisieren(con, mit_google=False)
+            klassifizieren(con)
+            from . import news_alarm
+            from .setup import kerzen_live
+            try:
+                kurs = kerzen_live(jetzt_berlin())[-1][4]
+            except Exception:  # noqa: BLE001
+                kurs = None
+            news_alarm.pruefen(con, kurs)
+        except Exception as e:  # noqa: BLE001
+            log.warning("News: %s", e)
     # Treiber-Quellen erst nach der Setup-Verfolgung (die soll nie warten müssen)
     if faellig(con, "markt", 30 * 60 - 30):
         try:

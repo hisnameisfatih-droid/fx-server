@@ -86,7 +86,12 @@ NEWS_TOOL = {
         "properties": {"meldungen": {"type": "array", "items": {"type": "object", "properties": {
             "id": {"type": "string"},
             "relevanz": {"type": "integer", "minimum": 0, "maximum": 10,
-                         "description": "Wie wichtig für GBP/JPY (0 = egal, 10 = sehr wichtig)."},
+                         "description": ("Wie wichtig für GBP/JPY JETZT (0 = egal, 10 = sehr wichtig). 8–10 nur für Meldungen, "
+                                         "die den Kurs sofort bewegen können: Aussagen von BoJ-/BoE-Chefs oder Ratsmitgliedern "
+                                         "zur Geldpolitik (z. B. Ueda vor dem Parlament), Interventionen oder Warnungen des "
+                                         "japanischen Finanzministeriums, Zinsentscheide, deutliche Überraschungen bei "
+                                         "UK-/Japan-Daten, große politische Ereignisse in UK/Japan. Analysen, Kursprognosen, "
+                                         "Wochenausblicke und Marktkommentare höchstens 5.")},
             "waehrungen": {"type": "array", "items": {"type": "string", "enum": ["GBP", "JPY", "USD"]}},
             "wirkung": {"type": "string", "enum": ["GBP+", "GBP-", "JPY+", "JPY-", "USD+", "USD-", "neutral"],
                         "description": "Hauptwirkung: z. B. GBP+ = stützt das Pfund, JPY- = belastet den Yen."},
