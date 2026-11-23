@@ -17,6 +17,14 @@ from .sources.yields import SERIEN
 log = get_logger("export")
 
 
+def _whatsapp_status():
+    try:
+        from .common import DATA_DIR
+        return json.loads((DATA_DIR / "whatsapp_status.json").read_text())
+    except (OSError, ValueError):
+        return None
+
+
 def _eval_dict(e) -> dict | None:
     if not e:
         return None
@@ -170,6 +178,7 @@ def alles(con, treiber_daten: dict | None = None) -> None:
         "stats": {"q30": forecast.quoten(evals[:30]), "last10": letzte10},
         "prev_close": vortag,
         "model": {"spanne_atr": forecast.SPANNE_ATR, "hoch_tief_atr": forecast.HOCH_TIEF_ATR},
+        "whatsapp": _whatsapp_status(),
     })
     try:   # Vortage (Kerzen + Setups + Ergebnisse): einmal pro FX-Tag
         tage_mod.bei_bedarf(con, jetzt)

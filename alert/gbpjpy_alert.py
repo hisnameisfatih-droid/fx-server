@@ -213,6 +213,17 @@ def callmebot_drossel(abstand: float = 5.0):
         pass
 
 
+def _status(ok: bool, antwort: str = "") -> None:
+    """Gleiche Statusdatei wie der Server (fxserver.common.whatsapp_status_merken) – fürs Dashboard."""
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from fxserver.common import whatsapp_status_merken
+        whatsapp_status_merken(ok, antwort)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def whatsapp_senden(text: str, versuche: int = 3, wichtig: bool = True) -> bool:
     """Telegram zuerst; WhatsApp nur als Ersatz – und dann nur für wichtige Meldungen (spart das Kontingent)."""
     if telegram_senden(text):
@@ -240,14 +251,17 @@ def whatsapp_senden(text: str, versuche: int = 3, wichtig: bool = True) -> bool:
                 if any(m in body for m in ("invalid", "not activated", "error:")):
                     # Konfigurationsfehler – Wiederholen hilft nicht
                     log.error("CallMeBot meldet Fehler (Nummer/API-Key prüfen): %s", r.text[:300])
+                    _status(False, f"HTTP {r.status_code}: {r.text}")
                     return False
                 log.info("WhatsApp gesendet: %s", text)
+                _status(True, f"HTTP {r.status_code}: {r.text}")
                 return True
             log.warning("CallMeBot Antwort %s (Versuch %d): %s", r.status_code, i, r.text[:300])
         except requests.RequestException as e:
             log.warning("CallMeBot nicht erreichbar (Versuch %d): %s", i, e)
         time.sleep(5 * i)
     log.error("WhatsApp endgültig fehlgeschlagen: %s", text)
+    _status(False, f"HTTP {r.status_code}: {r.text}" if "r" in locals() else "CallMeBot nicht erreichbar")
     return False
 
 

@@ -56,6 +56,12 @@ function renderKopf() {
     const alt = jetzt - live.updated;
     t = alt > 180 ? `<span class="punkt alt"></span>Live-Kurse ${Math.round(alt / 60)} Min alt` : `<span class="punkt"></span>live ${uhr(new Date(live.updated * 1000))}`;
   }
+  const w = S.dash?.whatsapp;
+  if (w && !w.ok) {
+    const seit = w.fehler_seit ? new Date(w.fehler_seit) : null;
+    t += `<div class="wa-fehler">⚠️ WhatsApp kommt nicht an${seit ? ` seit ${seit.toLocaleString("de-DE", { weekday: "short", hour: "2-digit", minute: "2-digit" })}` : ""}` +
+      ` (${w.fehler_anzahl || 1}× fehlgeschlagen). CallMeBot sagt: „${esc(w.antwort || "keine Antwort")}“</div>`;
+  }
   $("stand").innerHTML = t;
 }
 

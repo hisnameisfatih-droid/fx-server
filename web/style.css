@@ -315,3 +315,5 @@ td.wrap { white-space: normal; }
   .vt-bilanz .schmal-weg { display: none; }
   .vt-bilanz td, .vt-bilanz th { padding: 6px 5px; }
 }
+
+.wa-fehler { color: #ff6b6b; font-size: .8rem; margin-top: 4px; max-width: 520px; white-space: normal; }
