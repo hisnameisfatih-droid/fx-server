@@ -186,10 +186,10 @@ def whatsapp_status_merken(ok: bool, antwort: str = "") -> None:
         except (OSError, ValueError):
             alt = {}
         txt = _re.sub(r"<[^>]+>", " ", antwort or "")
-        for geheim in (CALLMEBOT_APIKEY, WHATSAPP_PHONE, WHATSAPP_PHONE.lstrip("+")):
+        for geheim in sorted({WHATSAPP_PHONE, WHATSAPP_PHONE.lstrip("+"), CALLMEBOT_APIKEY}, key=len, reverse=True):
             if geheim:
                 txt = txt.replace(geheim, "***")
-        txt = _re.sub(r"\+?\d{9,15}", "***", _re.sub(r"\s+", " ", txt)).strip()[:240]
+        txt = _re.sub(r"\+?\d[\d*]{6,}", "***", _re.sub(r"\s+", " ", txt)).strip()[:240]
         jetzt = datetime.now(TZ_BERLIN).isoformat(timespec="seconds")
         neu = {"zeit": jetzt, "ok": ok, "antwort": txt,
                "letzte_ok": jetzt if ok else alt.get("letzte_ok"),
