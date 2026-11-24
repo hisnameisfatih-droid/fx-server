@@ -60,7 +60,7 @@ def main() -> int:
         log.warning("Setup-Verfolgung: %s", e)
     try:
         from .common import kv_get
-        amd_mod.pruefen(con, senden=lambda text: whatsapp(text, log), treiber_stufe=kv_get(con, "treiber:stufe"))
+        amd_mod.pruefen(con, senden=lambda text: whatsapp(text, log, art="muster"), treiber_stufe=kv_get(con, "treiber:stufe"))
     except Exception as e:  # noqa: BLE001
         log.warning("AMD: %s", e)
     # Nachrichten alle 2 Minuten (nach den Mustern, damit die nie warten): laden, einordnen, Wichtiges sofort melden

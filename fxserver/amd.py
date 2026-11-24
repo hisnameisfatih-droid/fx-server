@@ -418,7 +418,11 @@ def _pruefen(con, jetzt: datetime | None = None, senden=None, treiber_stufe: int
             vid = next((p["id"] for p in LIVE if f"({p['name']})" in t), None)
             ok, _ = bewaehrt(vid) if vid else (False, None)
             immer = vid in IMMER_MELDEN   # Vorwarnung, Entry, Entwarnung und Ergebnis
-            if ok or ALLE_MELDEN or immer:
+            from .common import NUR_WICHTIGES
+            lr_var = vid is not None and _ist_lr(next(p for p in LIVE if p["id"] == vid))
+            if NUR_WICHTIGES and not lr_var:
+                log.info("Nur Dashboard (WhatsApp nur für London-Retest): %s", t.splitlines()[0])
+            elif ok or ALLE_MELDEN or immer:
                 senden(t)
             else:
                 log.info("Nur Dashboard (Backtest nicht positiv): %s", t.splitlines()[0])
@@ -529,7 +533,7 @@ def wache(pause: float = 5.0) -> None:
                     letzte = m
                     con = db()
                     try:
-                        pruefen(con, senden=lambda text: whatsapp(text, log), treiber_stufe=kv_get(con, "treiber:stufe"))
+                        pruefen(con, senden=lambda text: whatsapp(text, log, art="muster"), treiber_stufe=kv_get(con, "treiber:stufe"))
                     finally:
                         con.close()
         except FileNotFoundError:

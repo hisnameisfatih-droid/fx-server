@@ -200,10 +200,20 @@ def whatsapp_status_merken(ok: bool, antwort: str = "") -> None:
         pass
 
 
-def whatsapp(text: str, log: logging.Logger | None = None, max_teil: int = 1500) -> bool:
+# Nur das Nötigste per WhatsApp (Fatih, 24.11.2026 – CallMeBot-Kontingent): London-Retest, wichtige Nachrichten,
+# Server-Fehler. Alles andere steht nur auf dem Dashboard. WHATSAPP_NUR_WICHTIGES=0 schaltet alles wieder ein.
+NUR_WICHTIGES = os.getenv("WHATSAPP_NUR_WICHTIGES", "1") != "0"
+WICHTIGE_ARTEN = {"muster", "news", "system"}
+
+
+def whatsapp(text: str, log: logging.Logger | None = None, max_teil: int = 1500, art: str = "info") -> bool:
     """Schickt eine Nachricht: zuerst Telegram (falls eingerichtet), sonst/ersatzweise WhatsApp per CallMeBot.
-    Längere WhatsApp-Texte werden an Absätzen geteilt."""
+    Längere WhatsApp-Texte werden an Absätzen geteilt. Bei NUR_WICHTIGES gehen nur die Arten in WICHTIGE_ARTEN
+    raus; alles andere wird nur geloggt und gilt als erledigt (kein Nachsenden)."""
     log = log or get_logger("whatsapp")
+    if NUR_WICHTIGES and art not in WICHTIGE_ARTEN:
+        log.info("Nur Dashboard (WhatsApp nur für Wichtiges): %s", text.splitlines()[0][:120] if text else "")
+        return True
     if TELEGRAM_BOT_TOKEN and telegram(text, log):
         whatsapp_status_merken(True, "per Telegram gesendet")
         return True

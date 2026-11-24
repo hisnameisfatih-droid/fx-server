@@ -456,7 +456,10 @@ class KerzenWaechter:
         )
         log.info("ALARM: %s", text)
         alarm_zaehlen()
-        # kleine 1-Min-Alarme nur über Telegram, große Bewegungen auch per WhatsApp-Ersatz
+        # kleine 1-Min-Alarme nur über Telegram, große Bewegungen auch per WhatsApp-Ersatz.
+        # Seit 24.11.2026 per Standard gar nicht mehr per WhatsApp (Kontingent) – nur Dashboard/Log.
+        if os.getenv("WHATSAPP_NUR_WICHTIGES", "1") != "0" and not TELEGRAM_BOT_TOKEN:
+            return
         self.sender.senden(text, wichtig=self.minuten > 1)
 
     def _kerze_loggen(self, k: Kerze):

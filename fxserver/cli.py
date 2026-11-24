@@ -48,7 +48,7 @@ def test() -> int:
     if DASHBOARD_URL:
         text += f"\n\n📊 Dashboard (Link geheim halten):\n{DASHBOARD_URL}"
     print(text)
-    return 0 if whatsapp(text, log) and ok else 1
+    return 0 if whatsapp(text, log, art="system") and ok else 1
 
 
 def main() -> int:

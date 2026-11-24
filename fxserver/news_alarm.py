@@ -17,9 +17,9 @@ from .common import ANTHROPIC_API_KEY, TZ_BERLIN, get_logger, kv_get, kv_set, wh
 
 log = get_logger("news_alarm")
 AN = os.getenv("NEWS_ALARM", "1") != "0"
-AB = int(os.getenv("NEWS_ALARM_AB", "8"))              # Relevanz 0–10 laut Claude-Einordnung
-MAX_TAG = int(os.getenv("NEWS_ALARM_MAX_TAG", "15"))   # Schutz vor Flut (CallMeBot-Kontingent)
-MAX_ALTER_MIN = 45                                      # ältere Meldungen sind kein "Echtzeit"-Alarm mehr
+AB = int(os.getenv("NEWS_ALARM_AB", "9"))              # Relevanz 0–10 laut Claude-Einordnung
+MAX_TAG = int(os.getenv("NEWS_ALARM_MAX_TAG", "5"))   # Schutz vor Flut (CallMeBot-Kontingent)
+MAX_ALTER_MIN = 20                                      # ältere Meldungen sind kein "Echtzeit"-Alarm mehr
 AEHNLICH = 0.45                                         # Wortüberschneidung, ab der zwei Titel dieselbe Geschichte sind
 # Nur ohne Claude: Titel mit diesen Begriffen gelten als wichtig
 STARK = re.compile(r"\b(ueda|bailey|katayama|mimura|intervention|intervene|rate hike|rate cut|boj (raises|hikes|holds|keeps)|"
@@ -95,7 +95,7 @@ def pruefen(con, kurs: float | None = None, senden=None) -> int:
     """Gibt die Zahl gemeldeter Nachrichten zurück."""
     if not AN:
         return 0
-    senden = senden or (lambda t: whatsapp(t, log))
+    senden = senden or (lambda t: whatsapp(t, log, art="news"))
     neu = kandidaten(con)
     if not neu:
         return 0

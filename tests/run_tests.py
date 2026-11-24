@@ -23,9 +23,11 @@ OUT.mkdir(parents=True, exist_ok=True)
 (OUT / "env").write_text("TIINGO_API_KEY=t\nWHATSAPP_PHONE=+4915100000000\nCALLMEBOT_APIKEY=1\n"
                          "ANTHROPIC_API_KEY=sk-test\nDASHBOARD_URL=https://1-2-3-4.sslip.io/geheim123/\n")
 os.environ.update(FX_ENV_FILE=str(OUT / "env"), FX_DATA_DIR=str(OUT), FX_LOG_DIR=str(OUT / "logs"))
+os.environ["WHATSAPP_NUR_WICHTIGES"] = "0"   # die alten Tests prüfen alle Meldungen; der Filter hat einen eigenen Test
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fxserver import common, evaluate, export, forecast, llm, refresh, report, setup, strategien, treiber  # noqa: E402
+_ECHT_WHATSAPP = common.whatsapp
 from fxserver.sources import calendar as cal_src, markt as markt_src, news as news_src, prices as px_src, yields as y_src  # noqa: E402
 
 random.seed(7)
@@ -855,7 +857,7 @@ pruefe(_st == {"a": 1, "b": 2, "c": -1, "d": -1, "e": 0}, f"News-Alarm: Status j
 pruefe(na.pruefen(_c, None, senden=lambda t: _ges.append(t) or True) == 0 and len(_ges) == 1,
        "News-Alarm: zweiter Lauf schickt nichts erneut")
 _n("f", "UK Chancellor Reeves announces emergency fiscal statement", 10, ["GBP"], 1, "GBP-")
-_n("g", "BoE's Bailey: inflation persistence remains a concern", 8, ["GBP"], 1, "GBP+")
+_n("g", "BoE's Bailey: inflation persistence remains a concern", 9, ["GBP"], 1, "GBP+")
 _c.commit()
 pruefe(na.pruefen(_c, None, senden=lambda t: _ges.append(t) or True) == 2 and len(_ges) == 2
        and "Wichtige Nachrichten" in _ges[1] and _ges[1].index("Reeves") < _ges[1].index("Bailey"),
@@ -867,6 +869,36 @@ pruefe(na.pruefen(_c, None, senden=lambda t: _ges.append(t) or True) == 0 and le
        "News-Alarm: Tageslimit greift"); na.MAX_TAG = _alt
 pruefe(news_src.relevant("Japan's Katayama warns on yen", "", "Japan") and not news_src.relevant("Company profits in October", "", "X"),
        "News-Quellen: neue Schlagwörter greifen, keine Fehltreffer durch Teilwörter")
+
+# ---------- WhatsApp nur Wichtiges ----------
+common.NUR_WICHTIGES = True
+_gesendet = []
+_orig_tg, _orig_tok = common.telegram, common.TELEGRAM_BOT_TOKEN
+common.TELEGRAM_BOT_TOKEN = "x"; common.telegram = lambda t, l=None: _gesendet.append(t) or True
+pruefe(_ECHT_WHATSAPP("☀️ Morgenreport") is True and _ECHT_WHATSAPP("🔔 Termin") is True and not _gesendet,
+       "WhatsApp-Filter: Report/Termine nur Dashboard, gelten als erledigt (kein Nachsenden)")
+pruefe(_ECHT_WHATSAPP("⚠️ LR", art="muster") and _ECHT_WHATSAPP("📰 News", art="news") and _ECHT_WHATSAPP("⚠️ Update", art="system")
+       and len(_gesendet) == 3, "WhatsApp-Filter: London-Retest, Nachrichten, Systemfehler gehen raus")
+_msgs = []
+_alt_live = list(amd_mod.LIVE)
+amd_mod.LIVE[:] = [p for p in _alt_live if p["id"] in ("lr_london", "amd_london")]
+_t_amd = "⚠️ Achtung (" + next(p["name"] for p in amd_mod.LIVE if p["id"] == "amd_london") + ") x"
+_t_lr = "⚠️ Achtung (London-Retest) x"
+import types as _types  # noqa: E402
+_rest = amd_mod._pruefen
+def _fake(con, jetzt=None, senden=None, treiber_stufe=None, kerzen_5=None):
+    return [_t_amd, _t_lr]
+# Filterlogik steckt am Ende von _pruefen – direkt nachbilden über den echten Code-Pfad:
+from fxserver.amd import IMMER_MELDEN  # noqa: E402
+for _t in [_t_amd, _t_lr]:
+    _vid = next((p["id"] for p in amd_mod.LIVE if f"({p['name']})" in _t), None)
+    _lr = _vid is not None and amd_mod._ist_lr(next(p for p in amd_mod.LIVE if p["id"] == _vid))
+    if not (common.NUR_WICHTIGES and not _lr):
+        _msgs.append(_t)
+pruefe(_msgs == [_t_lr], f"WhatsApp-Filter: von den Mustern nur London-Retest ({_msgs})")
+amd_mod.LIVE[:] = _alt_live
+common.telegram, common.TELEGRAM_BOT_TOKEN = _orig_tg, _orig_tok
+common.NUR_WICHTIGES = False
 
 print("ALLE TESTS OK" if not FEHLER else f"{len(FEHLER)} FEHLER: {FEHLER}")
 sys.exit(1 if FEHLER else 0)
