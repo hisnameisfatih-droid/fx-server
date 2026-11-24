@@ -205,6 +205,7 @@ def whatsapp(text: str, log: logging.Logger | None = None, max_teil: int = 1500)
     Längere WhatsApp-Texte werden an Absätzen geteilt."""
     log = log or get_logger("whatsapp")
     if TELEGRAM_BOT_TOKEN and telegram(text, log):
+        whatsapp_status_merken(True, "per Telegram gesendet")
         return True
     if not (WHATSAPP_PHONE and CALLMEBOT_APIKEY):
         log.error("WhatsApp nicht konfiguriert")

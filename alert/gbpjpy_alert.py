@@ -227,6 +227,7 @@ def _status(ok: bool, antwort: str = "") -> None:
 def whatsapp_senden(text: str, versuche: int = 3, wichtig: bool = True) -> bool:
     """Telegram zuerst; WhatsApp nur als Ersatz – und dann nur für wichtige Meldungen (spart das Kontingent)."""
     if telegram_senden(text):
+        _status(True, "per Telegram gesendet")
         return True
     # Ohne Telegram läuft alles über WhatsApp; nur wenn Telegram eingerichtet ist und ausfällt,
     # gehen ersatzweise bloß die wichtigen Meldungen per WhatsApp raus.
