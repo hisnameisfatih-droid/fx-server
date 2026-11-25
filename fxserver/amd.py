@@ -82,8 +82,10 @@ def text_lr(d: dict, historie: str | None = None) -> str:
          f"Ausbruch nach {'oben' if r > 0 else 'unten'} ({d['ausbruch_zeit']}), jetzt zurück in der Range.",
          f"Order: {'BUY' if r > 0 else 'SELL'}-STOP {de_zahl(d['entry'])} | SL {de_zahl(d['sl'])} (−{d['risiko_pips']} P) | "
          f"TP {de_zahl(d['tp'])} (+{d['ziel_pips']} P)",
+         f"Order erst ab {d['start']} anlegen (nächste 5-Min-Kerze) – im Backtest besser als sofort." if d.get("start") else "",
          f"Gültig bis {d['gueltig_bis']}. Läuft der Kurs vorher bis {de_zahl(d['storno'])} (Gegenseite der Range), "
          f"Order löschen – dann kein Trade."]
+    z = [x for x in z if x]
     if d.get("vortag") == "gegen":
         z.append("Hinweis: Trade läuft GEGEN die Vortagesrichtung – im Backtest die bessere Hälfte (57 % Treffer).")
     elif d.get("vortag") == "mit":
